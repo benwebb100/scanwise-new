@@ -33,10 +33,10 @@ export const api = {
     patientName: string;
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
-  }) {
+  } & { generateVideo?: boolean }) {
     const token = await this.getAuthToken();
     
-    const response = await fetch(`${API_BASE_URL}/analyze-xray`, {
+    const response = await fetch(`${API_BASE_URL}/analyze-xray?generate_video=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

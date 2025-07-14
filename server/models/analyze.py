@@ -29,6 +29,7 @@ class AnalyzeXrayResponse(BaseModel):
     ai_notes: str
     diagnosis_timestamp: datetime
     annotated_image_url: str
+    video_url: Optional[str] = None  # Add this field
 
 class SuggestChangesRequest(BaseModel):
     previous_report_html: str
@@ -36,3 +37,4 @@ class SuggestChangesRequest(BaseModel):
 
 class SuggestChangesResponse(BaseModel):
     updated_html: str
+

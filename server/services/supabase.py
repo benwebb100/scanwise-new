@@ -75,6 +75,35 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error saving diagnosis: {str(e)}")
             raise
+    
+    async def upload_video(self, file_data: bytes, file_path: str, access_token: str, bucket: str = "patient-videos") -> Optional[str]:
+        """Upload video to Supabase Storage and return public URL"""
+        try:
+            # Create bucket if it doesn't exist
+            try:
+                self.client.storage.create_bucket(bucket, {"public": True})
+            except:
+                pass  # Bucket might already exist
+            
+            # Create authenticated client with proper headers
+            auth_client = self._create_authenticated_client(access_token)
+            
+            # Upload file to storage using authenticated client
+            response = auth_client.storage.from_(bucket).upload(
+                file_path,
+                file_data,
+                file_options={"content-type": "video/mp4", "upsert": "true"}
+            )
+            
+            # Get public URL
+            public_url = self.client.storage.from_(bucket).get_public_url(file_path)
+            
+            logger.info(f"Successfully uploaded video: {file_path}")
+            return public_url
+            
+        except Exception as e:
+            logger.error(f"Error uploading video: {str(e)}")
+            return None
 
 # Create singleton instance
 supabase_service = SupabaseService()

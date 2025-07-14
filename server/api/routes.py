@@ -4,11 +4,18 @@ from datetime import datetime
 import logging
 import os
 
+import requests
+
 from models.analyze import AnalyzeXrayRequest, AnalyzeXrayResponse, SuggestChangesRequest, SuggestChangesResponse
 from services.supabase import supabase_service
 from services.roboflow import roboflow_service
 from services.openai_analysis import openai_service
 from utils.image import generate_annotated_filename
+
+from services.video_generator import video_generator_service
+from services.elevenlabs_service import elevenlabs_service
+import tempfile
+import uuid
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -30,9 +37,75 @@ async def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
         logger.error(f"Auth extraction error: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
+# @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
+# async def analyze_xray(
+#     request: AnalyzeXrayRequest,
+#     token: str = Depends(get_auth_token)
+# ):
+#     """
+#     Main endpoint to analyze dental X-ray
+#     Note: Supabase handles user authentication and RLS automatically
+#     """
+#     try:
+#         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
+        
+#         # Step 1: Send image to Roboflow for detection
+#         predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
+        
+#         if not predictions or not annotated_image:
+#             raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
+        
+#         # Step 2: Upload annotated image to Supabase Storage
+#         annotated_filename = generate_annotated_filename(str(request.image_url), request.patient_name)
+#         annotated_url = await supabase_service.upload_image(
+#             annotated_image,
+#             f"{annotated_filename}",
+#             token
+#         )
+        
+#         if not annotated_url:
+#             raise HTTPException(status_code=500, detail="Failed to upload annotated image")
+        
+#         # Step 3: Analyze with OpenAI
+#         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
+#         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
+        
+#         # Step 4: Save to database (Supabase handles user_id via RLS)
+#         diagnosis_data = {
+#             'patient_name': request.patient_name,
+#             'image_url': str(request.image_url),
+#             'annotated_image_url': annotated_url,
+#             'summary': ai_analysis.get('summary', ''),
+#             'ai_notes': ai_analysis.get('ai_notes', ''),
+#             'treatment_stages': ai_analysis.get('treatment_stages', [])
+#         }
+        
+#         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
+        
+#         # Step 5: Prepare response
+#         response = AnalyzeXrayResponse(
+#             status="success",
+#             summary=ai_analysis.get('summary', ''),
+#             treatment_stages=ai_analysis.get('treatment_stages', []),
+#             ai_notes=ai_analysis.get('ai_notes', ''),
+#             diagnosis_timestamp=datetime.now(),
+#             annotated_image_url=annotated_url
+#         )
+        
+#         logger.info(f"Successfully completed X-ray analysis for patient: {request.patient_name}")
+#         return response
+        
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
+#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
 async def analyze_xray(
     request: AnalyzeXrayRequest,
+    generate_video: bool = False,  # Add this parameter
     token: str = Depends(get_auth_token)
 ):
     """
@@ -74,16 +147,93 @@ async def analyze_xray(
         }
         
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
+        diagnosis_id = saved_diagnosis.get('id')
         
-        # Step 5: Prepare response
-        response = AnalyzeXrayResponse(
-            status="success",
-            summary=ai_analysis.get('summary', ''),
-            treatment_stages=ai_analysis.get('treatment_stages', []),
-            ai_notes=ai_analysis.get('ai_notes', ''),
-            diagnosis_timestamp=datetime.now(),
-            annotated_image_url=annotated_url
-        )
+        # Step 5: Generate video if requested
+        video_url = None
+        if generate_video and diagnosis_id:
+            try:
+                logger.info("Generating patient education video...")
+                
+                # Convert annotated image to base64
+                image_base64 = video_generator_service.image_to_base64(annotated_url)
+                
+                # Generate video script
+                video_script = await openai_service.generate_video_script(
+                    ai_analysis.get('treatment_stages', []), 
+                    image_base64
+                )
+                
+                # Generate voice audio
+                audio_bytes = await elevenlabs_service.generate_voice(video_script)
+                
+                # Create temporary files
+                temp_dir = tempfile.mkdtemp()
+                unique_id = str(uuid.uuid4())[:8]
+                
+                # Save image
+                image_response = requests.get(annotated_url)
+                image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
+                with open(image_path, 'wb') as f:
+                    f.write(image_response.content)
+                
+                # Save audio
+                audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+                with open(audio_path, 'wb') as f:
+                    f.write(audio_bytes)
+                
+                # Create video
+                video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
+                video_generator_service.create_video_with_subtitles(
+                    image_path, 
+                    audio_path, 
+                    video_path
+                )
+                
+                # Upload video
+                with open(video_path, 'rb') as video_file:
+                    video_data = video_file.read()
+                
+                video_filename = f"patient_videos/{request.patient_name.replace(' ', '_')}_{unique_id}.mp4"
+                video_url = await supabase_service.upload_video(
+                    video_data,
+                    video_filename,
+                    token
+                )
+                
+                # Update diagnosis with video URL
+                if video_url:
+                    auth_client = supabase_service._create_authenticated_client(token)
+                    auth_client.table('patient_diagnosis').update({
+                        'video_url': video_url,
+                        'video_script': video_script,
+                        'video_generated_at': datetime.now().isoformat()
+                    }).eq('id', diagnosis_id).execute()
+                
+                # Cleanup
+                import shutil
+                shutil.rmtree(temp_dir)
+                
+            except Exception as e:
+                logger.error(f"Error generating video: {str(e)}")
+                # Don't fail the whole request if video generation fails
+                video_url = None
+        
+        # Step 6: Prepare response
+        response_data = {
+            "status": "success",
+            "summary": ai_analysis.get('summary', ''),
+            "treatment_stages": ai_analysis.get('treatment_stages', []),
+            "ai_notes": ai_analysis.get('ai_notes', ''),
+            "diagnosis_timestamp": datetime.now(),
+            "annotated_image_url": annotated_url
+        }
+        
+        # Add video URL to response if available
+        if video_url:
+            response_data["video_url"] = video_url
+        
+        response = AnalyzeXrayResponse(**response_data)
         
         logger.info(f"Successfully completed X-ray analysis for patient: {request.patient_name}")
         return response
@@ -328,3 +478,168 @@ Please apply the change exactly as described, keeping the HTML structure intact 
     except Exception as e:
         logger.error(f"Error applying suggested changes: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to apply suggested changes: {str(e)}")
+    
+
+@router.post("/generate-patient-video")
+async def generate_patient_video(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Generate educational video for patient based on diagnosis"""
+    temp_files = []
+    try:
+        logger.info(f"Starting video generation for diagnosis: {diagnosis_id}")
+        
+        # Step 1: Fetch diagnosis from database
+        auth_client = supabase_service._create_authenticated_client(token)
+        diagnosis_response = auth_client.table('patient_diagnosis').select("*").eq('id', diagnosis_id).execute()
+        
+        if not diagnosis_response.data:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+        
+        diagnosis = diagnosis_response.data[0]
+        annotated_image_url = diagnosis.get('annotated_image_url')
+        treatment_stages = diagnosis.get('treatment_stages', [])
+        patient_name = diagnosis.get('patient_name')
+        
+        # Step 2: Convert annotated image to base64
+        logger.info("Converting annotated image to base64...")
+        image_base64 = video_generator_service.image_to_base64(annotated_image_url)
+        
+        # Step 3: Generate video script with OpenAI
+        logger.info("Generating video script...")
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
+        
+        # Step 4: Generate voice audio with ElevenLabs
+        logger.info("Generating voice audio...")
+        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        
+        # Step 5: Save temporary files
+        temp_dir = tempfile.mkdtemp()
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Download and save annotated image
+        image_response = requests.get(annotated_image_url)
+        image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
+        with open(image_path, 'wb') as f:
+            f.write(image_response.content)
+        temp_files.append(image_path)
+        
+        # Save audio file
+        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+        with open(audio_path, 'wb') as f:
+            f.write(audio_bytes)
+        temp_files.append(audio_path)
+        
+        # Step 6: Create video with subtitles
+        logger.info("Creating video with subtitles...")
+        video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
+        duration = video_generator_service.create_video_with_subtitles(
+            image_path, 
+            audio_path, 
+            video_path
+        )
+        temp_files.append(video_path)
+        
+        # Step 7: Upload video to Supabase Storage
+        logger.info("Uploading video to storage...")
+        with open(video_path, 'rb') as video_file:
+            video_data = video_file.read()
+        
+        video_filename = f"patient_videos/{patient_name.replace(' ', '_')}_{unique_id}.mp4"
+        video_url = await supabase_service.upload_video(
+            video_data,
+            video_filename,
+            token
+        )
+        
+        if not video_url:
+            raise HTTPException(status_code=500, detail="Failed to upload video")
+        
+        # Step 8: Update diagnosis with video URL
+        update_response = auth_client.table('patient_diagnosis').update({
+            'video_url': video_url,
+            'video_script': video_script,
+            'video_generated_at': datetime.now().isoformat()
+        }).eq('id', diagnosis_id).execute()
+        
+        logger.info(f"Successfully generated video for diagnosis: {diagnosis_id}")
+        
+        return {
+            "status": "success",
+            "video_url": video_url,
+            "duration": duration,
+            "script_length": len(video_script),
+            "message": "Patient education video generated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating patient video: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
+    finally:
+        # Cleanup temporary files
+        for file_path in temp_files:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                logger.error(f"Error cleaning up {file_path}: {str(e)}")
+        
+        # Clean up temp directory
+        if 'temp_dir' in locals():
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"Error cleaning up temp directory: {str(e)}")
+
+
+@router.get("/diagnosis/{diagnosis_id}/video-status")
+async def get_video_status(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Check if video has been generated for a diagnosis"""
+    try:
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        response = auth_client.table('patient_diagnosis').select(
+            "id, video_url, video_generated_at"
+        ).eq('id', diagnosis_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+        
+        diagnosis = response.data[0]
+        has_video = bool(diagnosis.get('video_url'))
+        
+        return {
+            "diagnosis_id": diagnosis_id,
+            "has_video": has_video,
+            "video_url": diagnosis.get('video_url'),
+            "video_generated_at": diagnosis.get('video_generated_at'),
+            "status": "completed" if has_video else "not_generated"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking video status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check video status: {str(e)}")
+    
+
+@router.post("/diagnosis/{diagnosis_id}/regenerate-video")
+async def regenerate_video(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Regenerate video for an existing diagnosis"""
+    try:
+        # Just call the generate_patient_video endpoint
+        return await generate_patient_video(diagnosis_id, token)
+        
+    except Exception as e:
+        logger.error(f"Error regenerating video: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to regenerate video: {str(e)}")
