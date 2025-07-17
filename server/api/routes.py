@@ -37,70 +37,6 @@ async def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
         logger.error(f"Auth extraction error: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
-# @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
-# async def analyze_xray(
-#     request: AnalyzeXrayRequest,
-#     token: str = Depends(get_auth_token)
-# ):
-#     """
-#     Main endpoint to analyze dental X-ray
-#     Note: Supabase handles user authentication and RLS automatically
-#     """
-#     try:
-#         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
-        
-#         # Step 1: Send image to Roboflow for detection
-#         predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
-        
-#         if not predictions or not annotated_image:
-#             raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
-        
-#         # Step 2: Upload annotated image to Supabase Storage
-#         annotated_filename = generate_annotated_filename(str(request.image_url), request.patient_name)
-#         annotated_url = await supabase_service.upload_image(
-#             annotated_image,
-#             f"{annotated_filename}",
-#             token
-#         )
-        
-#         if not annotated_url:
-#             raise HTTPException(status_code=500, detail="Failed to upload annotated image")
-        
-#         # Step 3: Analyze with OpenAI
-#         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
-#         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
-        
-#         # Step 4: Save to database (Supabase handles user_id via RLS)
-#         diagnosis_data = {
-#             'patient_name': request.patient_name,
-#             'image_url': str(request.image_url),
-#             'annotated_image_url': annotated_url,
-#             'summary': ai_analysis.get('summary', ''),
-#             'ai_notes': ai_analysis.get('ai_notes', ''),
-#             'treatment_stages': ai_analysis.get('treatment_stages', [])
-#         }
-        
-#         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
-        
-#         # Step 5: Prepare response
-#         response = AnalyzeXrayResponse(
-#             status="success",
-#             summary=ai_analysis.get('summary', ''),
-#             treatment_stages=ai_analysis.get('treatment_stages', []),
-#             ai_notes=ai_analysis.get('ai_notes', ''),
-#             diagnosis_timestamp=datetime.now(),
-#             annotated_image_url=annotated_url
-#         )
-        
-#         logger.info(f"Successfully completed X-ray analysis for patient: {request.patient_name}")
-#         return response
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
 
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
 async def analyze_xray(
@@ -643,3 +579,47 @@ async def regenerate_video(
     except Exception as e:
         logger.error(f"Error regenerating video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to regenerate video: {str(e)}")
+    
+
+@router.get("/diagnoses/{diagnosis_id}")
+async def get_diagnosis_by_id(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Get a specific diagnosis by ID for the authenticated user"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Fetch specific diagnosis
+        response = auth_client.table('patient_diagnosis').select("*").eq('id', diagnosis_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+        
+        diagnosis = response.data[0]
+        
+        # Transform data for frontend
+        return {
+            "id": diagnosis.get('id'),
+            "patientName": diagnosis.get('patient_name'),
+            "patientId": f"PAT-{diagnosis.get('id')[:5]}",
+            "createdAt": diagnosis.get('created_at'),
+            "imageUrl": diagnosis.get('image_url'),
+            "annotatedImageUrl": diagnosis.get('annotated_image_url'),
+            "summary": diagnosis.get('summary'),
+            "aiNotes": diagnosis.get('ai_notes'),
+            "treatmentStages": diagnosis.get('treatment_stages', []),
+            "videoUrl": diagnosis.get('video_url'),
+            "videoScript": diagnosis.get('video_script'),
+            "videoGeneratedAt": diagnosis.get('video_generated_at'),
+            "conditions": _extract_conditions(diagnosis.get('treatment_stages', [])),
+            "teethAnalyzed": _count_teeth(diagnosis.get('treatment_stages', [])),
+            "status": "Completed"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching diagnosis {diagnosis_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch diagnosis: {str(e)}")

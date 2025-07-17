@@ -69,4 +69,21 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch diagnoses');
     return response.json();
   },
+
+  // Get report by ID
+  async getReport(reportId: string) {
+    const token = await this.getAuthToken(); // Add await here
+    
+    const response = await fetch(`${API_BASE_URL}/diagnoses/${reportId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`, // Use the awaited token
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch report');
+    }
+
+    return response.json();
+  }
 };
