@@ -3,11 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play } from "lucide-react";
+import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from '@/services/api';
 import './CreateReport.css';
 
@@ -32,6 +35,10 @@ const CreateReport = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [auditTrail, setAuditTrail] = useState<{ action: string, timestamp: string }[]>([]);
   const [activeTab, setActiveTab] = useState("report");
+  const [useXrayMode, setUseXrayMode] = useState(true);
+  const [patientObservations, setPatientObservations] = useState("");
+  const [detections, setDetections] = useState<any[]>([]);
+  const [showAnnotatedImage, setShowAnnotatedImage] = useState(false);
   
   let recognition: any = null;
 
@@ -60,6 +67,19 @@ const CreateReport = () => {
 
   const removeFinding = (idx: number) => {
     setFindings((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  };
+
+  // Helper function to get confidence color
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.75) return '#4CAF50'; // Green
+    if (confidence >= 0.50) return '#FFC107'; // Yellow
+    return '#F44336'; // Red
+  };
+
+  const getConfidenceLabel = (confidence: number) => {
+    if (confidence >= 0.75) return 'High';
+    if (confidence >= 0.50) return 'Medium';
+    return 'Low';
   };
 
   // Generate HTML report from API response
@@ -332,35 +352,81 @@ const CreateReport = () => {
           ).join('')}
         </div>
 
-        <!-- Annotated X-Ray Section -->
-        <div style="padding: 40px 20px; text-align: center;">
-          <h3 style="font-size: 24px; margin-bottom: 10px;">Annotated X-Ray Image</h3>
-          <p style="color: #666; margin-bottom: 30px;">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
-          
-          <!-- Legend -->
-          <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
-              <span style="font-size: 14px;">Caries</span>
+        ${data.annotated_image_url ? `
+          <!-- AI Detection Confidence Section -->
+          <div style="padding: 20px; background-color: #f8f9fa; margin: 20px;">
+            <h3 style="font-size: 20px; margin-bottom: 20px;">AI Detection Confidence Levels</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+              ${data.detections && data.detections.length > 0 ? data.detections.map((detection: any, index: number) => `
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid ${getConfidenceColor(detection.confidence)};">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #333;">${detection.class || detection.class_name}</span>
+                    <span style="background-color: ${getConfidenceColor(detection.confidence)}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 500;">
+                      ${Math.round(detection.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div style="font-size: 14px; color: #666;">
+                    Confidence: <span style="color: ${getConfidenceColor(detection.confidence)}; font-weight: 500;">${getConfidenceLabel(detection.confidence)}</span>
+                  </div>
+                </div>
+              `).join('') : '<p style="text-align: center; color: #666;">No AI detections available</p>'}
             </div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <div style="width: 15px; height: 15px; background-color: #9C27B0;"></div>
-              <span style="font-size: 14px;">Missing-tooth-between</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
-              <span style="font-size: 14px;">Missing-teeth-no-distal</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <div style="width: 15px; height: 15px; background-color: #E91E63;"></div>
-              <span style="font-size: 14px;">Root Piece</span>
+            
+            <!-- Confidence Scale Legend -->
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Confidence Scale:</p>
+              <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 20px; height: 20px; background-color: #4CAF50; border-radius: 4px;"></div>
+                  <span style="font-size: 14px;">High (75-100%)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 20px; height: 20px; background-color: #FFC107; border-radius: 4px;"></div>
+                  <span style="font-size: 14px;">Medium (50-75%)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 20px; height: 20px; background-color: #F44336; border-radius: 4px;"></div>
+                  <span style="font-size: 14px;">Low (Below 50%)</span>
+                </div>
+              </div>
             </div>
           </div>
-          
-          ${data.annotated_image_url ? `
+
+          <!-- Annotated X-Ray Section -->
+          <div style="padding: 40px 20px; text-align: center;">
+            <h3 style="font-size: 24px; margin-bottom: 10px;">Annotated X-Ray Image</h3>
+            <p style="color: #666; margin-bottom: 30px;">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
+            
+            <!-- Legend -->
+            <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
+                <span style="font-size: 14px;">Caries</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 15px; height: 15px; background-color: #9C27B0;"></div>
+                <span style="font-size: 14px;">Missing-tooth-between</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
+                <span style="font-size: 14px;">Missing-teeth-no-distal</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 15px; height: 15px; background-color: #E91E63;"></div>
+                <span style="font-size: 14px;">Root Piece</span>
+              </div>
+            </div>
+            
             <img src="${data.annotated_image_url}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
-          ` : ''}
-        </div>
+          </div>
+        ` : `
+          <!-- No X-Ray Section -->
+          <div style="padding: 40px 20px; text-align: center; background-color: #f5f5f5; margin: 20px;">
+            <h3 style="font-size: 20px; margin-bottom: 10px; color: #666;">Report Generated Without X-Ray</h3>
+            <p style="color: #888; font-size: 14px;">This report was generated based on clinical observations and findings only.</p>
+            <p style="color: #888; font-size: 14px;">For a more comprehensive analysis, please upload an X-ray image.</p>
+          </div>
+        `}
 
         <!-- Booking Section -->
         <div style="background-color: #1e88e5; color: white; padding: 40px 20px; text-align: center;">
@@ -375,9 +441,18 @@ const CreateReport = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadedImage || !patientName.trim()) {
-      toast({ title: "Missing info", description: "Please upload an OPG and enter patient name." });
-      return;
+    
+    // Validation based on mode
+    if (useXrayMode) {
+      if (!uploadedImage || !patientName.trim()) {
+        toast({ title: "Missing info", description: "Please upload an OPG and enter patient name." });
+        return;
+      }
+    } else {
+      if (!patientName.trim() || (!patientObservations.trim() && findings.filter(f => f.tooth && f.condition && f.treatment).length === 0)) {
+        toast({ title: "Missing info", description: "Please enter patient name and either observations or findings." });
+        return;
+      }
     }
     
     setIsProcessing(true);
@@ -385,35 +460,53 @@ const CreateReport = () => {
     setVideoUrl(null);
     
     try {
-      // Step 1: Upload image to Supabase
-      const uploadResult = await api.uploadImage(uploadedImage);
+      let analysisResult;
       
-      // Step 2: Analyze the X-ray with video generation
-      const analysisResult = await api.analyzeXray({
-        patientName,
-        imageUrl: uploadResult.url,
-        findings: findings.filter(f => f.tooth && f.condition && f.treatment),
-        generateVideo: true // Request video generation
-      });
+      if (useXrayMode) {
+        // Original flow with X-ray upload
+        // Step 1: Upload image to Supabase
+        const uploadResult = await api.uploadImage(uploadedImage!);
+        
+        // Step 2: Analyze the X-ray with video generation
+        analysisResult = await api.analyzeXray({
+          patientName,
+          imageUrl: uploadResult.url,
+          findings: findings.filter(f => f.tooth && f.condition && f.treatment),
+          generateVideo: true // Request video generation
+        });
+      } else {
+        // New flow without X-ray - direct analysis
+        analysisResult = await api.analyzeWithoutXray({
+          patientName,
+          observations: patientObservations,
+          findings: findings.filter(f => f.tooth && f.condition && f.treatment),
+          generateVideo: false // No video without X-ray
+        });
+      }
       
-      // Step 3: Generate HTML report from the analysis
+      // Step 3: Store detections if available
+      if (analysisResult.detections) {
+        setDetections(analysisResult.detections);
+      }
+      
+      // Step 4: Generate HTML report from the analysis
       const reportHtml = generateReportHTML(analysisResult);
       setReport(reportHtml);
       
-      // Step 4: Set video URL if available
+      // Step 5: Set video URL if available
       if (analysisResult.video_url) {
         setVideoUrl(analysisResult.video_url);
       }
       
       toast({
         title: "Success",
-        description: "Report and video generated successfully!",
+        description: useXrayMode ? "Report and video generated successfully!" : "Report generated successfully!",
       });
       
     } catch (err) {
       console.error('Error:', err);
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Failed to generate report. Please try again.",
         variant: "destructive"
       });
@@ -636,18 +729,47 @@ const CreateReport = () => {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Upload Section */}
-            <Card className="mb-8">
+            {/* Mode Toggle Section */}
+            <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileImage className="mr-2 h-5 w-5" />
-                  Upload Panoramic X-ray (OPG)
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Brain className="mr-2 h-5 w-5" />
+                    Report Generation Mode
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="xray-mode" className="text-sm font-normal">
+                      {useXrayMode ? "With X-ray" : "Without X-ray"}
+                    </Label>
+                    <Switch
+                      id="xray-mode"
+                      checked={useXrayMode}
+                      onCheckedChange={setUseXrayMode}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
                 </CardTitle>
                 <CardDescription>
-                  Upload the patient's panoramic X-ray for AI analysis and treatment planning
+                  {useXrayMode
+                    ? "Generate report with AI analysis of uploaded X-ray image"
+                    : "Generate report based on manual observations and findings only"}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+            </Card>
+
+            {/* Upload Section - Only show when useXrayMode is true */}
+            {useXrayMode && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileImage className="mr-2 h-5 w-5" />
+                    Upload Panoramic X-ray (OPG)
+                  </CardTitle>
+                  <CardDescription>
+                    Upload the patient's panoramic X-ray for AI analysis and treatment planning
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                 {!uploadedImage ? (
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors">
                     <Upload className="mx-auto h-16 w-16 text-gray-400 mb-6" />
@@ -841,6 +963,16 @@ const CreateReport = () => {
                           <CardTitle className="text-blue-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <span>Treatment Analysis Results</span>
                             <div className="flex flex-wrap gap-2">
+                              {useXrayMode && detections.length > 0 && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={showAnnotatedImage ? "default" : "outline"}
+                                  onClick={() => setShowAnnotatedImage(!showAnnotatedImage)}
+                                >
+                                  {showAnnotatedImage ? "Hide" : "Show"} Confidence Scores
+                                </Button>
+                              )}
                               <Button type="button" size="sm" variant="outline" onClick={handleUndo} disabled={history.length <= 1}>Undo</Button>
                               <Button type="button" size="sm" variant="outline" onClick={() => setShowHistory(h => !h)} disabled={history.length <= 1}>History</Button>
                               <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('html')}>HTML</Button>
@@ -864,6 +996,79 @@ const CreateReport = () => {
 
                             {/* Report Tab */}
                             <TabsContent value="report" className="mt-4">
+                              {/* Confidence Scores Panel */}
+                              {showAnnotatedImage && detections.length > 0 && (
+                                <Card className="mb-4 border-blue-200">
+                                  <CardHeader>
+                                    <CardTitle className="text-lg">AI Detection Confidence Scores</CardTitle>
+                                    <CardDescription>
+                                      Confidence levels for each detected condition in the X-ray
+                                    </CardDescription>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      {detections.map((detection: any, index: number) => {
+                                        const confidence = detection.confidence || 0;
+                                        const confidencePercent = Math.round(confidence * 100);
+                                        const color = getConfidenceColor(confidence);
+                                        const label = getConfidenceLabel(confidence);
+                                        
+                                        return (
+                                          <div
+                                            key={index}
+                                            className="bg-white p-4 rounded-lg border-2"
+                                            style={{ borderColor: color }}
+                                          >
+                                            <div className="flex justify-between items-center mb-2">
+                                              <span className="font-semibold text-gray-800">
+                                                {detection.class || detection.class_name || 'Unknown'}
+                                              </span>
+                                              <Badge
+                                                className="text-white"
+                                                style={{ backgroundColor: color }}
+                                              >
+                                                {confidencePercent}%
+                                              </Badge>
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                              Confidence: <span style={{ color }} className="font-medium">{label}</span>
+                                            </div>
+                                            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                              <div
+                                                className="h-2 rounded-full transition-all duration-300"
+                                                style={{
+                                                  width: `${confidencePercent}%`,
+                                                  backgroundColor: color
+                                                }}
+                                              />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    
+                                    {/* Confidence Scale Legend */}
+                                    <div className="mt-6 pt-6 border-t">
+                                      <p className="text-sm text-gray-600 mb-3">Confidence Scale:</p>
+                                      <div className="flex gap-6 justify-center flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#4CAF50' }} />
+                                          <span className="text-sm">High (75-100%)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#FFC107' }} />
+                                          <span className="text-sm">Medium (50-75%)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#F44336' }} />
+                                          <span className="text-sm">Low (Below 50%)</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+          
                               <div className="relative">
                                 {/* Loading overlay for AI */}
                                 {isAiLoading && (
@@ -1038,6 +1243,338 @@ const CreateReport = () => {
                 )}
               </CardContent>
             </Card>
+            )}
+
+            {/* Observations Section - Only show when useXrayMode is false */}
+            {!useXrayMode && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="mr-2 h-5 w-5" />
+                    Patient Observations
+                  </CardTitle>
+                  <CardDescription>
+                    Enter your clinical observations and notes about the patient's dental condition
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-1">
+                        Patient Name
+                      </Label>
+                      <Input
+                        id="patient-name-no-xray"
+                        value={patientName}
+                        onChange={e => setPatientName(e.target.value)}
+                        placeholder="Enter patient name"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
+                        Clinical Observations
+                      </Label>
+                      <Textarea
+                        id="observations"
+                        value={patientObservations}
+                        onChange={e => setPatientObservations(e.target.value)}
+                        placeholder="Enter your observations about the patient's dental condition, symptoms, medical history, etc."
+                        rows={6}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Findings Table - Show for both modes */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Dental Findings</CardTitle>
+                <CardDescription>
+                  Add specific findings for individual teeth (optional)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-blue-900">Tooth-Specific Findings</span>
+                  <Button type="button" variant="outline" onClick={addFinding} size="sm">+ Add Finding</Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tooth</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead>Recommended Treatment</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {findings.map((f, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <Input
+                            value={f.tooth}
+                            onChange={e => handleFindingChange(idx, "tooth", e.target.value)}
+                            placeholder="e.g. 16"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={f.condition}
+                            onChange={e => handleFindingChange(idx, "condition", e.target.value)}
+                            placeholder="e.g. Caries"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={f.treatment}
+                            onChange={e => handleFindingChange(idx, "treatment", e.target.value)}
+                            placeholder="e.g. Filling"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => removeFinding(idx)} disabled={findings.length === 1}>Remove</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Submit Button */}
+            {!report && (
+              <div className="flex justify-center mb-8">
+                <Button
+                  size="lg"
+                  type="submit"
+                  disabled={isProcessing}
+                  className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Generating Report{useXrayMode ? " & Video" : ""}...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="mr-2 h-5 w-5" />
+                      Generate Treatment Report
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Report/Video Display - existing code */}
+            {report && (
+              <Card className="mb-8 bg-white border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-blue-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <span>Treatment Analysis Results</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={handleUndo} disabled={history.length <= 1}>Undo</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setShowHistory(h => !h)} disabled={history.length <= 1}>History</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('html')}>HTML</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('txt')}>TXT</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={handleDownloadPDF}>PDF</Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger value="report" className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Written Report
+                      </TabsTrigger>
+                      <TabsTrigger value="video" className="flex items-center gap-2" disabled={!videoUrl}>
+                        <Video className="w-4 h-4" />
+                        Patient Video {!videoUrl && (useXrayMode ? "(Generating...)" : "(Not Available)")}
+                      </TabsTrigger>
+                    </TabsList>
+
+                    {/* Report Tab */}
+                    <TabsContent value="report" className="mt-4">
+                      <div className="relative">
+                        {/* Loading overlay for AI */}
+                        {isAiLoading && (
+                          <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 backdrop-blur-sm">
+                            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                          </div>
+                        )}
+                        
+                        {isEditing ? (
+                          <div
+                            ref={reportRef}
+                            className="border rounded p-4 min-h-[120px] bg-gray-50 focus:outline-blue-400 outline outline-2"
+                            contentEditable={true}
+                            suppressContentEditableWarning={true}
+                            dangerouslySetInnerHTML={{ __html: editedReport || report }}
+                            style={{ overflowX: 'auto', wordBreak: 'break-word' }}
+                          />
+                        ) : (
+                          <div
+                            ref={reportRef}
+                            className="border rounded p-4 min-h-[120px] bg-gray-50"
+                            dangerouslySetInnerHTML={{ __html: report }}
+                            style={{ overflowX: 'auto', wordBreak: 'break-word' }}
+                          />
+                        )}
+                        
+                        {/* Edit/Save buttons */}
+                        {!isEditing ? (
+                          <Button className="mt-3" type="button" onClick={handleEditClick} disabled={isAiLoading}>
+                            Edit Report
+                          </Button>
+                        ) : (
+                          <Button className="mt-3" type="button" onClick={handleSaveEdit}>
+                            Save Changes
+                          </Button>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    {/* Video Tab */}
+                    <TabsContent value="video" className="mt-4">
+                      {videoUrl ? (
+                        <div className="space-y-4">
+                          <div className="bg-gray-900 rounded-lg overflow-hidden">
+                            <video
+                              controls
+                              className="w-full"
+                              poster={report.match(/src="([^"]+)"/)?.[1] || ''}
+                            >
+                              <source src={videoUrl} type="video/mp4" />
+                              Your browser does not support the video tag.
+                            </video>
+                          </div>
+                          <div className="bg-blue-50 p-4 rounded-lg">
+                            <h4 className="font-semibold text-blue-900 mb-2">About This Video</h4>
+                            <p className="text-sm text-blue-700">
+                              This personalized video explains the X-ray findings in an easy-to-understand way.
+                              It includes voice narration and subtitles to help patients understand their dental conditions and treatment options.
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => window.open(videoUrl, '_blank')}
+                              className="flex items-center gap-2"
+                            >
+                              <Play className="w-4 h-4" />
+                              Open in New Tab
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const a = document.createElement('a');
+                                a.href = videoUrl;
+                                a.download = `patient-video-${patientName.replace(/\s+/g, '-')}.mp4`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }}
+                            >
+                              Download Video
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600 mb-2">
+                            {useXrayMode ? "Video is being generated..." : "Video generation requires X-ray upload"}
+                          </p>
+                          {useXrayMode && (
+                            <>
+                              <p className="text-sm text-gray-500">This usually takes 1-2 minutes</p>
+                              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mt-4" />
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* AI Suggestion Section - Only show in report tab */}
+                  {activeTab === "report" && (
+                    <div className="mt-8 border-t pt-8">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-2">
+                        <label className="font-medium text-blue-900">AI-Powered Report Editing</label>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <Input
+                          value={aiSuggestion}
+                          onChange={e => setAiSuggestion(e.target.value)}
+                          placeholder="Type or speak your change request..."
+                          disabled={isAiLoading}
+                          className="flex-1"
+                        />
+                        <Button type="button" variant={isListening ? "secondary" : "outline"} onClick={handleMicClick} disabled={isAiLoading}>
+                          <Mic className={isListening ? "animate-pulse text-red-500" : ""} />
+                        </Button>
+                        <Button type="button" onClick={handleAiSuggest} disabled={isAiLoading || !aiSuggestion.trim()}>
+                          Apply Changes
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Example: "Make the summary more concise" or "Add a section about oral hygiene recommendations"
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Version History Modal */}
+                  {showHistory && (
+                    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 overflow-auto max-h-[80vh]">
+                        <h2 className="text-lg font-bold mb-4">Version History</h2>
+                        <ul className="space-y-3">
+                          {history.map((v, idx) => (
+                            <li key={idx} className="border rounded p-3 flex flex-col gap-1">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">{v.type}</span>
+                                <span className="text-xs text-gray-500">{v.timestamp}</span>
+                              </div>
+                              <p className="text-sm text-gray-600">{v.summary}</p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRestoreVersion(idx)}
+                                className="w-full mt-2"
+                              >
+                                Restore this version
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                        <Button className="mt-4 w-full" onClick={() => setShowHistory(false)}>Close</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Audit Trail */}
+                  <div className="mt-8 border-t pt-6">
+                    <h3 className="font-semibold text-blue-900 mb-2">Audit Trail</h3>
+                    <ul className="text-xs text-gray-700 space-y-1 max-h-32 overflow-auto border rounded p-3 bg-gray-50">
+                      {auditTrail.length === 0 ? (
+                        <li className="text-gray-500 italic">No changes recorded yet</li>
+                      ) : (
+                        auditTrail.map((entry, idx) => (
+                          <li key={idx} className="border-b last:border-0 py-1 flex justify-between">
+                            <span>{entry.action}</span>
+                            <span className="text-gray-400">{entry.timestamp}</span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </form>
 
           {/* Instructions */}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -22,14 +22,23 @@ class TreatmentStage(BaseModel):
     focus: str
     items: List[TreatmentItem]
 
+class Detection(BaseModel):
+    class_name: str = Field(alias="class")
+    confidence: float
+    x: float
+    y: float
+    width: float
+    height: float
+
 class AnalyzeXrayResponse(BaseModel):
     status: str
     summary: str
     treatment_stages: List[TreatmentStage]
     ai_notes: str
     diagnosis_timestamp: datetime
-    annotated_image_url: str
-    video_url: Optional[str] = None  # Add this field
+    annotated_image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    detections: Optional[List[Detection]] = None
 
 class SuggestChangesRequest(BaseModel):
     previous_report_html: str

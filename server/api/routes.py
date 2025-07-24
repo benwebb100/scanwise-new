@@ -162,7 +162,8 @@ async def analyze_xray(
             "treatment_stages": ai_analysis.get('treatment_stages', []),
             "ai_notes": ai_analysis.get('ai_notes', ''),
             "diagnosis_timestamp": datetime.now(),
-            "annotated_image_url": annotated_url
+            "annotated_image_url": annotated_url,
+            "detections": ai_analysis.get('detections', [])
         }
         
         # Add video URL to response if available
@@ -623,3 +624,70 @@ async def get_diagnosis_by_id(
     except Exception as e:
         logger.error(f"Error fetching diagnosis {diagnosis_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch diagnosis: {str(e)}")
+
+
+@router.post("/analyze-without-xray", response_model=AnalyzeXrayResponse)
+async def analyze_without_xray(
+    request: Dict,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Analyze dental conditions without X-ray image, based on observations and findings only
+    """
+    try:
+        patient_name = request.get('patient_name')
+        observations = request.get('observations', '')
+        findings = request.get('findings', [])
+        
+        logger.info(f"Starting analysis without X-ray for patient: {patient_name}")
+        
+        # Prepare data for OpenAI analysis
+        # Create a mock predictions dict with manual findings only
+        mock_predictions = {
+            'predictions': []  # No automated detections without X-ray
+        }
+        
+        # Combine observations with findings for better context
+        enhanced_findings = findings.copy()
+        if observations:
+            # Add observations as context for AI
+            enhanced_findings.append({
+                'tooth': 'General',
+                'condition': 'Clinical Observations',
+                'treatment': observations
+            })
+        
+        # Step 1: Analyze with OpenAI (no Roboflow detection)
+        ai_analysis = await openai_service.analyze_dental_conditions(mock_predictions, enhanced_findings)
+        
+        # Step 2: Save to database without image URLs
+        diagnosis_data = {
+            'patient_name': patient_name,
+            'image_url': None,  # No image URL
+            'annotated_image_url': None,  # No annotated image
+            'summary': ai_analysis.get('summary', ''),
+            'ai_notes': ai_analysis.get('ai_notes', ''),
+            'treatment_stages': ai_analysis.get('treatment_stages', []),
+            'is_xray_based': False  # Flag to indicate this is not X-ray based
+        }
+        
+        saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
+        
+        # Step 3: Prepare response (no video for non-X-ray reports)
+        response_data = {
+            "status": "success",
+            "summary": ai_analysis.get('summary', ''),
+            "treatment_stages": ai_analysis.get('treatment_stages', []),
+            "ai_notes": ai_analysis.get('ai_notes', ''),
+            "diagnosis_timestamp": datetime.now(),
+            "annotated_image_url": None  # No annotated image
+        }
+        
+        response = AnalyzeXrayResponse(**response_data)
+        
+        logger.info(f"Successfully completed analysis without X-ray for patient: {patient_name}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in analyze_without_xray: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

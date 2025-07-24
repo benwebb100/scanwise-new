@@ -85,5 +85,31 @@ export const api = {
     }
 
     return response.json();
+  },
+
+  // Analyze without X-ray
+  async analyzeWithoutXray(data: {
+    patientName: string;
+    observations: string;
+    findings: Array<{ tooth: string; condition: string; treatment: string }>;
+    generateVideo?: boolean;
+  }) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/analyze-without-xray`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        patient_name: data.patientName,
+        observations: data.observations,
+        findings: data.findings,
+      }),
+    });
+
+    if (!response.ok) throw new Error('Analysis failed');
+    return response.json();
   }
 };
