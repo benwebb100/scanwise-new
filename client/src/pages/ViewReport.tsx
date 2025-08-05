@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2 } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
 
@@ -14,11 +14,44 @@ const ViewReport = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("report");
+  const [activeTab, setActiveTab] = useState<string>("report");
   
   useEffect(() => {
     fetchReport();
   }, [reportId]);
+  
+  // Set the active tab based on what's available
+  useEffect(() => {
+    if (reportData) {
+      // Default to report tab
+      let tab = "report";
+      
+      // If URL has a tab parameter, try to use that
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      
+      if (tabParam) {
+        // Check if the requested tab is available
+        if (tabParam === 'video' && reportData.videoUrl) {
+          tab = 'video';
+        } else if (tabParam === 'pdf') {
+          tab = 'pdf';
+        }
+      }
+      
+      setActiveTab(tab);
+    }
+  }, [reportData]);
+  
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // Update URL without reloading the page
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', value);
+    window.history.pushState({}, '', url);
+  };
 
   const fetchReport = async () => {
     try {
@@ -166,11 +199,15 @@ const ViewReport = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="report" className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Written Report
+                  </TabsTrigger>
+                  <TabsTrigger value="pdf" className="flex items-center gap-2">
+                    <FileIcon className="w-4 h-4" />
+                    PDF Report
                   </TabsTrigger>
                   <TabsTrigger value="video" className="flex items-center gap-2" disabled={!reportData.videoUrl}>
                     <Video className="w-4 h-4" />
@@ -184,6 +221,39 @@ const ViewReport = () => {
                     className="border rounded p-4 bg-gray-50 max-h-[600px] overflow-y-auto"
                     dangerouslySetInnerHTML={{ __html: reportData.reportHtml }}
                   />
+                </TabsContent>
+
+                {/* PDF Tab - Client-side PDF generation */}
+                <TabsContent value="pdf" className="mt-4">
+                  <div className="space-y-4">
+                    <div className="bg-white border rounded p-4">
+                      <div className="text-center mb-4">
+                        <FileIcon className="w-16 h-16 text-blue-600 mx-auto mb-2" />
+                        <h3 className="text-lg font-semibold">PDF Report Ready for Download</h3>
+                        <p className="text-sm text-gray-600">
+                          Click the button below to generate and download the PDF report
+                        </p>
+                      </div>
+                      
+                      <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                        <h4 className="font-semibold text-blue-900 mb-2">About This PDF</h4>
+                        <p className="text-sm text-blue-700">
+                          This PDF report contains the complete dental analysis and treatment plan.
+                          You can download it for your records or print it for reference.
+                        </p>
+                      </div>
+                      
+                      <div className="flex justify-center">
+                        <Button
+                          onClick={handleDownloadPDF}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Generate & Download PDF
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </TabsContent>
 
                 {/* Video Tab */}
@@ -239,6 +309,41 @@ const ViewReport = () => {
                   )}
                 </TabsContent>
               </Tabs>
+
+              {/* Tab Navigation */}
+              <div className="mt-8 border-t pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4">Available Report Formats</h3>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant={activeTab === "report" ? "default" : "outline"}
+                    onClick={() => handleTabChange("report")}
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Written Report
+                  </Button>
+                  
+                  <Button
+                    variant={activeTab === "pdf" ? "default" : "outline"}
+                    onClick={() => handleTabChange("pdf")}
+                    className="flex items-center gap-2"
+                  >
+                    <FileIcon className="w-4 h-4" />
+                    PDF Report
+                  </Button>
+                  
+                  {reportData.videoUrl && (
+                    <Button
+                      variant={activeTab === "video" ? "default" : "outline"}
+                      onClick={() => handleTabChange("video")}
+                      className="flex items-center gap-2"
+                    >
+                      <Video className="w-4 h-4" />
+                      Patient Video
+                    </Button>
+                  )}
+                </div>
+              </div>
 
               {/* Report Details */}
               <div className="mt-8 border-t pt-6">

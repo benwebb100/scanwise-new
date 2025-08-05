@@ -3,24 +3,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight } from "lucide-react";
+import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { PricingInput, useClinicPricing } from "@/components/PricingInput";
+import { AIFindingsDisplay } from "@/components/AIFindingsDisplay";
+import { PriceValidationDialog } from "@/components/PriceValidationDialog";
+import { useClinicBranding } from "@/components/ClinicBranding";
+import { AIAnalysisSection } from '@/components/AIAnalysisSection';
 import { api } from '@/services/api';
+import {
+  ToothNumberingSystem,
+  TOOTH_NUMBERING_SYSTEMS,
+  ALL_CONDITIONS,
+  ALL_TREATMENTS,
+  getToothOptions,
+  getSuggestedTreatments
+} from '@/data/dental-data';
 import './CreateReport.css';
 
 const CreateReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { clinicPrices, savePrice, savePrices, getPrice, validatePricing, loading: pricingLoading } = useClinicPricing();
+  const { applyBrandingToReport } = useClinicBranding();
+  
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [findings, setFindings] = useState([
-    { tooth: "", condition: "", treatment: "" },
+    { tooth: "", condition: "", treatment: "", price: undefined as number | undefined },
   ]);
   const [patientName, setPatientName] = useState("");
   const [report, setReport] = useState<string | null>(null);
@@ -40,29 +56,251 @@ const CreateReport = () => {
   const [detections, setDetections] = useState<any[]>([]);
   const [showAnnotatedImage, setShowAnnotatedImage] = useState(false);
   
+  // New state for enhanced functionality
+  const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>('FDI');
+  
+  // Price validation dialog state
+  const [showPriceValidation, setShowPriceValidation] = useState(false);
+  const [missingPrices, setMissingPrices] = useState<string[]>([]);
+  const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
+
+  // State for immediate analysis
+  const [immediateAnalysisData, setImmediateAnalysisData] = useState<any>(null);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [showAISummary, setShowAISummary] = useState(true);
+  
   let recognition: any = null;
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Update handleImageUpload function (continued)
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedImage(file);
-      toast({
-        title: "OPG Upload Successful",
-        description: "Image uploaded and ready for analysis.",
-      });
+      setIsAnalyzingImage(true);
+      setImmediateAnalysisData(null); // Clear previous data
+      
+      try {
+        // First upload the image
+        const uploadResult = await api.uploadImage(file);
+        
+        toast({
+          title: "Image Uploaded",
+          description: "Analyzing X-ray with AI...",
+        });
+
+        // Immediately analyze the uploaded image
+        const analysisResult = await api.analyzeXrayImmediate(uploadResult.url);
+        
+        setImmediateAnalysisData(analysisResult);
+        setDetections(analysisResult.detections || []);
+        
+        toast({
+          title: "AI Analysis Complete",
+          description: `Found ${analysisResult.detections?.length || 0} potential conditions. Review the findings below.`,
+        });
+        
+      } catch (error) {
+        console.error('Error during immediate analysis:', error);
+        toast({
+          title: "Analysis Error",
+          description: "Image uploaded but AI analysis failed. You can still proceed manually.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsAnalyzingImage(false);
+      }
     }
   };
 
-  const handleFindingChange = (idx: number, field: string, value: string) => {
+  const handleFindingChange = (idx: number, field: string, value: string | number) => {
     setFindings((prev) => {
       const updated = [...prev];
       updated[idx] = { ...updated[idx], [field]: value };
+      
+      // Auto-suggest treatments when condition changes
+      if (field === 'condition' && typeof value === 'string') {
+        // Clear current treatment and price
+        updated[idx].treatment = '';
+        updated[idx].price = undefined;
+        
+        // Auto-populate with the most recommended treatment
+        const suggestedTreatments = getSuggestedTreatments(value);
+        if (suggestedTreatments && suggestedTreatments.length > 0) {
+          // Get the first (most recommended) treatment
+          const recommendedTreatment = suggestedTreatments[0].value;
+          updated[idx].treatment = recommendedTreatment;
+          
+          // Auto-fill price if available
+          const price = getPrice(recommendedTreatment);
+          if (price) {
+            updated[idx].price = price;
+          }
+          
+          // Show a toast to inform the user
+          toast({
+            title: "Treatment Auto-Selected",
+            description: `${suggestedTreatments[0].label} has been automatically selected based on the condition. You can change it if needed.`,
+          });
+        }
+      }
+      
+      // Auto-fill price when treatment changes manually
+      if (field === 'treatment' && typeof value === 'string') {
+        const price = getPrice(value);
+        if (price) {
+          updated[idx].price = price;
+        }
+      }
+      
       return updated;
     });
   };
 
   const addFinding = () => {
-    setFindings((prev) => [...prev, { tooth: "", condition: "", treatment: "" }]);
+    setFindings((prev) => [...prev, { tooth: "", condition: "", treatment: "", price: undefined }]);
+  };
+
+  const handleAcceptAIFinding = (detection: any) => {
+    const conditionName = detection.class_name || detection.class || 'Unknown';
+    const newFinding = {
+      tooth: '', // Will be filled by user
+      condition: conditionName.toLowerCase().replace(/\s+/g, '-'),
+      treatment: '',
+      price: undefined
+    };
+    
+    setFindings(prev => [...prev, newFinding]);
+    toast({
+      title: "AI Finding Added",
+      description: `${conditionName} has been added to your findings table.`,
+    });
+  };
+
+  const handleRejectAIFinding = (detection: any) => {
+    // Could implement logic to hide this detection or mark as rejected
+    toast({
+      title: "AI Finding Rejected",
+      description: "This finding has been marked as rejected.",
+    });
+  };
+
+  const handlePriceSave = (treatment: string, price: number) => {
+    savePrice(treatment, price);
+    toast({
+      title: "Price Saved",
+      description: `Price for ${treatment} has been saved to your clinic pricing.`,
+    });
+  };
+
+  // Handle price validation dialog
+  const handlePricesProvided = async (prices: Record<string, number>) => {
+    try {
+      // Save the provided prices
+      await savePrices(prices);
+      
+      // Close the dialog
+      setShowPriceValidation(false);
+      
+      // Continue with the original submit
+      if (pendingSubmitData) {
+        await performSubmit(pendingSubmitData);
+      }
+      
+      // Clear pending data
+      setPendingSubmitData(null);
+      setMissingPrices([]);
+      
+    } catch (error) {
+      console.error('Error saving prices:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save prices. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePriceValidationCancel = () => {
+    setShowPriceValidation(false);
+    setPendingSubmitData(null);
+    setMissingPrices([]);
+  };
+
+  // Extract the main submit logic into a separate function
+  const performSubmit = async (submitData: any) => {
+    const { validFindings, useXrayMode, patientName, patientObservations } = submitData;
+    
+    setIsProcessing(true);
+    setReport(null);
+    setVideoUrl(null);
+    setDetections([]);
+    
+    try {
+      let analysisResult;
+      
+      if (useXrayMode) {
+        // Original flow with X-ray upload
+        const uploadResult = await api.uploadImage(uploadedImage!);
+        
+        analysisResult = await api.analyzeXray({
+          patientName,
+          imageUrl: uploadResult.url,
+          findings: validFindings,
+          generateVideo: true
+        });
+        
+        if (analysisResult.detections) {
+          setDetections(analysisResult.detections);
+          
+          if (analysisResult.detections.length > 0) {
+            toast({
+              title: "Analysis Complete",
+              description: "Confidence scores are now available. Video generation in progress...",
+            });
+          }
+        }
+        
+        const reportHtml = generateReportHTML(analysisResult);
+        const brandedReport = applyBrandingToReport(reportHtml);
+        setReport(brandedReport);
+        
+        if (analysisResult.video_url) {
+          setVideoUrl(analysisResult.video_url);
+          toast({
+            title: "Video Ready",
+            description: "Patient education video has been generated successfully!",
+          });
+        } else {
+          pollForVideoStatus(analysisResult.diagnosis_id);
+        }
+      } else {
+        // New flow without X-ray
+        analysisResult = await api.analyzeWithoutXray({
+          patientName,
+          observations: patientObservations,
+          findings: validFindings,
+          generateVideo: false
+        });
+        
+        const reportHtml = generateReportHTML(analysisResult);
+        const brandedReport = applyBrandingToReport(reportHtml);
+        setReport(brandedReport);
+        
+        toast({
+          title: "Success",
+          description: "Report generated successfully!",
+        });
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const removeFinding = (idx: number) => {
@@ -82,37 +320,35 @@ const CreateReport = () => {
     return 'Low';
   };
 
-  // Generate HTML report from API response
+  // Generate HTML report from doctor's findings (not AI extraction)
   const generateReportHTML = (data: any) => {
+    // Use doctor's findings as the primary source of truth
+    const doctorFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+    
     // Helper functions first
     const generateADACode = (treatment: string) => {
       const adaCodes: Record<string, string> = {
         'filling': 'D2330',
         'extraction': 'D7140',
-        'root canal': 'D3310',
+        'root-canal-treatment': 'D3310',
         'crown': 'D2740',
         'bridge': 'D6240',
-        'implant': 'D6010',
-        'partial denture': 'D5213'
+        'implant-placement': 'D6010',
+        'partial-denture': 'D5213',
+        'scale-and-clean': 'D1110',
+        'deep-cleaning': 'D4341',
+        'veneer': 'D2962',
+        'fluoride-treatment': 'D1206'
       };
       
-      const key = Object.keys(adaCodes).find(k => treatment.toLowerCase().includes(k));
+      const key = Object.keys(adaCodes).find(k => treatment.toLowerCase().includes(k.replace('-', ' ')));
       return key ? adaCodes[key] : 'D0000';
     };
 
-    const estimatePrice = (treatment: string) => {
-      const prices: Record<string, number> = {
-        'filling': 120,
-        'extraction': 180,
-        'root canal': 400,
-        'crown': 1200,
-        'bridge': 850,
-        'implant': 2300,
-        'partial denture': 600
-      };
-      
-      const key = Object.keys(prices).find(k => treatment.toLowerCase().includes(k));
-      return key ? prices[key] : 100;
+    const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
+      // Use the price from the finding if available, otherwise use clinic/default pricing
+      if (findingPrice) return findingPrice;
+      return getPrice(treatment) || 100;
     };
 
     const groupTreatments = (items: any[]) => {
@@ -245,19 +481,17 @@ const CreateReport = () => {
       return key ? risks[key] : 'Delaying treatment may lead to complications. Please consult with your dentist.';
     };
 
-    // Process all treatment stages to create a unified list
+    // Process doctor's findings to create treatment items
     const treatmentItems: any[] = [];
-    data.treatment_stages.forEach((stage: any) => {
-      stage.items.forEach((item: any) => {
-        treatmentItems.push({
-          procedure: item.recommended_treatment,
-          adaCode: item.ada_code || generateADACode(item.recommended_treatment),
-          unitPrice: item.price || estimatePrice(item.recommended_treatment),
-          quantity: item.quantity || 1,
-          tooth: item.tooth,
-          condition: item.condition,
-          stage: stage.stage
-        });
+    doctorFindings.forEach((finding) => {
+      treatmentItems.push({
+        procedure: finding.treatment,
+        adaCode: generateADACode(finding.treatment),
+        unitPrice: getTreatmentPrice(finding.treatment, finding.price),
+        quantity: 1,
+        tooth: finding.tooth,
+        condition: finding.condition,
+        stage: 'Doctor Findings'
       });
     });
 
@@ -313,43 +547,43 @@ const CreateReport = () => {
           </table>
         </div>
 
-        <!-- Stage Breakdowns -->
+        <!-- Doctor's Findings Summary -->
         <div style="padding: 0 20px;">
-          ${data.treatment_stages.map((stage: any, index: number) => `
-            <div style="margin-bottom: 30px;">
-              <h3 style="font-size: 18px; margin-bottom: 15px;">${stage.stage}</h3>
-              <ul style="list-style: disc; padding-left: 20px; color: #666;">
-                <li>Treatment summary: ${stage.summary || getStageSummary(stage)}</li>
-                <li>Estimated procedure duration: ${stage.duration || estimateDuration(stage)} hours</li>
-                <li>Stage cost: $${calculateStageCost(stage, groupedTreatments)}</li>
-              </ul>
-            </div>
-          `).join('')}
+          <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 18px; margin-bottom: 15px;">Treatment Plan Summary</h3>
+            <ul style="list-style: disc; padding-left: 20px; color: #666;">
+              <li>Total treatments planned: ${doctorFindings.length}</li>
+              <li>Teeth requiring treatment: ${doctorFindings.map(f => f.tooth).join(', ')}</li>
+              <li>Total estimated cost: $${calculateTotal(groupedTreatments)}</li>
+            </ul>
+          </div>
         </div>
 
-        <!-- Active Conditions -->
+        <!-- Active Conditions from Doctor's Findings -->
         <div style="padding: 20px;">
-          ${data.treatment_stages.map((stage: any) => 
-            stage.items.map((item: any) => `
-              <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="background-color: #ffeb3b; padding: 8px 16px;">
-                  <strong style="font-size: 14px;">Active Condition</strong>
-                </div>
-                <div style="padding: 20px;">
-                  <h3 style="font-size: 20px; margin-bottom: 15px;">${formatTreatmentTitle(item)}</h3>
-                  <p style="margin-bottom: 15px;">${item.quantity || 1} ${item.quantity > 1 ? 'teeth have' : 'tooth has'} ${item.condition.toLowerCase()} that ${item.quantity > 1 ? 'need' : 'needs'} attention.</p>
-                  
-                  <p style="margin-bottom: 15px;">
-                    <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getDetailedTreatmentDescription(item)}
-                  </p>
-                  
-                  <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
-                    <span style="color: #f44336;">⚫</span> <strong>Risks if Untreated:</strong> ${getRiskDescription(item)}
-                  </p>
-                </div>
+          ${doctorFindings.map((finding: any) => `
+            <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <div style="background-color: #ffeb3b; padding: 8px 16px;">
+                <strong style="font-size: 14px;">Treatment Required - Tooth ${finding.tooth}</strong>
               </div>
-            `).join('')
-          ).join('')}
+              <div style="padding: 20px;">
+                <h3 style="font-size: 20px; margin-bottom: 15px;">${finding.treatment} for ${finding.condition}</h3>
+                <p style="margin-bottom: 15px;">Tooth ${finding.tooth} has ${finding.condition.toLowerCase().replace('-', ' ')} that requires ${finding.treatment.toLowerCase().replace('-', ' ')}.</p>
+                
+                <p style="margin-bottom: 15px;">
+                  <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${finding.treatment.replace('-', ' ')} will address the ${finding.condition.replace('-', ' ')} condition effectively.
+                </p>
+                
+                <p style="margin-bottom: 15px;">
+                  <span style="color: #2196f3;">💰</span> <strong>Treatment Cost:</strong> $${getTreatmentPrice(finding.treatment, finding.price)}
+                </p>
+                
+                <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
+                  <span style="color: #f44336;">⚫</span> <strong>Importance:</strong> Addressing this condition promptly will help maintain your oral health and prevent further complications.
+                </p>
+              </div>
+            </div>
+          `).join('')}
         </div>
 
         ${data.annotated_image_url ? `
@@ -427,93 +661,91 @@ const CreateReport = () => {
             <p style="color: #888; font-size: 14px;">For a more comprehensive analysis, please upload an X-ray image.</p>
           </div>
         `}
-
-        <!-- Booking Section -->
-        <div style="background-color: #1e88e5; color: white; padding: 40px 20px; text-align: center;">
-          <button style="background-color: white; color: #1e88e5; padding: 12px 40px; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
-            📅 Book Your Appointment
-          </button>
-          <p style="margin: 0;">or call us at (03) 8525 3875</p>
-        </div>
-      </div>
     `;
   };
 
     const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation based on mode
-    if (useXrayMode) {
-      if (!uploadedImage || !patientName.trim()) {
-        toast({ title: "Missing info", description: "Please upload an OPG and enter patient name." });
-        return;
-      }
-    } else {
-      if (!patientName.trim() || (!patientObservations.trim() && findings.filter(f => f.tooth && f.condition && f.treatment).length === 0)) {
-        toast({ title: "Missing info", description: "Please enter patient name and either observations or findings." });
-        return;
-      }
-    }
-    
-    setIsProcessing(true);
-    setReport(null);
-    setVideoUrl(null);
-    
-    try {
-      let analysisResult;
+      e.preventDefault();
       
+      // Validation based on mode
       if (useXrayMode) {
-        // Original flow with X-ray upload
-        // Step 1: Upload image to Supabase
-        const uploadResult = await api.uploadImage(uploadedImage!);
-        
-        // Step 2: Analyze the X-ray with video generation
-        analysisResult = await api.analyzeXray({
-          patientName,
-          imageUrl: uploadResult.url,
-          findings: findings.filter(f => f.tooth && f.condition && f.treatment),
-          generateVideo: true // Request video generation
-        });
+        if (!uploadedImage || !patientName.trim()) {
+          toast({ title: "Missing info", description: "Please upload an OPG and enter patient name." });
+          return;
+        }
       } else {
-        // New flow without X-ray - direct analysis
-        analysisResult = await api.analyzeWithoutXray({
-          patientName,
-          observations: patientObservations,
-          findings: findings.filter(f => f.tooth && f.condition && f.treatment),
-          generateVideo: false // No video without X-ray
-        });
+        if (!patientName.trim() || (!patientObservations.trim() && findings.filter(f => f.tooth && f.condition && f.treatment).length === 0)) {
+          toast({ title: "Missing info", description: "Please enter patient name and either observations or findings." });
+          return;
+        }
+      }
+
+      // Validate pricing for all treatments
+      const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+      const treatments = validFindings.map(f => f.treatment);
+      const pricingValidation = validatePricing(treatments);
+      
+      if (!pricingValidation.valid) {
+        // Show price validation dialog instead of toast
+        setMissingPrices(pricingValidation.missing);
+        setPendingSubmitData({ validFindings, useXrayMode, patientName, patientObservations });
+        setShowPriceValidation(true);
+        return;
       }
       
-      // Step 3: Store detections if available
-      if (analysisResult.detections) {
-        setDetections(analysisResult.detections);
-      }
+      // If validation passes, proceed with submit
+      await performSubmit({ validFindings, useXrayMode, patientName, patientObservations });
+    };
+    
+    // Function to poll for video status
+    const pollForVideoStatus = async (diagnosisId: string) => {
+      if (!diagnosisId) return;
       
-      // Step 4: Generate HTML report from the analysis
-      const reportHtml = generateReportHTML(analysisResult);
-      setReport(reportHtml);
+      const checkVideoStatus = async () => {
+        try {
+          const token = await api.getAuthToken();
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/diagnosis/${diagnosisId}/video-status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (!response.ok) throw new Error('Failed to check video status');
+          
+          const data = await response.json();
+          
+          if (data.has_video && data.video_url) {
+            setVideoUrl(data.video_url);
+            toast({
+              title: "Video Ready",
+              description: "Patient education video has been generated successfully!",
+            });
+            return true; // Stop polling
+          }
+          return false; // Continue polling
+        } catch (error) {
+          console.error('Error checking video status:', error);
+          return true; // Stop polling on error
+        }
+      };
       
-      // Step 5: Set video URL if available
-      if (analysisResult.video_url) {
-        setVideoUrl(analysisResult.video_url);
-      }
+      // Check immediately first
+      const hasVideo = await checkVideoStatus();
+      if (hasVideo) return;
       
-      toast({
-        title: "Success",
-        description: useXrayMode ? "Report and video generated successfully!" : "Report generated successfully!",
-      });
+      // Then set up interval
+      const intervalId = setInterval(async () => {
+        const hasVideo = await checkVideoStatus();
+        if (hasVideo) {
+          clearInterval(intervalId);
+        }
+      }, 10000); // Check every 10 seconds
       
-    } catch (err) {
-      console.error('Error:', err);
-      toast({
-        title: "Error",
-        description: "Failed to generate report. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+      // Clear interval after 5 minutes (30 * 10000ms = 5 minutes)
+      setTimeout(() => {
+        clearInterval(intervalId);
+      }, 300000);
+    };
 
   const handleEditClick = () => {
     setIsEditing(true);
@@ -816,7 +1048,20 @@ const CreateReport = () => {
                         </Badge>
                       </div>
 
-                      {/* Simplified Loading Animation */}
+                       {/* AI Analysis Loading */}
+                       {isAnalyzingImage && (
+                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                              <div>
+                                <p className="font-medium text-blue-900">Analyzing X-ray with AI...</p>
+                                <p className="text-sm text-blue-700">This may take a few moments</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Enhanced Loading Animation with Confidence Scores */}
                       {isProcessing && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
                           <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-4">
@@ -825,18 +1070,18 @@ const CreateReport = () => {
                                 <Brain className="w-16 h-16 text-blue-600" />
                                 <div className="absolute inset-0 w-16 h-16 bg-blue-600/20 rounded-full animate-ping" />
                               </div>
-                              <h3 className="text-xl font-semibold mt-4 mb-2">Analyzing X-ray...</h3>
-                              <p className="text-gray-600 mb-6">Our AI is examining the dental conditions</p>
+                              <h3 className="text-xl font-semibold mt-4 mb-2">Generating Report...</h3>
+                              <p className="text-gray-600 mb-6">Creating comprehensive treatment plan</p>
                               
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between text-sm">
-                                  <span>Processing image</span>
+                                  <span>Processing findings</span>
                                   <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }} />
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
-                                  <span>Detecting conditions</span>
+                                  <span>Creating treatment plan</span>
                                   <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '75%' }} />
                                   </div>
@@ -865,8 +1110,19 @@ const CreateReport = () => {
                       )}
                     </div>
 
-                    {/* Patient Name Input - Only show if no report */}
-                    {!report && (
+                    {/* UNIFIED AI Analysis Section - Single source of truth */}
+                    {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
+                      <AIAnalysisSection
+                        findingsSummary={immediateAnalysisData.findings_summary}
+                        detections={immediateAnalysisData.detections}
+                        annotatedImageUrl={immediateAnalysisData.annotated_image_url}
+                        onAcceptFinding={handleAcceptAIFinding}
+                        onRejectFinding={handleRejectAIFinding}
+                      />
+                    )}
+
+                    {/* Patient Name Input - Only show if no report and not analyzing */}
+                    {!report && !isAnalyzingImage && (
                       <div className={`mt-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
                         <label className="block font-medium text-blue-900 mb-1">Patient Name</label>
                         <Input
@@ -879,56 +1135,127 @@ const CreateReport = () => {
                       </div>
                     )}
 
-                    {/* Findings Table - Only show if no report */}
-                    {!report && (
+                    {/* Tooth Numbering System Toggle */}
+                    {!report && !isAnalyzingImage && (
+                      <Card className="mt-6">
+                        <CardHeader>
+                          <CardTitle className="flex items-center justify-between">
+                            <span className="flex items-center">
+                              <Settings className="mr-2 h-5 w-5" />
+                              Tooth Numbering System
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <Label htmlFor="tooth-system" className="text-sm font-normal">
+                                {TOOTH_NUMBERING_SYSTEMS[toothNumberingSystem].name}
+                              </Label>
+                              <Switch
+                                id="tooth-system"
+                                checked={toothNumberingSystem === 'Universal'}
+                                onCheckedChange={(checked) => setToothNumberingSystem(checked ? 'Universal' : 'FDI')}
+                                className="data-[state=checked]:bg-blue-600"
+                              />
+                            </div>
+                          </CardTitle>
+                          <CardDescription>
+                            {TOOTH_NUMBERING_SYSTEMS[toothNumberingSystem].description}
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    )}
+
+                    {/* Enhanced Findings Table - Only show if no report and not analyzing */}
+                    {!report && !isAnalyzingImage && (
                       <div className={`mt-6 ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-blue-900">Dentist Findings (Optional)</span>
-                          <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>+ Add Finding</Button>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <span className="font-medium text-blue-900">Manual Findings Entry</span>
+                            {immediateAnalysisData && (
+                              <Badge variant="outline" className="bg-blue-50">
+                                {immediateAnalysisData.detections?.length || 0} AI suggestions available above
+                              </Badge>
+                            )}
+                          </div>
+                          <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
+                            + Add Finding
+                          </Button>
                         </div>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Tooth</TableHead>
-                              <TableHead>Condition</TableHead>
-                              <TableHead>Recommended Treatment</TableHead>
-                              <TableHead></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {findings.map((f, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell>
-                                  <Input
-                                    value={f.tooth}
-                                    onChange={e => handleFindingChange(idx, "tooth", e.target.value)}
-                                    placeholder="e.g. 16"
+                        
+                        <div className="space-y-4">
+                        {findings.map((f, idx) => (
+                          <Card key={idx} className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                              {/* Tooth Number */}
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">Tooth</Label>
+                                <SearchableSelect
+                                  options={getToothOptions(toothNumberingSystem)}
+                                  value={f.tooth}
+                                  onValueChange={(value) => handleFindingChange(idx, "tooth", value)}
+                                  placeholder="Select tooth"
+                                  searchPlaceholder="Search tooth number..."
+                                  disabled={isProcessing}
+                                />
+                              </div>
+
+                              {/* Condition */}
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">Condition</Label>
+                                <SearchableSelect
+                                  options={ALL_CONDITIONS}
+                                  value={f.condition}
+                                  onValueChange={(value) => handleFindingChange(idx, "condition", value)}
+                                  placeholder="Select condition"
+                                  searchPlaceholder="Search conditions..."
+                                  disabled={isProcessing}
+                                />
+                              </div>
+
+                              {/* Treatment */}
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">Treatment</Label>
+                                <SearchableSelect
+                                  options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
+                                  value={f.treatment}
+                                  onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
+                                  placeholder="Select treatment"
+                                  searchPlaceholder="Search treatments..."
+                                  disabled={isProcessing}
+                                />
+                              </div>
+
+                                {/* Remove Button */}
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium opacity-0">Actions</Label>
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => removeFinding(idx)}
+                                    disabled={findings.length === 1 || isProcessing}
+                                    className="w-full"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Pricing Input */}
+                              {f.treatment && (
+                                <div className="mt-4 pt-4 border-t">
+                                  <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
+                                  <PricingInput
+                                    treatment={f.treatment}
+                                    value={f.price}
+                                    onChange={(price) => handleFindingChange(idx, "price", price)}
+                                    clinicPrices={clinicPrices}
+                                    onPriceSave={handlePriceSave}
                                     disabled={isProcessing}
                                   />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.condition}
-                                    onChange={e => handleFindingChange(idx, "condition", e.target.value)}
-                                    placeholder="e.g. Caries"
-                                    disabled={isProcessing}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.treatment}
-                                    onChange={e => handleFindingChange(idx, "treatment", e.target.value)}
-                                    placeholder="e.g. Filling"
-                                    disabled={isProcessing}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Button type="button" variant="destructive" size="sm" onClick={() => removeFinding(idx)} disabled={findings.length === 1 || isProcessing}>Remove</Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                                </div>
+                              )}
+                            </Card>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -956,28 +1283,28 @@ const CreateReport = () => {
                       </div>
                     )}
 
-                    {/* Report/Video Display with Tabs */}
+                    {/* Report Display Section - Clean without duplicate confidence scores */}
                     {report && (
                       <Card className="mt-8 bg-white border-blue-200">
                         <CardHeader>
                           <CardTitle className="text-blue-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <span>Treatment Analysis Results</span>
+                            <span>Generated Treatment Report</span>
                             <div className="flex flex-wrap gap-2">
-                              {useXrayMode && detections.length > 0 && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={showAnnotatedImage ? "default" : "outline"}
-                                  onClick={() => setShowAnnotatedImage(!showAnnotatedImage)}
-                                >
-                                  {showAnnotatedImage ? "Hide" : "Show"} Confidence Scores
-                                </Button>
-                              )}
-                              <Button type="button" size="sm" variant="outline" onClick={handleUndo} disabled={history.length <= 1}>Undo</Button>
-                              <Button type="button" size="sm" variant="outline" onClick={() => setShowHistory(h => !h)} disabled={history.length <= 1}>History</Button>
-                              <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('html')}>HTML</Button>
-                              <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('txt')}>TXT</Button>
-                              <Button type="button" size="sm" variant="outline" onClick={handleDownloadPDF}>PDF</Button>
+                              <Button type="button" size="sm" variant="outline" onClick={handleUndo} disabled={history.length <= 1}>
+                                Undo
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => setShowHistory(h => !h)} disabled={history.length <= 1}>
+                                History
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('html')}>
+                                HTML
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('txt')}>
+                                TXT
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={handleDownloadPDF}>
+                                PDF
+                              </Button>
                             </div>
                           </CardTitle>
                         </CardHeader>
@@ -994,81 +1321,8 @@ const CreateReport = () => {
                               </TabsTrigger>
                             </TabsList>
 
-                            {/* Report Tab */}
+                            {/* Report Tab - Cleaned up, no duplicate confidence scores */}
                             <TabsContent value="report" className="mt-4">
-                              {/* Confidence Scores Panel */}
-                              {showAnnotatedImage && detections.length > 0 && (
-                                <Card className="mb-4 border-blue-200">
-                                  <CardHeader>
-                                    <CardTitle className="text-lg">AI Detection Confidence Scores</CardTitle>
-                                    <CardDescription>
-                                      Confidence levels for each detected condition in the X-ray
-                                    </CardDescription>
-                                  </CardHeader>
-                                  <CardContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                      {detections.map((detection: any, index: number) => {
-                                        const confidence = detection.confidence || 0;
-                                        const confidencePercent = Math.round(confidence * 100);
-                                        const color = getConfidenceColor(confidence);
-                                        const label = getConfidenceLabel(confidence);
-                                        
-                                        return (
-                                          <div
-                                            key={index}
-                                            className="bg-white p-4 rounded-lg border-2"
-                                            style={{ borderColor: color }}
-                                          >
-                                            <div className="flex justify-between items-center mb-2">
-                                              <span className="font-semibold text-gray-800">
-                                                {detection.class || detection.class_name || 'Unknown'}
-                                              </span>
-                                              <Badge
-                                                className="text-white"
-                                                style={{ backgroundColor: color }}
-                                              >
-                                                {confidencePercent}%
-                                              </Badge>
-                                            </div>
-                                            <div className="text-sm text-gray-600">
-                                              Confidence: <span style={{ color }} className="font-medium">{label}</span>
-                                            </div>
-                                            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                              <div
-                                                className="h-2 rounded-full transition-all duration-300"
-                                                style={{
-                                                  width: `${confidencePercent}%`,
-                                                  backgroundColor: color
-                                                }}
-                                              />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                    
-                                    {/* Confidence Scale Legend */}
-                                    <div className="mt-6 pt-6 border-t">
-                                      <p className="text-sm text-gray-600 mb-3">Confidence Scale:</p>
-                                      <div className="flex gap-6 justify-center flex-wrap">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#4CAF50' }} />
-                                          <span className="text-sm">High (75-100%)</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#FFC107' }} />
-                                          <span className="text-sm">Medium (50-75%)</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-5 h-5 rounded" style={{ backgroundColor: '#F44336' }} />
-                                          <span className="text-sm">Low (Below 50%)</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              )}
-          
                               <div className="relative">
                                 {/* Loading overlay for AI */}
                                 {isAiLoading && (
@@ -1143,7 +1397,7 @@ const CreateReport = () => {
                                       onClick={() => {
                                         const a = document.createElement('a');
                                         a.href = videoUrl;
-                                                                                a.download = `patient-video-${patientName.replace(/\s+/g, '-')}.mp4`;
+                                        a.download = `patient-video-${patientName.replace(/\s+/g, '-')}.mp4`;
                                         document.body.appendChild(a);
                                         a.click();
                                         document.body.removeChild(a);
@@ -1181,7 +1435,7 @@ const CreateReport = () => {
                                 <Button type="button" variant={isListening ? "secondary" : "outline"} onClick={handleMicClick} disabled={isAiLoading}>
                                   <Mic className={isListening ? "animate-pulse text-red-500" : ""} />
                                 </Button>
-                                <Button type="button" onClick={handleAiSuggest} disabled={isAiLoading || !aiSuggestion.trim()}>
+                                                <Button type="button" onClick={handleAiSuggest} disabled={isAiLoading || !aiSuggestion.trim()}>
                                   Apply Changes
                                 </Button>
                               </div>
@@ -1285,297 +1539,115 @@ const CreateReport = () => {
                       />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
 
-            {/* Findings Table - Show for both modes */}
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Dental Findings</CardTitle>
-                <CardDescription>
-                  Add specific findings for individual teeth (optional)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-blue-900">Tooth-Specific Findings</span>
-                  <Button type="button" variant="outline" onClick={addFinding} size="sm">+ Add Finding</Button>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tooth</TableHead>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Recommended Treatment</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {findings.map((f, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <Input
-                            value={f.tooth}
-                            onChange={e => handleFindingChange(idx, "tooth", e.target.value)}
-                            placeholder="e.g. 16"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={f.condition}
-                            onChange={e => handleFindingChange(idx, "condition", e.target.value)}
-                            placeholder="e.g. Caries"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={f.treatment}
-                            onChange={e => handleFindingChange(idx, "treatment", e.target.value)}
-                            placeholder="e.g. Filling"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => removeFinding(idx)} disabled={findings.length === 1}>Remove</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* Submit Button */}
-            {!report && (
-              <div className="flex justify-center mb-8">
-                <Button
-                  size="lg"
-                  type="submit"
-                  disabled={isProcessing}
-                  className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Generating Report{useXrayMode ? " & Video" : ""}...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="mr-2 h-5 w-5" />
-                      Generate Treatment Report
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Report/Video Display - existing code */}
-            {report && (
-              <Card className="mb-8 bg-white border-blue-200">
-                <CardHeader>
-                  <CardTitle className="text-blue-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <span>Treatment Analysis Results</span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="outline" onClick={handleUndo} disabled={history.length <= 1}>Undo</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setShowHistory(h => !h)} disabled={history.length <= 1}>History</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('html')}>HTML</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => handleDownload('txt')}>TXT</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={handleDownloadPDF}>PDF</Button>
+                  {/* Manual Findings for Non-X-ray Mode */}
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-medium text-blue-900">Manual Findings</span>
+                      <Button type="button" variant="outline" onClick={addFinding} size="sm">
+                        + Add Finding
+                      </Button>
                     </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                      <TabsTrigger value="report" className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Written Report
-                      </TabsTrigger>
-                      <TabsTrigger value="video" className="flex items-center gap-2" disabled={!videoUrl}>
-                        <Video className="w-4 h-4" />
-                        Patient Video {!videoUrl && (useXrayMode ? "(Generating...)" : "(Not Available)")}
-                      </TabsTrigger>
-                    </TabsList>
+                    
+                    <div className="space-y-4">
+                      {findings.map((f, idx) => (
+                        <Card key={idx} className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Tooth Number */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Tooth</Label>
+                              <SearchableSelect
+                                options={getToothOptions(toothNumberingSystem)}
+                                value={f.tooth}
+                                onValueChange={(value) => handleFindingChange(idx, "tooth", value)}
+                                placeholder="Select tooth"
+                                searchPlaceholder="Search tooth number..."
+                              />
+                            </div>
 
-                    {/* Report Tab */}
-                    <TabsContent value="report" className="mt-4">
-                      <div className="relative">
-                        {/* Loading overlay for AI */}
-                        {isAiLoading && (
-                          <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 backdrop-blur-sm">
-                            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-                          </div>
-                        )}
-                        
-                        {isEditing ? (
-                          <div
-                            ref={reportRef}
-                            className="border rounded p-4 min-h-[120px] bg-gray-50 focus:outline-blue-400 outline outline-2"
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            dangerouslySetInnerHTML={{ __html: editedReport || report }}
-                            style={{ overflowX: 'auto', wordBreak: 'break-word' }}
-                          />
-                        ) : (
-                          <div
-                            ref={reportRef}
-                            className="border rounded p-4 min-h-[120px] bg-gray-50"
-                            dangerouslySetInnerHTML={{ __html: report }}
-                            style={{ overflowX: 'auto', wordBreak: 'break-word' }}
-                          />
-                        )}
-                        
-                        {/* Edit/Save buttons */}
-                        {!isEditing ? (
-                          <Button className="mt-3" type="button" onClick={handleEditClick} disabled={isAiLoading}>
-                            Edit Report
-                          </Button>
-                        ) : (
-                          <Button className="mt-3" type="button" onClick={handleSaveEdit}>
-                            Save Changes
-                          </Button>
-                        )}
-                      </div>
-                    </TabsContent>
+                            {/* Condition */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Condition</Label>
+                              <SearchableSelect
+                                options={ALL_CONDITIONS}
+                                value={f.condition}
+                                onValueChange={(value) => handleFindingChange(idx, "condition", value)}
+                                placeholder="Select condition"
+                                searchPlaceholder="Search conditions..."
+                              />
+                            </div>
 
-                    {/* Video Tab */}
-                    <TabsContent value="video" className="mt-4">
-                      {videoUrl ? (
-                        <div className="space-y-4">
-                          <div className="bg-gray-900 rounded-lg overflow-hidden">
-                            <video
-                              controls
-                              className="w-full"
-                              poster={report.match(/src="([^"]+)"/)?.[1] || ''}
-                            >
-                              <source src={videoUrl} type="video/mp4" />
-                              Your browser does not support the video tag.
-                            </video>
-                          </div>
-                          <div className="bg-blue-50 p-4 rounded-lg">
-                            <h4 className="font-semibold text-blue-900 mb-2">About This Video</h4>
-                            <p className="text-sm text-blue-700">
-                              This personalized video explains the X-ray findings in an easy-to-understand way.
-                              It includes voice narration and subtitles to help patients understand their dental conditions and treatment options.
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => window.open(videoUrl, '_blank')}
-                              className="flex items-center gap-2"
-                            >
-                              <Play className="w-4 h-4" />
-                              Open in New Tab
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                const a = document.createElement('a');
-                                a.href = videoUrl;
-                                a.download = `patient-video-${patientName.replace(/\s+/g, '-')}.mp4`;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                              }}
-                            >
-                              Download Video
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12">
-                          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600 mb-2">
-                            {useXrayMode ? "Video is being generated..." : "Video generation requires X-ray upload"}
-                          </p>
-                          {useXrayMode && (
-                            <>
-                              <p className="text-sm text-gray-500">This usually takes 1-2 minutes</p>
-                              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mt-4" />
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
+                            {/* Treatment */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Treatment</Label>
+                              <SearchableSelect
+                                options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
+                                value={f.treatment}
+                                onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
+                                placeholder="Select treatment"
+                                searchPlaceholder="Search treatments..."
+                              />
+                            </div>
 
-                  {/* AI Suggestion Section - Only show in report tab */}
-                  {activeTab === "report" && (
-                    <div className="mt-8 border-t pt-8">
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-2">
-                        <label className="font-medium text-blue-900">AI-Powered Report Editing</label>
-                      </div>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <Input
-                          value={aiSuggestion}
-                          onChange={e => setAiSuggestion(e.target.value)}
-                          placeholder="Type or speak your change request..."
-                          disabled={isAiLoading}
-                          className="flex-1"
-                        />
-                        <Button type="button" variant={isListening ? "secondary" : "outline"} onClick={handleMicClick} disabled={isAiLoading}>
-                          <Mic className={isListening ? "animate-pulse text-red-500" : ""} />
-                        </Button>
-                        <Button type="button" onClick={handleAiSuggest} disabled={isAiLoading || !aiSuggestion.trim()}>
-                          Apply Changes
-                        </Button>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Example: "Make the summary more concise" or "Add a section about oral hygiene recommendations"
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Version History Modal */}
-                  {showHistory && (
-                    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-                      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 overflow-auto max-h-[80vh]">
-                        <h2 className="text-lg font-bold mb-4">Version History</h2>
-                        <ul className="space-y-3">
-                          {history.map((v, idx) => (
-                            <li key={idx} className="border rounded p-3 flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">{v.type}</span>
-                                <span className="text-xs text-gray-500">{v.timestamp}</span>
-                              </div>
-                              <p className="text-sm text-gray-600">{v.summary}</p>
+                            {/* Remove Button */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium opacity-0">Actions</Label>
                               <Button
+                                type="button"
+                                variant="destructive"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleRestoreVersion(idx)}
-                                className="w-full mt-2"
+                                onClick={() => removeFinding(idx)}
+                                disabled={findings.length === 1}
+                                className="w-full"
                               >
-                                Restore this version
+                                Remove
                               </Button>
-                            </li>
-                          ))}
-                        </ul>
-                        <Button className="mt-4 w-full" onClick={() => setShowHistory(false)}>Close</Button>
-                      </div>
-                    </div>
-                  )}
+                            </div>
+                          </div>
 
-                  {/* Audit Trail */}
-                  <div className="mt-8 border-t pt-6">
-                    <h3 className="font-semibold text-blue-900 mb-2">Audit Trail</h3>
-                    <ul className="text-xs text-gray-700 space-y-1 max-h-32 overflow-auto border rounded p-3 bg-gray-50">
-                      {auditTrail.length === 0 ? (
-                        <li className="text-gray-500 italic">No changes recorded yet</li>
+                          {/* Pricing Input */}
+                          {f.treatment && (
+                            <div className="mt-4 pt-4 border-t">
+                              <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
+                              <PricingInput
+                                treatment={f.treatment}
+                                value={f.price}
+                                onChange={(price) => handleFindingChange(idx, "price", price)}
+                                clinicPrices={clinicPrices}
+                                onPriceSave={handlePriceSave}
+                              />
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Submit Button for Non-X-ray Mode */}
+                  <div className="flex justify-center mt-8">
+                    <Button 
+                      size="lg"
+                      type="submit"
+                      disabled={isProcessing}
+                      className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Generating Report...
+                        </>
                       ) : (
-                        auditTrail.map((entry, idx) => (
-                          <li key={idx} className="border-b last:border-0 py-1 flex justify-between">
-                            <span>{entry.action}</span>
-                            <span className="text-gray-400">{entry.timestamp}</span>
-                          </li>
-                        ))
+                        <>
+                          <Brain className="mr-2 h-5 w-5" />
+                          Generate Treatment Report
+                        </>
                       )}
-                    </ul>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
-          </form>
+            </form>
 
           {/* Instructions */}
           <Card>
@@ -1609,6 +1681,14 @@ const CreateReport = () => {
       </div>
 
       
+      {/* Price Validation Dialog */}
+      <PriceValidationDialog
+        open={showPriceValidation}
+        onOpenChange={setShowPriceValidation}
+        missingPrices={missingPrices}
+        onPricesProvided={handlePricesProvided}
+        onCancel={handlePriceValidationCancel}
+      />
     </div>
   );
 };

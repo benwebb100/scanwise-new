@@ -257,6 +257,89 @@ Do not:
         except Exception as e:
             logger.error(f"Error generating video script: {str(e)}")
             raise
+    
+    async def generate_immediate_findings_summary(self, roboflow_predictions: Dict) -> Dict:
+        """
+        Generate immediate findings summary for dentist reference
+        """
+        try:
+            system_prompt = """You are an expert dental AI assistant analyzing panoramic X-ray results. 
+            Your task is to provide a comprehensive summary of detected conditions to help the dentist 
+            understand what the AI has found and use this information to fill out their findings.
+
+            For each detection, provide:
+            1. Clear description of the condition
+            2. Location details (which teeth/areas affected)
+            3. Clinical significance
+            4. Recommended next steps
+            5. Confidence assessment
+
+            Return a JSON response with the following structure:
+            {
+                "overall_summary": "Brief overview of all findings",
+                "detailed_findings": [
+                    {
+                        "condition": "condition_name",
+                        "description": "detailed description",
+                        "affected_areas": "specific teeth or regions",
+                        "clinical_significance": "what this means clinically",
+                        "recommended_action": "suggested treatment approach",
+                        "confidence_note": "interpretation of AI confidence",
+                        "urgency": "low/medium/high"
+                    }
+                ],
+                "total_detections": 0,
+                "high_confidence_count": 0,
+                "areas_needing_attention": ["list of specific areas"]
+            }
+
+            Use professional dental terminology but keep explanations clear for clinical decision-making."""
+            
+            # Format detections for analysis
+            detections = []
+            if roboflow_predictions and 'predictions' in roboflow_predictions:
+                for pred in roboflow_predictions['predictions']:
+                    detections.append({
+                        'class': pred.get('class', 'Unknown'),
+                        'confidence': pred.get('confidence', 0),
+                        'location': {
+                            'x': pred.get('x', 0),
+                            'y': pred.get('y', 0),
+                            'width': pred.get('width', 0),
+                            'height': pred.get('height', 0)
+                        }
+                    })
+            
+            user_prompt = f"""Analyze these AI-detected dental conditions from the panoramic X-ray:
+
+            Detections:
+            {json.dumps(detections, indent=2)}
+
+            Please provide a comprehensive clinical summary to assist the dentist in their assessment."""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            logger.info("Successfully generated immediate findings summary")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error generating immediate findings summary: {str(e)}")
+            return {
+                "overall_summary": "Error processing AI analysis",
+                "detailed_findings": [],
+                "total_detections": 0,
+                "high_confidence_count": 0,
+                "areas_needing_attention": []
+            }
 
 # Create singleton instance
 openai_service = OpenAIService()
