@@ -84,7 +84,13 @@ export const api = {
       throw new Error('Failed to fetch report');
     }
 
-    return response.json();
+    const data = await response.json();
+    
+    // Transform data for frontend
+    return {
+      ...data,
+      reportHtml: data.report_html || ''
+    };
   },
 
   // Analyze without X-ray
@@ -111,5 +117,122 @@ export const api = {
 
     if (!response.ok) throw new Error('Analysis failed');
     return response.json();
-  }
+  },
+
+  // Clinic pricing endpoints
+  async saveClinicPricing(pricingData: Record<string, number>) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/clinic-pricing`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pricingData),
+    });
+
+    if (!response.ok) throw new Error('Failed to save pricing');
+    return response.json();
+  },
+
+  async getClinicPricing() {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/clinic-pricing`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get pricing');
+    return response.json();
+  },
+
+  // Clinic branding endpoints
+  async saveClinicBranding(brandingData: any) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/clinic-branding`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(brandingData),
+    });
+
+    if (!response.ok) throw new Error('Failed to save branding');
+    return response.json();
+  },
+
+  async getClinicBranding() {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/clinic-branding`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get branding');
+    return response.json();
+  },
+
+  // Dental data endpoints
+  async getDentalConditions() {
+    const response = await fetch(`${API_BASE_URL}/dental-data/conditions`);
+    if (!response.ok) throw new Error('Failed to get conditions');
+    return response.json();
+  },
+
+  async getDentalTreatments() {
+    const response = await fetch(`${API_BASE_URL}/dental-data/treatments`);
+    if (!response.ok) throw new Error('Failed to get treatments');
+    return response.json();
+  },
+
+  async getTreatmentSuggestions(condition: string) {
+    const response = await fetch(`${API_BASE_URL}/dental-data/treatment-suggestions/${condition}`);
+    if (!response.ok) throw new Error('Failed to get treatment suggestions');
+    return response.json();
+  },
+
+  // OCR processing for price list images
+  async processImageOCR(base64Image: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/process-image-ocr`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_data: base64Image
+      }),
+    });
+
+    if (!response.ok) throw new Error('OCR processing failed');
+    return response.json();
+  },
+
+  // Add this new method to the api object
+  async analyzeXrayImmediate(imageUrl: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/analyze-xray-immediate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_url: imageUrl
+      }),
+    });
+
+    if (!response.ok) throw new Error('Failed to analyze X-ray immediately');
+    return response.json();
+  },
 };

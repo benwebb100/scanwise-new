@@ -3,10 +3,13 @@ from typing import Optional, Dict
 from datetime import datetime
 import logging
 import os
-
+import base64
 import requests
+import jwt
 
 from models.analyze import AnalyzeXrayRequest, AnalyzeXrayResponse, SuggestChangesRequest, SuggestChangesResponse
+from pydantic import BaseModel
+from typing import Optional, List
 from services.supabase import supabase_service
 from services.roboflow import roboflow_service
 from services.openai_analysis import openai_service
@@ -17,8 +20,229 @@ from services.elevenlabs_service import elevenlabs_service
 import tempfile
 import uuid
 
+# Enhanced models for new functionality
+class EnhancedFinding(BaseModel):
+    tooth: str
+    condition: str
+    treatment: str
+    price: Optional[float] = None
+    tooth_numbering_system: Optional[str] = "FDI"
+
+class ClinicBrandingData(BaseModel):
+    clinic_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    header_template: Optional[str] = None
+    footer_template: Optional[str] = None
+    primary_color: Optional[str] = "#1e88e5"
+    secondary_color: Optional[str] = "#666666"
+
+class EnhancedAnalyzeRequest(BaseModel):
+    patient_name: str
+    image_url: Optional[str] = None
+    findings: List[EnhancedFinding] = []
+    observations: Optional[str] = None
+    tooth_numbering_system: Optional[str] = "FDI"
+    clinic_branding: Optional[ClinicBrandingData] = None
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# PDF generation will be handled client-side
+
+def generate_html_report(patient_name: str, ai_analysis: dict, annotated_image_url: str = None) -> str:
+    """Generate HTML report from AI analysis"""
+    try:
+        # Extract data from AI analysis
+        summary = ai_analysis.get('summary', '')
+        treatment_stages = ai_analysis.get('treatment_stages', [])
+        ai_notes = ai_analysis.get('ai_notes', '')
+        detections = ai_analysis.get('detections', [])
+        
+        # Helper functions
+        def get_confidence_color(confidence: float) -> str:
+            if confidence >= 0.75:
+                return '#4CAF50'  # Green
+            if confidence >= 0.50:
+                return '#FFC107'  # Yellow
+            return '#F44336'  # Red
+        
+        def get_confidence_label(confidence: float) -> str:
+            if confidence >= 0.75:
+                return 'High'
+            if confidence >= 0.50:
+                return 'Medium'
+            return 'Low'
+        
+        # Start building HTML
+        html = f"""
+        <html>
+        <head>
+            <title>Dental Report - {patient_name}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .report-container {{ max-width: 800px; margin: 0 auto; }}
+                h2, h3, h4 {{ color: #333; }}
+                img {{ max-width: 100%; height: auto; display: block; margin: 20px 0; }}
+                .treatment-stage {{ margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }}
+                ul {{ margin: 10px 0; }}
+                li {{ margin: 5px 0; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+                th, td {{ padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }}
+                th {{ background-color: #f2f2f2; }}
+                .confidence-high {{ color: #4CAF50; }}
+                .confidence-medium {{ color: #FFC107; }}
+                .confidence-low {{ color: #F44336; }}
+            </style>
+        </head>
+        <body>
+            <div class="report-container">
+                <div style="background-color: #1e88e5; color: white; padding: 20px; display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 40px; height: 40px; background-color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #1e88e5; font-size: 20px;">🧠</span>
+                        </div>
+                        <span style="font-size: 24px; font-weight: bold;">Scanwise</span>
+                    </div>
+                </div>
+                
+                <h2>Dental Treatment Report for {patient_name}</h2>
+                <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+                
+                <div class="summary">
+                    <h3>Summary</h3>
+                    <p>{summary}</p>
+                </div>
+        """
+        
+        # Add treatment stages
+        if treatment_stages:
+            html += """
+                <div class="treatment-plan">
+                    <h3>Treatment Plan</h3>
+            """
+            
+            for stage in treatment_stages:
+                stage_name = stage.get('stage', '')
+                stage_focus = stage.get('focus', '')
+                stage_summary = stage.get('summary', '')
+                stage_duration = stage.get('duration', '')
+                stage_items = stage.get('items', [])
+                
+                html += f"""
+                    <div class="treatment-stage">
+                        <h4>{stage_name} - {stage_focus}</h4>
+                        <p>{stage_summary}</p>
+                        <p>Estimated duration: {stage_duration}</p>
+                        
+                        <table>
+                            <tr>
+                                <th>Tooth</th>
+                                <th>Condition</th>
+                                <th>Recommended Treatment</th>
+                                <th>ADA Code</th>
+                                <th>Price</th>
+                            </tr>
+                """
+                
+                for item in stage_items:
+                    tooth = item.get('tooth', '')
+                    condition = item.get('condition', '')
+                    treatment = item.get('recommended_treatment', '')
+                    ada_code = item.get('ada_code', '')
+                    price = item.get('price', 0)
+                    
+                    html += f"""
+                            <tr>
+                                <td>{tooth}</td>
+                                <td>{condition}</td>
+                                <td>{treatment}</td>
+                                <td>{ada_code}</td>
+                                <td>${price}</td>
+                            </tr>
+                    """
+                
+                html += """
+                        </table>
+                    </div>
+                """
+            
+            html += """
+                </div>
+            """
+        
+        # Add AI notes
+        if ai_notes:
+            html += f"""
+                <div class="ai-notes">
+                    <h3>Professional Notes</h3>
+                    <p>{ai_notes}</p>
+                </div>
+            """
+        
+        # Add annotated image if available
+        if annotated_image_url:
+            html += f"""
+                <div class="annotated-image">
+                    <h3>Annotated X-ray</h3>
+                    <img src="{annotated_image_url}" alt="Annotated X-ray" />
+                </div>
+            """
+        
+        # Add detections with confidence scores
+        if detections:
+            html += """
+                <div class="detections">
+                    <h3>AI Detection Confidence</h3>
+                    <table>
+                        <tr>
+                            <th>Condition</th>
+                            <th>Confidence</th>
+                        </tr>
+            """
+            
+            for detection in detections:
+                class_name = detection.get('class', 'Unknown')
+                confidence = detection.get('confidence', 0)
+                confidence_percent = int(confidence * 100)
+                confidence_color = get_confidence_color(confidence)
+                confidence_label = get_confidence_label(confidence)
+                
+                html += f"""
+                        <tr>
+                            <td>{class_name}</td>
+                            <td style="color: {confidence_color};">{confidence_percent}% ({confidence_label})</td>
+                        </tr>
+                """
+            
+            html += """
+                    </table>
+                </div>
+            """
+        
+        # Close HTML
+        html += """
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
+    except Exception as e:
+        logger.error(f"Error generating HTML report: {str(e)}")
+        # Return a simple error report
+        return f"""
+        <html>
+        <body>
+            <h1>Error Generating Report</h1>
+            <p>There was an error generating the detailed report. Please contact support.</p>
+            <p>Error: {str(e)}</p>
+        </body>
+        </html>
+        """
 
 async def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
     """Extract JWT token from Authorization header"""
@@ -36,6 +260,69 @@ async def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
     except Exception as e:
         logger.error(f"Auth extraction error: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid authentication token")
+    
+
+@router.post("/analyze-xray-immediate")
+async def analyze_xray_immediate(
+    request: AnalyzeXrayRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Immediately analyze X-ray after upload to provide findings summary
+    """
+    try:
+        logger.info(f"Starting immediate X-ray analysis for image: {request.image_url}")
+        
+        # Step 1: Send image to Roboflow for detection
+        predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
+        
+        if not predictions or not annotated_image:
+            raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
+        
+        # Step 2: Upload annotated image to Supabase Storage
+        annotated_filename = f"annotated/immediate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        annotated_url = await supabase_service.upload_image(
+            annotated_image,
+            annotated_filename,
+            token
+        )
+        
+        if not annotated_url:
+            raise HTTPException(status_code=500, detail="Failed to upload annotated image")
+        
+        # Step 3: Generate immediate findings summary with OpenAI
+        findings_summary = await openai_service.generate_immediate_findings_summary(predictions)
+        
+        # Step 4: Prepare response with detailed findings
+        detections = []
+        if predictions and 'predictions' in predictions:
+            for pred in predictions['predictions']:
+                detections.append({
+                    'class': pred.get('class', 'Unknown'),
+                    'class_name': pred.get('class', 'Unknown'),
+                    'confidence': pred.get('confidence', 0),
+                    'x': pred.get('x', 0),
+                    'y': pred.get('y', 0),
+                    'width': pred.get('width', 0),
+                    'height': pred.get('height', 0)
+                })
+        
+        response_data = {
+            "status": "success",
+            "annotated_image_url": annotated_url,
+            "detections": detections,
+            "findings_summary": findings_summary,
+            "original_predictions": predictions
+        }
+        
+        logger.info(f"Successfully completed immediate X-ray analysis. Found {len(detections)} detections")
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in analyze_xray_immediate: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
@@ -73,13 +360,17 @@ async def analyze_xray(
         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
         
         # Step 4: Save to database (Supabase handles user_id via RLS)
+        # Generate HTML report
+        html_report = generate_html_report(request.patient_name, ai_analysis, annotated_url)
+        
         diagnosis_data = {
             'patient_name': request.patient_name,
             'image_url': str(request.image_url),
             'annotated_image_url': annotated_url,
             'summary': ai_analysis.get('summary', ''),
             'ai_notes': ai_analysis.get('ai_notes', ''),
-            'treatment_stages': ai_analysis.get('treatment_stages', [])
+            'treatment_stages': ai_analysis.get('treatment_stages', []),
+            'report_html': html_report
         }
         
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
@@ -614,6 +905,7 @@ async def get_diagnosis_by_id(
             "videoUrl": diagnosis.get('video_url'),
             "videoScript": diagnosis.get('video_script'),
             "videoGeneratedAt": diagnosis.get('video_generated_at'),
+            "report_html": diagnosis.get('report_html'),
             "conditions": _extract_conditions(diagnosis.get('treatment_stages', [])),
             "teethAnalyzed": _count_teeth(diagnosis.get('treatment_stages', [])),
             "status": "Completed"
@@ -660,15 +952,19 @@ async def analyze_without_xray(
         # Step 1: Analyze with OpenAI (no Roboflow detection)
         ai_analysis = await openai_service.analyze_dental_conditions(mock_predictions, enhanced_findings)
         
+        # Generate HTML report
+        html_report = generate_html_report(patient_name, ai_analysis)
+        
         # Step 2: Save to database without image URLs
         diagnosis_data = {
             'patient_name': patient_name,
-            'image_url': None,  # No image URL
-            'annotated_image_url': None,  # No annotated image
+            'image_url': 'placeholder-no-xray.jpg',  # Placeholder image URL instead of null
+            'annotated_image_url': 'placeholder-no-xray.jpg',  # Placeholder image URL instead of null
             'summary': ai_analysis.get('summary', ''),
             'ai_notes': ai_analysis.get('ai_notes', ''),
             'treatment_stages': ai_analysis.get('treatment_stages', []),
-            'is_xray_based': False  # Flag to indicate this is not X-ray based
+            'is_xray_based': False,  # Flag to indicate this is not X-ray based
+            'report_html': html_report
         }
         
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
@@ -691,3 +987,392 @@ async def analyze_without_xray(
     except Exception as e:
         logger.error(f"Error in analyze_without_xray: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/clinic-pricing")
+async def save_clinic_pricing(
+    pricing_data: Dict[str, float],
+    token: str = Depends(get_auth_token)
+):
+    """Save clinic-specific pricing for treatments"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Save or update pricing data
+        # First, try to get existing pricing
+        existing_response = auth_client.table('clinic_pricing').select("*").execute()
+        
+        if existing_response.data:
+            # Update existing pricing
+            response = auth_client.table('clinic_pricing').update({
+                'pricing_data': pricing_data,
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', existing_response.data[0]['id']).execute()
+        else:
+            # Create new pricing record
+            response = auth_client.table('clinic_pricing').insert({
+                'pricing_data': pricing_data,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }).execute()
+        
+        return {
+            "status": "success",
+            "message": "Clinic pricing saved successfully",
+            "pricing_data": pricing_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving clinic pricing: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save pricing: {str(e)}")
+
+
+@router.get("/clinic-pricing")
+async def get_clinic_pricing(
+    token: str = Depends(get_auth_token)
+):
+    """Get clinic-specific pricing for treatments"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get pricing data
+        response = auth_client.table('clinic_pricing').select("*").execute()
+        
+        if response.data:
+            return {
+                "status": "success",
+                "pricing_data": response.data[0].get('pricing_data', {})
+            }
+        else:
+            return {
+                "status": "success",
+                "pricing_data": {}
+            }
+        
+    except Exception as e:
+        logger.error(f"Error getting clinic pricing: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get pricing: {str(e)}")
+
+
+@router.post("/clinic-branding")
+async def save_clinic_branding(
+    branding_data: ClinicBrandingData,
+    token: str = Depends(get_auth_token)
+):
+    """Save clinic branding information"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Convert to dict
+        branding_dict = branding_data.model_dump()
+        
+        # DEBUG: Log the authentication context
+        logger.info(f"Attempting to save clinic branding with token: {token[:20]}...")
+        
+        # DEBUG: Try to get user info from the authenticated client
+        try:
+            user_response = auth_client.auth.get_user()
+            logger.info(f"User context: {user_response}")
+        except Exception as user_error:
+            logger.error(f"Failed to get user context: {str(user_error)}")
+        
+        # Save or update branding data
+        logger.info("Checking for existing clinic branding records...")
+        existing_response = auth_client.table('clinic_branding').select("*").execute()
+        logger.info(f"Existing records found: {len(existing_response.data) if existing_response.data else 0}")
+        
+        if existing_response.data:
+            # Update existing branding
+            logger.info(f"Updating existing branding record with ID: {existing_response.data[0]['id']}")
+            response = auth_client.table('clinic_branding').update({
+                **branding_dict,
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', existing_response.data[0]['id']).execute()
+            logger.info("Update operation completed successfully")
+        else:
+            # Create new branding record
+            logger.info("Creating new branding record...")
+            insert_data = {
+                **branding_dict,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            logger.info(f"Insert data: {insert_data}")
+            
+            # DEBUG: Try to explicitly add user_id if we can extract it
+            try:
+                # Decode JWT to get user_id
+                import jwt
+                decoded_token = jwt.decode(token, options={"verify_signature": False})
+                user_id = decoded_token.get('sub')
+                if user_id:
+                    insert_data['user_id'] = user_id
+                    logger.info(f"Added user_id to insert data: {user_id}")
+                else:
+                    logger.warning("No user_id found in JWT token")
+            except Exception as jwt_error:
+                logger.error(f"Failed to decode JWT token: {str(jwt_error)}")
+            
+            response = auth_client.table('clinic_branding').insert(insert_data).execute()
+            logger.info("Insert operation completed successfully")
+        
+        return {
+            "status": "success",
+            "message": "Clinic branding saved successfully",
+            "branding_data": branding_dict
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving clinic branding: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        
+        # DEBUG: Log more details about the error
+        if hasattr(e, 'details'):
+            logger.error(f"Error details: {e.details}")
+        if hasattr(e, 'message'):
+            logger.error(f"Error message: {e.message}")
+        if hasattr(e, 'code'):
+            logger.error(f"Error code: {e.code}")
+            
+        raise HTTPException(status_code=500, detail=f"Failed to save branding: {str(e)}")
+
+
+@router.get("/clinic-branding")
+async def get_clinic_branding(
+    token: str = Depends(get_auth_token)
+):
+    """Get clinic branding information"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get branding data
+        response = auth_client.table('clinic_branding').select("*").execute()
+        
+        if response.data:
+            branding_data = response.data[0]
+            # Remove metadata fields
+            branding_data.pop('id', None)
+            branding_data.pop('created_at', None)
+            branding_data.pop('updated_at', None)
+            branding_data.pop('user_id', None)
+            
+            return {
+                "status": "success",
+                "branding_data": branding_data
+            }
+        else:
+            return {
+                "status": "success",
+                "branding_data": {}
+            }
+        
+    except Exception as e:
+        logger.error(f"Error getting clinic branding: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get branding: {str(e)}")
+
+
+@router.get("/dental-data/conditions")
+async def get_dental_conditions():
+    """Get list of dental conditions for dropdowns"""
+    conditions = [
+        {"value": "caries", "label": "Caries", "pinned": True},
+        {"value": "periapical-lesion", "label": "Periapical lesion", "pinned": True},
+        {"value": "root-fracture", "label": "Root fracture", "pinned": True},
+        {"value": "impacted-tooth", "label": "Impacted tooth", "pinned": True},
+        {"value": "missing-tooth", "label": "Missing tooth", "pinned": True},
+        {"value": "gingivitis", "label": "Gingivitis", "pinned": True},
+        {"value": "periodontal-pocket", "label": "Periodontal pocket", "pinned": True},
+        {"value": "attrition", "label": "Attrition", "pinned": True},
+        {"value": "pulpitis", "label": "Pulpitis", "pinned": True},
+        {"value": "tooth-mobility", "label": "Tooth mobility", "pinned": True},
+        # Additional conditions
+        {"value": "abrasion", "label": "Abrasion", "pinned": False},
+        {"value": "erosion", "label": "Erosion", "pinned": False},
+        {"value": "calculus", "label": "Calculus", "pinned": False},
+        {"value": "plaque", "label": "Plaque", "pinned": False},
+        {"value": "crown-fracture", "label": "Crown fracture", "pinned": False},
+        {"value": "root-piece", "label": "Root piece", "pinned": False},
+        {"value": "abscess", "label": "Abscess", "pinned": False},
+        {"value": "cyst", "label": "Cyst", "pinned": False},
+        {"value": "resorption", "label": "Resorption", "pinned": False},
+        {"value": "hypoplasia", "label": "Hypoplasia", "pinned": False},
+        {"value": "fluorosis", "label": "Fluorosis", "pinned": False},
+        {"value": "staining", "label": "Staining", "pinned": False},
+    ]
+    
+    return {
+        "status": "success",
+        "conditions": conditions
+    }
+
+
+@router.get("/dental-data/treatments")
+async def get_dental_treatments():
+    """Get list of dental treatments for dropdowns"""
+    treatments = [
+        {"value": "filling", "label": "Filling", "pinned": True},
+        {"value": "extraction", "label": "Extraction", "pinned": True},
+        {"value": "root-canal-treatment", "label": "Root canal treatment", "pinned": True},
+        {"value": "crown", "label": "Crown", "pinned": True},
+        {"value": "scale-and-clean", "label": "Scale and clean", "pinned": True},
+        {"value": "implant-placement", "label": "Implant placement", "pinned": True},
+        {"value": "bridge", "label": "Bridge", "pinned": True},
+        {"value": "periodontal-treatment", "label": "Periodontal treatment", "pinned": True},
+        {"value": "veneer", "label": "Veneer", "pinned": True},
+        {"value": "fluoride-treatment", "label": "Fluoride treatment", "pinned": True},
+        # Additional treatments
+        {"value": "composite-build-up", "label": "Composite build-up", "pinned": False},
+        {"value": "surgical-extraction", "label": "Surgical extraction", "pinned": False},
+        {"value": "deep-cleaning", "label": "Deep cleaning (Scaling & Root Planing)", "pinned": False},
+        {"value": "partial-denture", "label": "Partial denture", "pinned": False},
+        {"value": "complete-denture", "label": "Complete denture", "pinned": False},
+        {"value": "inlay", "label": "Inlay", "pinned": False},
+        {"value": "onlay", "label": "Onlay", "pinned": False},
+        {"value": "whitening", "label": "Whitening", "pinned": False},
+        {"value": "bonding", "label": "Bonding", "pinned": False},
+        {"value": "sealant", "label": "Sealant", "pinned": False},
+    ]
+    
+    return {
+        "status": "success",
+        "treatments": treatments
+    }
+
+
+@router.get("/dental-data/treatment-suggestions/{condition}")
+async def get_treatment_suggestions(condition: str):
+    """Get suggested treatments for a specific condition"""
+    suggestions_map = {
+        "caries": ["filling"],
+        "periapical-lesion": ["root-canal-treatment"],
+        "root-fracture": ["crown"],
+        "crown-fracture": ["crown"],
+        "attrition": ["composite-build-up", "crown"],
+        "pulpitis": ["root-canal-treatment"],
+        "missing-tooth": ["implant-placement", "bridge", "partial-denture"],
+        "tooth-mobility": ["extraction"],
+        "impacted-tooth": ["surgical-extraction"],
+        "root-piece": ["surgical-extraction"],
+        "periodontal-pocket": ["deep-cleaning"],
+        "gingivitis": ["scale-and-clean"]
+    }
+    
+    suggested_treatments = suggestions_map.get(condition, [])
+    
+    return {
+        "status": "success",
+        "condition": condition,
+        "suggested_treatments": suggested_treatments
+    }
+
+
+class OCRRequest(BaseModel):
+    image_data: str  # Base64 encoded image
+
+
+@router.post("/process-image-ocr")
+async def process_image_ocr(
+    request: OCRRequest,
+    token: str = Depends(get_auth_token)
+):
+    """Process image with OCR to extract treatment prices"""
+    try:
+        # Extract base64 data (remove data:image/...;base64, prefix if present)
+        image_data = request.image_data
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        # Decode base64 image
+        image_bytes = base64.b64decode(image_data)
+        
+        # Use OpenAI Vision API to extract pricing information
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        system_prompt = """You are an expert at extracting dental treatment pricing information from images.
+        
+        Analyze the provided image and extract any treatment names and their corresponding prices.
+        
+        Look for:
+        - Treatment names (like "Filling", "Crown", "Root Canal", "Extraction", etc.)
+        - Associated prices (numbers with currency symbols or just numbers)
+        - Table structures, lists, or any organized pricing information
+        
+        Return the extracted information as a JSON object where keys are treatment names (normalized to lowercase with hyphens) and values are numeric prices.
+        
+        Example output format:
+        {
+          "filling": 120.00,
+          "crown": 1200.00,
+          "root-canal-treatment": 400.00,
+          "extraction": 180.00
+        }
+        
+        If no pricing information is found, return an empty object: {}
+        
+        Normalize treatment names to match common dental terminology:
+        - "Filling" or "Composite" -> "filling"
+        - "Crown" -> "crown"
+        - "Root Canal" -> "root-canal-treatment"
+        - "Extraction" -> "extraction"
+        - "Cleaning" or "Scale and Clean" -> "scale-and-clean"
+        - "Implant" -> "implant-placement"
+        - etc.
+        """
+        
+        user_prompt = "Please extract treatment pricing information from this image."
+        
+        response = openai_service.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature=0.1,
+            max_tokens=1000
+        )
+        
+        # Parse the response
+        content = response.choices[0].message.content
+        
+        try:
+            # Try to extract JSON from the response
+            import json
+            import re
+            
+            # Look for JSON object in the response
+            json_match = re.search(r'\{[^}]*\}', content)
+            if json_match:
+                extracted_prices = json.loads(json_match.group())
+            else:
+                extracted_prices = {}
+                
+        except (json.JSONDecodeError, AttributeError):
+            logger.error(f"Failed to parse OCR response: {content}")
+            extracted_prices = {}
+        
+        logger.info(f"OCR extracted {len(extracted_prices)} prices from image")
+        
+        return {
+            "status": "success",
+            "extracted_prices": extracted_prices,
+            "message": f"Extracted {len(extracted_prices)} treatment prices"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing image OCR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")

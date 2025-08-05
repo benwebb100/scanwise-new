@@ -8,7 +8,7 @@ class Finding(BaseModel):
     treatment: str
 
 class AnalyzeXrayRequest(BaseModel):
-    patient_name: str
+    patient_name: Optional[str] = None
     image_url: HttpUrl
     findings: Optional[List[Finding]] = []
 
