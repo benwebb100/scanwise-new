@@ -83,7 +83,7 @@ export function SearchableSelect({
         align="start"
         sideOffset={4}
       >
-        <Command shouldFilter={false}>
+        <Command>
           <CommandInput
             placeholder={searchPlaceholder}
             className="h-9"
@@ -97,7 +97,7 @@ export function SearchableSelect({
                 {pinnedOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={`${option.value}|${option.label}`.toLowerCase()}
+                    value={option.label}
                     onSelect={() => handleSelect(option.value)}
                     className="cursor-pointer"
                   >
@@ -119,7 +119,7 @@ export function SearchableSelect({
                 {regularOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={`${option.value}|${option.label}`.toLowerCase()}
+                    value={option.label}
                     onSelect={() => handleSelect(option.value)}
                     className="cursor-pointer"
                   >

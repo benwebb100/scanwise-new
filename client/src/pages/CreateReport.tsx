@@ -62,6 +62,64 @@ const CreateReport = () => {
     const saved = localStorage.getItem('toothNumberingSystem');
     return (saved as ToothNumberingSystem) || 'FDI';
   });
+  const [showTreatmentPricing, setShowTreatmentPricing] = useState(() => {
+    const saved = localStorage.getItem('showTreatmentPricing');
+    return saved === 'true' || false; // Hidden by default
+  });
+  
+  // Report generation progress state
+  const [reportProgress, setReportProgress] = useState(0);
+  const [reportProgressText, setReportProgressText] = useState('');
+  
+  // Progress steps for report generation
+  const progressSteps = [
+    { progress: 10, text: "Analyzing dental findings..." },
+    { progress: 20, text: "Processing AI recommendations..." },
+    { progress: 30, text: "Constructing summary table..." },
+    { progress: 40, text: "Adding clinic pricing..." },
+    { progress: 50, text: "Creating condition explanation boxes..." },
+    { progress: 60, text: "Generating treatment descriptions..." },
+    { progress: 70, text: "Adding annotated X-ray..." },
+    { progress: 80, text: "Applying clinic branding..." },
+    { progress: 90, text: "Formatting final report..." },
+    { progress: 100, text: "Finalizing document..." }
+  ];
+  
+  // Function to simulate progress updates
+  const simulateProgress = () => {
+    setReportProgress(0);
+    setReportProgressText('');
+    
+    progressSteps.forEach((step, index) => {
+      setTimeout(() => {
+        setReportProgress(step.progress);
+        setReportProgressText(step.text);
+      }, index * 1500); // 1.5 seconds between each step
+    });
+  };
+  
+  // Function to handle fallback progress (smooth load to 100%)
+  const fallbackProgress = () => {
+    setReportProgress(0);
+    setReportProgressText('');
+    
+    const duration = 15000; // 15 seconds total
+    const steps = 100;
+    const interval = duration / steps;
+    
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      currentProgress += 1;
+      setReportProgress(currentProgress);
+      
+      if (currentProgress >= 100) {
+        clearInterval(progressInterval);
+        setReportProgressText('Finalizing document...');
+      }
+    }, interval);
+    
+    return progressInterval;
+  };
   
   // Price validation dialog state
   const [showPriceValidation, setShowPriceValidation] = useState(false);
@@ -141,30 +199,26 @@ const CreateReport = () => {
       const updated = [...prev];
       updated[idx] = { ...updated[idx], [field]: value };
       
-      // Auto-suggest treatments when condition changes
-      if (field === 'condition' && typeof value === 'string') {
-        // Clear current treatment and price
-        updated[idx].treatment = '';
-        updated[idx].price = undefined;
-        
-        // Auto-populate with the most recommended treatment
-        const suggestedTreatments = getSuggestedTreatments(value);
-        if (suggestedTreatments && suggestedTreatments.length > 0) {
-          // Get the first (most recommended) treatment
-          const recommendedTreatment = suggestedTreatments[0].value;
-          updated[idx].treatment = recommendedTreatment;
-          
-          // Auto-fill price if available
-          const price = getPrice(recommendedTreatment);
-          if (price) {
-            updated[idx].price = price;
+      // Auto-suggest treatments when condition changes (only if treatment is empty)
+      if (field === 'condition' && typeof value === 'string' && value !== '') {
+        // Only clear treatment if it was empty or auto-filled
+        if (!updated[idx].treatment) {
+          // Auto-populate with the most recommended treatment
+          const suggestedTreatments = getSuggestedTreatments(value);
+          if (suggestedTreatments && suggestedTreatments.length > 0) {
+            // Get the first (most recommended) treatment
+            const recommendedTreatment = suggestedTreatments[0].value;
+            updated[idx].treatment = recommendedTreatment;
+            
+            // Auto-fill price if available
+            const price = getPrice(recommendedTreatment);
+            if (price) {
+              updated[idx].price = price;
+            }
+            
+            // Show a toast to inform the user (less intrusive)
+            console.log(`Auto-selected treatment: ${suggestedTreatments[0].label} for condition: ${value}`);
           }
-          
-          // Show a toast to inform the user
-          toast({
-            title: "Treatment Auto-Selected",
-            description: `${suggestedTreatments[0].label} has been automatically selected based on the condition. You can change it if needed.`,
-          });
         }
       }
       
@@ -259,6 +313,9 @@ const CreateReport = () => {
     setVideoUrl(null);
     setDetections([]);
     
+    // Start progress tracking
+    simulateProgress();
+    
     try {
       let analysisResult;
       
@@ -324,6 +381,9 @@ const CreateReport = () => {
       });
     } finally {
       setIsProcessing(false);
+      // Reset progress
+      setReportProgress(0);
+      setReportProgressText('');
     }
   };
 
@@ -1103,7 +1163,7 @@ const CreateReport = () => {
                         </div>
                       )}
 
-                      {/* Enhanced Loading Animation with Confidence Scores */}
+                      {/* Enhanced Loading Animation with Real Progress */}
                       {isProcessing && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
                           <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-4">
@@ -1112,34 +1172,29 @@ const CreateReport = () => {
                                 <Brain className="w-16 h-16 text-blue-600" />
                                 <div className="absolute inset-0 w-16 h-16 bg-blue-600/20 rounded-full animate-ping" />
                               </div>
-                              <h3 className="text-xl font-semibold mt-4 mb-2">Generating Report...</h3>
+                              <h3 className="text-xl font-semibold mt-4 mb-2">Generating Treatment Report</h3>
                               <p className="text-gray-600 mb-6">Creating comprehensive treatment plan</p>
                               
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span>Processing findings</span>
-                                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }} />
-                                  </div>
+                              {/* Single Dynamic Progress Bar */}
+                              <div className="space-y-4">
+                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                                    style={{ width: `${reportProgress}%` }}
+                                  />
                                 </div>
+                                
                                 <div className="flex items-center justify-between text-sm">
-                                  <span>Creating treatment plan</span>
-                                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '75%' }} />
-                                  </div>
+                                  <span className="text-blue-600 font-medium">{reportProgress}%</span>
+                                  <span className="text-gray-600">Complete</span>
                                 </div>
-                                <div className="flex items-center justify-between text-sm">
-                                  <span>Generating report</span>
-                                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '50%' }} />
+                                
+                                {/* Current Step Text */}
+                                {reportProgressText && (
+                                  <div className="text-sm text-gray-700 mt-3">
+                                    {reportProgressText}
                                   </div>
-                                </div>
-                                <div className="flex items-center justify-between text-sm">
-                                  <span>Creating video</span>
-                                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '25%' }} />
-                                  </div>
-                                </div>
+                                )}
                               </div>
                               
                               <div className="mt-6 flex items-center justify-center text-sm text-gray-500">
@@ -1191,9 +1246,25 @@ const CreateReport = () => {
                               </Badge>
                             )}
                           </div>
-                          <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
-                            + Add Finding
-                          </Button>
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                              <Label htmlFor="show-pricing" className="text-sm font-medium text-gray-700">
+                                Show treatment pricing
+                              </Label>
+                              <Switch
+                                id="show-pricing"
+                                checked={showTreatmentPricing}
+                                onCheckedChange={(checked) => {
+                                  setShowTreatmentPricing(checked);
+                                  localStorage.setItem('showTreatmentPricing', checked.toString());
+                                }}
+                                className="data-[state=checked]:bg-blue-600"
+                              />
+                            </div>
+                            <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
+                              + Add Finding
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="space-y-4">
@@ -1276,7 +1347,7 @@ const CreateReport = () => {
                               </div>
 
                               {/* Pricing Input */}
-                              {f.treatment && (
+                              {f.treatment && showTreatmentPricing && (
                                 <div className="mt-4 pt-4 border-t">
                                   <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
                                   <PricingInput
@@ -1662,7 +1733,7 @@ const CreateReport = () => {
                           </div>
 
                           {/* Pricing Input */}
-                          {f.treatment && (
+                          {f.treatment && showTreatmentPricing && (
                             <div className="mt-4 pt-4 border-t">
                               <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
                               <PricingInput

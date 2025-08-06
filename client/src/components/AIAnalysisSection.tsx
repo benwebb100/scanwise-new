@@ -119,7 +119,14 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       'root-canal-treatment': '#FF004D',
       'tissue-level': '#A2925D'
     };
-    return colorMap[condition.toLowerCase()] || '#666666';
+    
+    // Normalize condition name to handle different formats
+    const normalizedCondition = condition
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/s$/, ''); // Remove plural 's'
+    
+    return colorMap[normalizedCondition] || '#666666';
   };
 
   // Format condition name for display
@@ -140,15 +147,23 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     onRejectFinding?.(detection);
   };
 
+  // Normalize condition name for comparison
+  const normalizeConditionName = (condition: string) => {
+    return condition
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/s$/, ''); // Remove plural 's'
+  };
+
   // Filter out rejected detections and separate by type
   const visibleDetections = detections.filter((_, index) => !rejectedDetections.has(index));
   
   const activeConditions = visibleDetections.filter(detection => 
-    ACTIVE_CONDITIONS.includes(detection.class.toLowerCase())
+    ACTIVE_CONDITIONS.includes(normalizeConditionName(detection.class))
   );
   
   const existingWork = visibleDetections.filter(detection => 
-    EXISTING_DENTAL_WORK.includes(detection.class.toLowerCase())
+    EXISTING_DENTAL_WORK.includes(normalizeConditionName(detection.class))
   );
 
   const activeCount = activeConditions.length;
@@ -213,20 +228,51 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                             ? 'border-l-4 border-l-yellow-500' 
                             : 'border-l-4 border-l-red-500'
                         }`}>
-                          <div className="p-4">
-                            <div className="flex items-start justify-between mb-2">
+                          <div className="px-4 py-3">
+                            <div className="flex items-start justify-between mb-1">
                               <div className="flex-1">
                                 <div className="font-semibold text-gray-900 text-lg">
                                   {detection.class || detection.class_name || 'Unknown'}
                                 </div>
-                                <div className="text-sm text-gray-600 mt-1">
-                                  Confidence: <span className={`font-medium ${
+                                <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                                  <span>Confidence:</span>
+                                  <span className={`font-medium ${
                                     confidence >= 0.75 
                                       ? 'text-green-600' 
                                       : confidence >= 0.50 
                                       ? 'text-yellow-600' 
                                       : 'text-red-600'
                                   }`}>{label}</span>
+                                  
+                                  <div className="flex items-center space-x-1 ml-2">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-6 w-6 p-0 bg-green-100 hover:bg-green-200 border-green-300"
+                                          onClick={() => handleAcceptDetection(detection, originalIndex)}
+                                        >
+                                          <Check className="h-3 w-3 text-green-700" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Accept and add to findings</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-6 w-6 p-0 bg-red-100 hover:bg-red-200 border-red-300"
+                                          onClick={() => handleRejectDetection(detection, originalIndex)}
+                                        >
+                                          <X className="h-3 w-3 text-red-700" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Reject this detection</TooltipContent>
+                                    </Tooltip>
+                                  </div>
                                 </div>
                               </div>
                               <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
@@ -238,36 +284,6 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                               }`}>
                                 {confidencePercent}%
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2 mt-3">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 w-8 p-0 bg-green-50 hover:bg-green-100 border-green-200"
-                                    onClick={() => handleAcceptDetection(detection, originalIndex)}
-                                  >
-                                    <Check className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Accept and add to findings</TooltipContent>
-                              </Tooltip>
-                              
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 w-8 p-0 bg-red-50 hover:bg-red-100 border-red-200"
-                                    onClick={() => handleRejectDetection(detection, originalIndex)}
-                                  >
-                                    <X className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Reject this detection</TooltipContent>
-                              </Tooltip>
                             </div>
                           </div>
                         </div>
@@ -370,20 +386,51 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                               ? 'border-l-4 border-l-yellow-500' 
                               : 'border-l-4 border-l-red-500'
                           }`}>
-                            <div className="p-4">
-                              <div className="flex items-start justify-between mb-2">
+                            <div className="px-4 py-3">
+                              <div className="flex items-start justify-between mb-1">
                                 <div className="flex-1">
                                   <div className="font-semibold text-gray-900 text-lg">
                                     {detection.class || detection.class_name || 'Unknown'}
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">
-                                    Confidence: <span className={`font-medium ${
+                                  <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                                    <span>Confidence:</span>
+                                    <span className={`font-medium ${
                                       confidence >= 0.75 
                                         ? 'text-green-600' 
                                         : confidence >= 0.50 
                                         ? 'text-yellow-600' 
                                         : 'text-red-600'
                                     }`}>{label}</span>
+                                    
+                                    <div className="flex items-center space-x-1 ml-2">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 w-6 p-0 bg-green-100 hover:bg-green-200 border-green-300"
+                                            onClick={() => handleAcceptDetection(detection, originalIndex)}
+                                          >
+                                            <Check className="h-3 w-3 text-green-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Accept and add to findings</TooltipContent>
+                                      </Tooltip>
+                                      
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 w-6 p-0 bg-red-100 hover:bg-red-200 border-red-300"
+                                            onClick={() => handleRejectDetection(detection, originalIndex)}
+                                          >
+                                            <X className="h-3 w-3 text-red-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Reject this detection</TooltipContent>
+                                      </Tooltip>
+                                    </div>
                                   </div>
                                 </div>
                                 <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
@@ -395,36 +442,6 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                 }`}>
                                   {confidencePercent}%
                                 </div>
-                              </div>
-                              
-                              <div className="flex items-center space-x-2 mt-3">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 w-8 p-0 bg-green-50 hover:bg-green-100 border-green-200"
-                                      onClick={() => handleAcceptDetection(detection, originalIndex)}
-                                    >
-                                      <Check className="h-4 w-4 text-green-600" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Accept and add to findings</TooltipContent>
-                                </Tooltip>
-                                
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 w-8 p-0 bg-red-50 hover:bg-red-100 border-red-200"
-                                      onClick={() => handleRejectDetection(detection, originalIndex)}
-                                    >
-                                      <X className="h-4 w-4 text-red-600" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Reject this detection</TooltipContent>
-                                </Tooltip>
                               </div>
                             </div>
                           </div>
@@ -520,7 +537,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     // Get unique conditions from all detections (active + existing)
                     const allDetections = [...activeConditions, ...existingWork];
                     const uniqueConditions = Array.from(
-                      new Set(allDetections.map(d => d.class.toLowerCase()))
+                      new Set(allDetections.map(d => normalizeConditionName(d.class)))
                     );
 
                     if (uniqueConditions.length > 0) {
