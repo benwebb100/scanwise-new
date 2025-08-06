@@ -202,6 +202,52 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
           <CollapsibleContent>
             <CardContent className="space-y-6">
 
+              {/* Annotated X-Ray - Moved to top */}
+              <div className="bg-white p-4 rounded-lg border">
+                <div className="text-center mb-4">
+                  <h4 className="font-bold text-gray-900 text-xl mb-2">Annotated X-Ray Image</h4>
+                  <p className="text-gray-600 mb-3">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
+                  <div className="w-1/3 h-0.5 bg-blue-500 mx-auto"></div>
+                </div>
+                <div className="text-center">
+                  <img 
+                    src={annotatedImageUrl} 
+                    alt="AI Annotated X-ray" 
+                    className="w-full max-w-3xl mx-auto rounded-lg shadow-sm border"
+                  />
+                  
+                  {/* Dynamic Legend */}
+                  {(() => {
+                    // Get unique conditions from all detections (active + existing)
+                    const allDetections = [...activeConditions, ...existingWork];
+                    const uniqueConditions = Array.from(
+                      new Set(allDetections.map(d => normalizeConditionName(d.class)))
+                    );
+
+                    if (uniqueConditions.length > 0) {
+                      return (
+                        <div className="mt-4">
+                          <div className="flex flex-wrap gap-3 justify-center">
+                            {uniqueConditions.map((condition, index) => (
+                              <div key={index} className="flex items-center space-x-3">
+                                <div 
+                                  className="w-6 h-6 rounded border border-gray-300"
+                                  style={{ backgroundColor: getConditionColor(condition) }}
+                                />
+                                <span className="text-base text-gray-700 font-medium">
+                                  {formatConditionName(condition)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+
               {/* Active Conditions Section */}
               <div className="bg-white p-4 rounded-lg border">
                 <div className="flex items-center justify-between mb-3">
@@ -237,49 +283,51 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                 <div className="font-semibold text-gray-900 text-lg">
                                   {detection.class || detection.class_name || 'Unknown'}
                                 </div>
-                                                                    <div className="text-sm text-gray-600 mt-1">
-                                      <span>Confidence: </span>
-                                      <span className={`font-medium ${
-                                        confidence >= 0.75 
-                                          ? 'text-green-600' 
-                                          : confidence >= 0.50 
-                                          ? 'text-yellow-600' 
-                                          : 'text-red-600'
-                                      }`}>{label}</span>
-                                    </div>
-                                    
-                                    {/* Add Finding Button */}
-                                    <div className="mt-2">
-                                      {addedDetections.has(originalIndex) ? (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          disabled
-                                          className="bg-green-100 border-green-300 text-green-700"
-                                        >
-                                          <Check className="h-3 w-3 mr-1" />
-                                          Added
-                                        </Button>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
-                                          onClick={() => handleAddFinding(detection, originalIndex)}
-                                        >
-                                          Add Finding
-                                        </Button>
-                                      )}
-                                    </div>
+                                <div className="text-sm text-gray-600 mt-1">
+                                  <span>Confidence: </span>
+                                  <span className={`font-medium ${
+                                    confidence >= 0.75 
+                                      ? 'text-green-600' 
+                                      : confidence >= 0.50 
+                                      ? 'text-yellow-600' 
+                                      : 'text-red-600'
+                                  }`}>{label}</span>
+                                </div>
                               </div>
-                              <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
-                                confidence >= 0.75 
-                                  ? 'bg-green-500' 
-                                  : confidence >= 0.50 
-                                  ? 'bg-yellow-500' 
-                                  : 'bg-red-500'
-                              }`}>
-                                {confidencePercent}%
+                              
+                              {/* Right side: Confidence badge and Add Finding button */}
+                              <div className="flex flex-col items-end space-y-2">
+                                <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                                  confidence >= 0.75 
+                                    ? 'bg-green-500' 
+                                    : confidence >= 0.50 
+                                    ? 'bg-yellow-500' 
+                                    : 'bg-red-500'
+                                }`}>
+                                  {confidencePercent}%
+                                </div>
+                                
+                                {/* Add Finding Button */}
+                                {addedDetections.has(originalIndex) ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled
+                                    className="bg-green-100 border-green-300 text-green-700"
+                                  >
+                                    <Check className="h-3 w-3 mr-1" />
+                                    Added
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+                                    onClick={() => handleAddFinding(detection, originalIndex)}
+                                  >
+                                    Add Finding
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -399,39 +447,41 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                         : 'text-red-600'
                                     }`}>{label}</span>
                                   </div>
+                                </div>
+                                
+                                {/* Right side: Confidence badge and Add Finding button */}
+                                <div className="flex flex-col items-end space-y-2">
+                                  <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                                    confidence >= 0.75 
+                                      ? 'bg-green-500' 
+                                      : confidence >= 0.50 
+                                      ? 'bg-yellow-500' 
+                                      : 'bg-red-500'
+                                  }`}>
+                                    {confidencePercent}%
+                                  </div>
                                   
                                   {/* Add Finding Button */}
-                                  <div className="mt-2">
-                                    {addedDetections.has(originalIndex) ? (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        disabled
-                                        className="bg-green-100 border-green-300 text-green-700"
-                                      >
-                                        <Check className="h-3 w-3 mr-1" />
-                                        Added
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
-                                        onClick={() => handleAddFinding(detection, originalIndex)}
-                                      >
-                                        Add Finding
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
-                                  confidence >= 0.75 
-                                    ? 'bg-green-500' 
-                                    : confidence >= 0.50 
-                                    ? 'bg-yellow-500' 
-                                    : 'bg-red-500'
-                                }`}>
-                                  {confidencePercent}%
+                                  {addedDetections.has(originalIndex) ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled
+                                      className="bg-green-100 border-green-300 text-green-700"
+                                    >
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Added
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+                                      onClick={() => handleAddFinding(detection, originalIndex)}
+                                    >
+                                      Add Finding
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -513,47 +563,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                 </div>
               )}
 
-              {/* Annotated X-Ray - Single Instance */}
-              <div className="bg-white p-4 rounded-lg border">
-                <h4 className="font-semibold text-gray-900 mb-3">Annotated X-ray Analysis</h4>
-                <div className="text-center">
-                  <img 
-                    src={annotatedImageUrl} 
-                    alt="AI Annotated X-ray" 
-                    className="w-full max-w-3xl mx-auto rounded-lg shadow-sm border"
-                  />
-                  
-                  {/* Dynamic Legend */}
-                  {(() => {
-                    // Get unique conditions from all detections (active + existing)
-                    const allDetections = [...activeConditions, ...existingWork];
-                    const uniqueConditions = Array.from(
-                      new Set(allDetections.map(d => normalizeConditionName(d.class)))
-                    );
 
-                    if (uniqueConditions.length > 0) {
-                      return (
-                        <div className="mt-4">
-                          <div className="flex flex-wrap gap-3 justify-center">
-                            {uniqueConditions.map((condition, index) => (
-                              <div key={index} className="flex items-center space-x-3">
-                                <div 
-                                  className="w-6 h-6 rounded border border-gray-300"
-                                  style={{ backgroundColor: getConditionColor(condition) }}
-                                />
-                                <span className="text-base text-gray-700 font-medium">
-                                  {formatConditionName(condition)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              </div>
 
 
             </CardContent>

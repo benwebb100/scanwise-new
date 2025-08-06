@@ -44,10 +44,20 @@ export function SearchableSelect({
   className,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState("")
 
-  // Separate pinned and regular options
-  const pinnedOptions = options.filter(option => option.pinned)
-  const regularOptions = options.filter(option => !option.pinned)
+  // Filter options based on search
+  const filteredOptions = React.useMemo(() => {
+    if (!searchValue) return options
+    return options.filter(option => 
+      option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
+      option.value.toLowerCase().includes(searchValue.toLowerCase())
+    )
+  }, [options, searchValue])
+
+  // Separate pinned and regular options from filtered results
+  const pinnedOptions = filteredOptions.filter(option => option.pinned)
+  const regularOptions = filteredOptions.filter(option => !option.pinned)
 
   const selectedOption = options.find(option => option.value === value)
 
@@ -58,11 +68,19 @@ export function SearchableSelect({
       const newValue = selectedValue === value ? "" : selectedValue
       onValueChange?.(newValue)
       setOpen(false)
+      setSearchValue("") // Clear search when selecting
+    }
+  }
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (!newOpen) {
+      setSearchValue("") // Clear search when closing
     }
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -83,10 +101,12 @@ export function SearchableSelect({
         align="start"
         sideOffset={4}
       >
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder}
             className="h-9"
+            value={searchValue}
+            onValueChange={setSearchValue}
           />
           <CommandList className="max-h-[200px]">
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -97,15 +117,8 @@ export function SearchableSelect({
                 {pinnedOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
-                    onSelect={(currentValue) => {
-                      // The Command component passes the value prop (label) to onSelect
-                      // We need to find the corresponding option.value
-                      const selectedOption = options.find(opt => opt.label === currentValue)
-                      if (selectedOption) {
-                        handleSelect(selectedOption.value)
-                      }
-                    }}
+                    value={option.value}
+                    onSelect={handleSelect}
                     className="cursor-pointer"
                   >
                     <Check
@@ -126,15 +139,8 @@ export function SearchableSelect({
                 {regularOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
-                    onSelect={(currentValue) => {
-                      // The Command component passes the value prop (label) to onSelect
-                      // We need to find the corresponding option.value
-                      const selectedOption = options.find(opt => opt.label === currentValue)
-                      if (selectedOption) {
-                        handleSelect(selectedOption.value)
-                      }
-                    }}
+                    value={option.value}
+                    onSelect={handleSelect}
                     className="cursor-pointer"
                   >
                     <Check
