@@ -165,6 +165,30 @@ Keep the tone professional, educational, and reassuring. Avoid clinical jargon u
             'automated': automated,
             'manual': manual
         }
+
+    def _get_urgency_level(self, condition: str) -> str:
+        """Determine urgency level based on hard-coded clinical logic"""
+        # Normalize condition name
+        normalized_condition = condition.lower().replace(' ', '-').replace('_', '-')
+        
+        # HIGH URGENCY (Infection/Active Disease)
+        high_urgency_conditions = {
+            'caries', 'periapical-lesion', 'fracture', 'root-piece'
+        }
+        
+        # MEDIUM URGENCY (Structural/Progressive)
+        medium_urgency_conditions = {
+            'impacted-tooth', 'missing-teeth-no-distal', 'missing-tooth-between', 
+            'bone-level', 'tissue-level'
+        }
+        
+        if normalized_condition in high_urgency_conditions:
+            return 'high'
+        elif normalized_condition in medium_urgency_conditions:
+            return 'medium'
+        else:
+            # LOW URGENCY (Existing dental work or other conditions)
+            return 'low'
     
     async def generate_video_script(self, treatment_stages: List[Dict], annotated_image_base64: str) -> str:
         """Generate video voiceover script for patient education"""
@@ -293,7 +317,14 @@ Do not:
                 "areas_needing_attention": ["list of specific areas"]
             }
 
-            Use professional dental terminology but keep explanations clear for clinical decision-making."""
+            Use professional dental terminology but keep explanations clear for clinical decision-making.
+            
+            IMPORTANT: For urgency levels, use this hard-coded logic instead of clinical judgment:
+            - HIGH URGENCY: caries, periapical-lesion, fracture, root-piece
+            - MEDIUM URGENCY: impacted-tooth, missing-teeth-no-distal, missing-tooth-between, bone-level, tissue-level
+            - LOW URGENCY: All other conditions (existing dental work like crown, filling, implant, post, root-canal-treatment)
+            
+            Always use the exact condition name from the detection for urgency determination."""
             
             # Format detections for analysis
             detections = []
@@ -377,6 +408,11 @@ IMPORTANT REQUIREMENTS:
 - Make the report comprehensive but easy to understand
 - Focus on accuracy and patient education
 - Do not include pricing or cost information
+
+URGENCY LOGIC (use this exact mapping):
+- HIGH URGENCY: caries, periapical-lesion, fracture, root-piece
+- MEDIUM URGENCY: impacted-tooth, missing-teeth-no-distal, missing-tooth-between, bone-level, tissue-level  
+- LOW URGENCY: All other conditions (existing dental work like crown, filling, implant, post, root-canal-treatment)
 
 Return the complete HTML report as a single string."""
             

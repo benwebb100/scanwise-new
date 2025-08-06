@@ -270,17 +270,26 @@ const CreateReport = () => {
 
   const handleAcceptAIFinding = (detection: any) => {
     const conditionName = detection.class_name || detection.class || 'Unknown';
+    const normalizedCondition = conditionName.toLowerCase().replace(/\s+/g, '-');
+    
+    // Auto-suggest treatment based on condition
+    const suggestedTreatments = getSuggestedTreatments(normalizedCondition);
+    const recommendedTreatment = suggestedTreatments && suggestedTreatments.length > 0 ? suggestedTreatments[0].value : '';
+    
+    // Auto-fill price if available
+    const price = recommendedTreatment ? getPrice(recommendedTreatment) : undefined;
+    
     const newFinding = {
       tooth: '', // Will be filled by user
-      condition: conditionName.toLowerCase().replace(/\s+/g, '-'),
-      treatment: '',
-      price: undefined
+      condition: normalizedCondition,
+      treatment: recommendedTreatment,
+      price: price
     };
     
     setFindings(prev => [newFinding, ...prev]);
     toast({
       title: "AI Finding Added",
-      description: `${conditionName} has been added to your findings table.`,
+      description: `${conditionName} has been added to your findings table with suggested treatment.`,
     });
   };
 

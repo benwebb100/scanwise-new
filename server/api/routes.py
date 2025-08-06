@@ -266,7 +266,8 @@ async def analyze_xray(
             "ai_notes": ai_analysis.get('ai_notes', ''),
             "diagnosis_timestamp": datetime.now(),
             "annotated_image_url": annotated_url,
-            "detections": ai_analysis.get('detections', [])
+            "detections": ai_analysis.get('detections', []),
+            "report_html": html_report
         }
         
         # Add video URL to response if available
@@ -788,7 +789,8 @@ async def analyze_without_xray(
             "treatment_stages": ai_analysis.get('treatment_stages', []),
             "ai_notes": ai_analysis.get('ai_notes', ''),
             "diagnosis_timestamp": datetime.now(),
-            "annotated_image_url": None  # No annotated image
+            "annotated_image_url": None,  # No annotated image
+            "report_html": html_report
         }
         
         response = AnalyzeXrayResponse(**response_data)
