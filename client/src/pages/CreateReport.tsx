@@ -131,66 +131,96 @@ const CreateReport = () => {
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [showAISummary, setShowAISummary] = useState(true);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [isDragOver, setIsDragOver] = useState(false);
   
   let recognition: any = null;
 
-  // Update handleImageUpload function (continued)
+    // Update handleImageUpload function (continued)
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setUploadedImage(file);
-      setIsAnalyzingImage(true);
-      setAnalysisProgress(0);
-      setImmediateAnalysisData(null); // Clear previous data
-      
-      // Start progress animation
-      const startTime = Date.now();
-      const duration = 15000; // 15 seconds total
-      
-      const progressInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min((elapsed / duration) * 100, 95); // Cap at 95% until complete
-        setAnalysisProgress(progress);
-      }, 100);
-      
-      try {
-        // First upload the image
-        const uploadResult = await api.uploadImage(file);
-        
-        toast({
-          title: "Image Uploaded",
-          description: "Analyzing X-ray with AI...",
-        });
+      await processUploadedFile(file);
+    }
+  };
 
-        // Immediately analyze the uploaded image
-        const analysisResult = await api.analyzeXrayImmediate(uploadResult.url);
-        
-        // Complete the progress bar
-        setAnalysisProgress(100);
-        clearInterval(progressInterval);
-        
-        // Small delay to show completion
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        setImmediateAnalysisData(analysisResult);
-        setDetections(analysisResult.detections || []);
-        
-                toast({
-          title: "AI Analysis Complete",
-          description: `Found ${analysisResult.detections?.length || 0} potential conditions. Review the findings below.`,
-        });
-      } catch (error) {
-        clearInterval(progressInterval);
-        setAnalysisProgress(0);
-        console.error('Error during analysis:', error);
-        toast({
-          title: "Analysis Failed",
-          description: "There was an error analyzing the X-ray. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAnalyzingImage(false);
-      }
+  // Handle dropped files
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      await processUploadedFile(file);
+    }
+  };
+
+  // Handle drag over
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  // Handle drag leave
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  // Process uploaded file
+  const processUploadedFile = async (file: File) => {
+    setUploadedImage(file);
+    setIsAnalyzingImage(true);
+    setAnalysisProgress(0);
+    setImmediateAnalysisData(null); // Clear previous data
+    
+    // Start progress animation
+    const startTime = Date.now();
+    const duration = 15000; // 15 seconds total
+    
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / duration) * 100, 95); // Cap at 95% until complete
+      setAnalysisProgress(progress);
+    }, 100);
+    
+    try {
+      // First upload the image
+      const uploadResult = await api.uploadImage(file);
+      
+      toast({
+        title: "Image Uploaded",
+        description: "Analyzing X-ray with AI...",
+      });
+
+      // Immediately analyze the uploaded image
+      const analysisResult = await api.analyzeXrayImmediate(uploadResult.url);
+      
+      // Complete the progress bar
+      setAnalysisProgress(100);
+      clearInterval(progressInterval);
+      
+      // Small delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setImmediateAnalysisData(analysisResult);
+      setDetections(analysisResult.detections || []);
+      
+      toast({
+        title: "AI Analysis Complete",
+        description: `Found ${analysisResult.detections?.length || 0} potential conditions. Review the findings below.`,
+      });
+    } catch (error) {
+      clearInterval(progressInterval);
+      setAnalysisProgress(0);
+      console.error('Error during analysis:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "There was an error analyzing the X-ray. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingImage(false);
     }
   };
 
@@ -1089,8 +1119,19 @@ const CreateReport = () => {
                 </CardHeader>
                 <CardContent>
                 {!uploadedImage ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors">
-                    <Upload className="mx-auto h-16 w-16 text-gray-400 mb-6" />
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200 ${
+                      isDragOver 
+                        ? 'border-blue-500 bg-blue-50 scale-105' 
+                        : 'border-gray-300 hover:border-blue-400'
+                    }`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                  >
+                    <Upload className={`mx-auto h-16 w-16 mb-6 transition-colors ${
+                      isDragOver ? 'text-blue-500' : 'text-gray-400'
+                    }`} />
                     <div className="space-y-4">
                       <div>
                         <label htmlFor="opg-upload" className="cursor-pointer">
@@ -1101,6 +1142,11 @@ const CreateReport = () => {
                         <p className="text-gray-500 mt-2">
                           or drag and drop your panoramic X-ray file here
                         </p>
+                        {isDragOver && (
+                          <p className="text-blue-600 font-medium mt-2">
+                            Drop your file here to upload
+                          </p>
+                        )}
                       </div>
                       <p className="text-sm text-gray-400">
                         Supports: DICOM, JPEG, PNG, TIFF (Max 50MB)
@@ -1605,6 +1651,35 @@ const CreateReport = () => {
               </CardContent>
             </Card>
             )}
+
+            {/* Upload Guidelines */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Upload Guidelines</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Image Quality Requirements</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• High resolution (minimum 1200x800 pixels)</li>
+                      <li>• Clear visibility of all teeth and surrounding structures</li>
+                      <li>• Minimal motion artifacts or blur</li>
+                      <li>• Proper exposure and contrast</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">What's Included</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• AI-powered dental condition detection</li>
+                      <li>• Comprehensive treatment plan</li>
+                      <li>• Patient-friendly video explanation</li>
+                      <li>• Downloadable reports in multiple formats</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Observations Section - Only show when useXrayMode is false */}
             {!useXrayMode && (
