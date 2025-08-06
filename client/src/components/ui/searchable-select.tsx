@@ -98,7 +98,14 @@ export function SearchableSelect({
                   <CommandItem
                     key={option.value}
                     value={option.label}
-                    onSelect={() => handleSelect(option.value)}
+                    onSelect={(currentValue) => {
+                      // The Command component passes the value prop (label) to onSelect
+                      // We need to find the corresponding option.value
+                      const selectedOption = options.find(opt => opt.label === currentValue)
+                      if (selectedOption) {
+                        handleSelect(selectedOption.value)
+                      }
+                    }}
                     className="cursor-pointer"
                   >
                     <Check
@@ -120,7 +127,14 @@ export function SearchableSelect({
                   <CommandItem
                     key={option.value}
                     value={option.label}
-                    onSelect={() => handleSelect(option.value)}
+                    onSelect={(currentValue) => {
+                      // The Command component passes the value prop (label) to onSelect
+                      // We need to find the corresponding option.value
+                      const selectedOption = options.find(opt => opt.label === currentValue)
+                      if (selectedOption) {
+                        handleSelect(selectedOption.value)
+                      }
+                    }}
                     className="cursor-pointer"
                   >
                     <Check

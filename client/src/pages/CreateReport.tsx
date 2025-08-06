@@ -235,7 +235,7 @@ const CreateReport = () => {
   };
 
   const addFinding = () => {
-    setFindings((prev) => [...prev, { tooth: "", condition: "", treatment: "", price: undefined }]);
+    setFindings((prev) => [{ tooth: "", condition: "", treatment: "", price: undefined }, ...prev]);
   };
 
   const handleAcceptAIFinding = (detection: any) => {
@@ -247,7 +247,7 @@ const CreateReport = () => {
       price: undefined
     };
     
-    setFindings(prev => [...prev, newFinding]);
+    setFindings(prev => [newFinding, ...prev]);
     toast({
       title: "AI Finding Added",
       description: `${conditionName} has been added to your findings table.`,

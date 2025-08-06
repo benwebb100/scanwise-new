@@ -161,7 +161,16 @@ export const CONDITION_TREATMENT_SUGGESTIONS: Record<string, string[]> = {
 
 // Generate tooth options for searchable select
 export function getToothOptions(system: ToothNumberingSystem): SearchableSelectOption[] {
-  return TOOTH_NUMBERING_SYSTEMS[system].teeth.map(tooth => ({
+  const teeth = TOOTH_NUMBERING_SYSTEMS[system].teeth;
+  
+  // Sort teeth numerically for better UX in dropdown
+  const sortedTeeth = [...teeth].sort((a, b) => {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    return numA - numB;
+  });
+  
+  return sortedTeeth.map(tooth => ({
     value: tooth,
     label: tooth
   }))
