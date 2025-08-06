@@ -47,7 +47,7 @@ class RoboflowService:
                         "image": image_url,
                         "format": "image",
                         # "labels": "true",
-                        "stroke": "4",
+                        "stroke": "6",
                         "overlap": "50"
                     }
                 )
