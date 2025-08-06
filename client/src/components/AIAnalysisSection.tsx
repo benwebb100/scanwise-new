@@ -157,7 +157,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   return (
     <TooltipProvider>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-gray-200 bg-white">
           <CollapsibleTrigger asChild>
             <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors">
               <div className="flex items-center justify-between">
@@ -206,55 +206,69 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                       const label = getConfidenceLabel(confidence);
                       
                       return (
-                        <div key={originalIndex} className={`flex items-center justify-between p-3 rounded-lg border ${
+                        <div key={originalIndex} className={`bg-white rounded-lg border shadow-sm ${
                           confidence >= 0.75 
-                            ? 'bg-green-50 border-green-300' 
+                            ? 'border-l-4 border-l-green-500' 
                             : confidence >= 0.50 
-                            ? 'bg-yellow-50 border-yellow-300' 
-                            : 'bg-red-50 border-red-300'
+                            ? 'border-l-4 border-l-yellow-500' 
+                            : 'border-l-4 border-l-red-500'
                         }`}>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-gray-800">
-                                {detection.class || detection.class_name || 'Unknown'}
-                              </span>
-                              <div className="text-lg font-bold" style={{ color }}>
-                                {confidencePercent}
+                          <div className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 text-lg">
+                                  {detection.class || detection.class_name || 'Unknown'}
+                                </div>
+                                <div className="text-sm text-gray-600 mt-1">
+                                  Confidence: <span className={`font-medium ${
+                                    confidence >= 0.75 
+                                      ? 'text-green-600' 
+                                      : confidence >= 0.50 
+                                      ? 'text-yellow-600' 
+                                      : 'text-red-600'
+                                  }`}>{label}</span>
+                                </div>
+                              </div>
+                              <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                                confidence >= 0.75 
+                                  ? 'bg-green-500' 
+                                  : confidence >= 0.50 
+                                  ? 'bg-yellow-500' 
+                                  : 'bg-red-500'
+                              }`}>
+                                {confidencePercent}%
                               </div>
                             </div>
-                            <div className="text-xs text-gray-600">
-                              Confidence: <span style={{ color }} className="font-medium">{label}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 ml-3">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 bg-green-50 hover:bg-green-100 border-green-200"
-                                  onClick={() => handleAcceptDetection(detection, originalIndex)}
-                                >
-                                  <Check className="h-3 w-3 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Accept and add to findings</TooltipContent>
-                            </Tooltip>
                             
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 bg-red-50 hover:bg-red-100 border-red-200"
-                                  onClick={() => handleRejectDetection(detection, originalIndex)}
-                                >
-                                  <X className="h-3 w-3 text-red-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Reject this detection</TooltipContent>
-                            </Tooltip>
+                            <div className="flex items-center space-x-2 mt-3">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 w-8 p-0 bg-green-50 hover:bg-green-100 border-green-200"
+                                    onClick={() => handleAcceptDetection(detection, originalIndex)}
+                                  >
+                                    <Check className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Accept and add to findings</TooltipContent>
+                              </Tooltip>
+                              
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 w-8 p-0 bg-red-50 hover:bg-red-100 border-red-200"
+                                    onClick={() => handleRejectDetection(detection, originalIndex)}
+                                  >
+                                    <X className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Reject this detection</TooltipContent>
+                              </Tooltip>
+                            </div>
                           </div>
                         </div>
                       );
@@ -349,54 +363,69 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                         const label = getConfidenceLabel(confidence);
                         
                         return (
-                          <div key={originalIndex} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-medium text-gray-800">
-                                  {detection.class || detection.class_name || 'Unknown'}
-                                </span>
-                                <Badge 
-                                  style={{ 
-                                    backgroundColor: color,
-                                    color: 'white'
-                                  }}
-                                >
+                          <div key={originalIndex} className={`bg-white rounded-lg border shadow-sm ${
+                            confidence >= 0.75 
+                              ? 'border-l-4 border-l-green-500' 
+                              : confidence >= 0.50 
+                              ? 'border-l-4 border-l-yellow-500' 
+                              : 'border-l-4 border-l-red-500'
+                          }`}>
+                            <div className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <div className="font-semibold text-gray-900 text-lg">
+                                    {detection.class || detection.class_name || 'Unknown'}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    Confidence: <span className={`font-medium ${
+                                      confidence >= 0.75 
+                                        ? 'text-green-600' 
+                                        : confidence >= 0.50 
+                                        ? 'text-yellow-600' 
+                                        : 'text-red-600'
+                                    }`}>{label}</span>
+                                  </div>
+                                </div>
+                                <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                                  confidence >= 0.75 
+                                    ? 'bg-green-500' 
+                                    : confidence >= 0.50 
+                                    ? 'bg-yellow-500' 
+                                    : 'bg-red-500'
+                                }`}>
                                   {confidencePercent}%
-                                </Badge>
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-600">
-                                Confidence: <span style={{ color }} className="font-medium">{label}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1 ml-3">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 w-7 p-0 bg-green-50 hover:bg-green-100 border-green-200"
-                                    onClick={() => handleAcceptDetection(detection, originalIndex)}
-                                  >
-                                    <Check className="h-3 w-3 text-green-600" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Accept and add to findings</TooltipContent>
-                              </Tooltip>
                               
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 w-7 p-0 bg-red-50 hover:bg-red-100 border-red-200"
-                                    onClick={() => handleRejectDetection(detection, originalIndex)}
-                                  >
-                                    <X className="h-3 w-3 text-red-600" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Reject this detection</TooltipContent>
-                              </Tooltip>
+                              <div className="flex items-center space-x-2 mt-3">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 w-8 p-0 bg-green-50 hover:bg-green-100 border-green-200"
+                                      onClick={() => handleAcceptDetection(detection, originalIndex)}
+                                    >
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Accept and add to findings</TooltipContent>
+                                </Tooltip>
+                                
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 w-8 p-0 bg-red-50 hover:bg-red-100 border-red-200"
+                                      onClick={() => handleRejectDetection(detection, originalIndex)}
+                                    >
+                                      <X className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Reject this detection</TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
                           </div>
                         );
@@ -499,12 +528,12 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                         <div className="mt-4">
                           <div className="flex flex-wrap gap-3 justify-center">
                             {uniqueConditions.map((condition, index) => (
-                              <div key={index} className="flex items-center space-x-2">
+                              <div key={index} className="flex items-center space-x-3">
                                 <div 
-                                  className="w-4 h-4 rounded border border-gray-300"
+                                  className="w-6 h-6 rounded border border-gray-300"
                                   style={{ backgroundColor: getConditionColor(condition) }}
                                 />
-                                <span className="text-sm text-gray-700">
+                                <span className="text-base text-gray-700 font-medium">
                                   {formatConditionName(condition)}
                                 </span>
                               </div>

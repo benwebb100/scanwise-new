@@ -1706,33 +1706,7 @@ const CreateReport = () => {
             </form>
 
           {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Guidelines</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Image Quality Requirements</h4>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• High resolution (minimum 1200x800 pixels)</li>
-                    <li>• Clear visibility of all teeth and surrounding structures</li>
-                    <li>• Minimal motion artifacts or blur</li>
-                    <li>• Proper exposure and contrast</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">What's Included</h4>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• AI-powered dental condition detection</li>
-                    <li>• Comprehensive treatment plan</li>
-                    <li>• Patient-friendly video explanation</li>
-                    <li>• Downloadable reports in multiple formats</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
         </div>
       </div>
 
