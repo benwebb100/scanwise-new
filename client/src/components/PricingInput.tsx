@@ -58,10 +58,12 @@ export function PricingInput({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
+    console.log('Input change:', newValue)
     setInputValue(newValue)
     
     const numericValue = parseFloat(newValue)
-    if (!isNaN(numericValue) && numericValue > 0) {
+    if (!isNaN(numericValue) && numericValue >= 0) {
+      console.log('Calling onChange with:', numericValue)
       onChange(numericValue)
     }
   }

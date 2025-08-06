@@ -188,7 +188,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                 </CardTitle>
                 <div className="flex items-center space-x-4">
                   <Badge className="bg-green-600 text-white">
-                    {findingsSummary.high_confidence_count} high confidence
+                    {detections.filter(d => (d.confidence || 0) >= 0.75).length} high confidence
                   </Badge>
                   {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
