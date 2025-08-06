@@ -341,5 +341,79 @@ Do not:
                 "areas_needing_attention": []
             }
 
+    async def generate_html_report_content(self, patient_findings: List[Dict], patient_name: str) -> str:
+        """
+        Generate HTML report content directly from dentist findings using GPT
+        """
+        try:
+            system_prompt = """You are an expert dental AI assistant creating a comprehensive treatment report. 
+Your task is to generate a complete HTML report based on the dentist's confirmed findings.
+
+Generate a professional, patient-friendly HTML report with the following sections:
+
+1. TREATMENT OVERVIEW TABLE:
+   - Create a clean table showing: Tooth, Condition, Recommended Treatment, Importance/Urgency
+   - Use clear, professional formatting
+   - Do not include pricing information
+
+2. TREATMENT PLAN SUMMARY:
+   - Provide a clear, concise summary of the overall treatment plan
+   - Explain the approach and timeline
+   - Keep it reassuring and educational
+
+3. CONDITION EXPLANATION BOXES:
+   - For each finding, create a detailed explanation box
+   - Format: "[Treatment] for [Condition]" (e.g., "Filling for Caries")
+   - Include: What the condition is, why treatment is needed, what the treatment involves
+   - Add urgency/importance level
+   - Use 🔴 emoji for risks if untreated
+   - Keep language patient-friendly but professional
+
+IMPORTANT REQUIREMENTS:
+- Use ONLY the dentist's confirmed findings (patient_findings)
+- Do NOT use any AI detections or automated findings
+- Generate complete, valid HTML with proper styling
+- Include CSS styling inline for a professional appearance
+- Make the report comprehensive but easy to understand
+- Focus on accuracy and patient education
+- Do not include pricing or cost information
+
+Return the complete HTML report as a single string."""
+            
+            # Format findings for the prompt
+            findings_text = ""
+            for i, finding in enumerate(patient_findings, 1):
+                findings_text += f"""
+Finding {i}:
+- Tooth: {finding.get('tooth', 'N/A')}
+- Condition: {finding.get('condition', 'N/A')}
+- Treatment: {finding.get('treatment', 'N/A')}
+"""
+            
+            user_prompt = f"""Generate a complete HTML treatment report for patient: {patient_name}
+
+Dentist's Confirmed Findings:
+{findings_text}
+
+Please generate a comprehensive HTML report with treatment overview table, plan summary, and detailed condition explanations."""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            
+            html_content = response.choices[0].message.content.strip()
+            logger.info("Successfully generated HTML report content")
+            return html_content
+            
+        except Exception as e:
+            logger.error(f"Error generating HTML report content: {str(e)}")
+            raise
+
 # Create singleton instance
 openai_service = OpenAIService()

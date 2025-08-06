@@ -53,196 +53,7 @@ logger = logging.getLogger(__name__)
 
 # PDF generation will be handled client-side
 
-def generate_html_report(patient_name: str, ai_analysis: dict, annotated_image_url: str = None) -> str:
-    """Generate HTML report from AI analysis"""
-    try:
-        # Extract data from AI analysis
-        summary = ai_analysis.get('summary', '')
-        treatment_stages = ai_analysis.get('treatment_stages', [])
-        ai_notes = ai_analysis.get('ai_notes', '')
-        detections = ai_analysis.get('detections', [])
-        
-        # Helper functions
-        def get_confidence_color(confidence: float) -> str:
-            if confidence >= 0.75:
-                return '#4CAF50'  # Green
-            if confidence >= 0.50:
-                return '#FFC107'  # Yellow
-            return '#F44336'  # Red
-        
-        def get_confidence_label(confidence: float) -> str:
-            if confidence >= 0.75:
-                return 'High'
-            if confidence >= 0.50:
-                return 'Medium'
-            return 'Low'
-        
-        # Start building HTML
-        html = f"""
-        <html>
-        <head>
-            <title>Dental Report - {patient_name}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                .report-container {{ max-width: 800px; margin: 0 auto; }}
-                h2, h3, h4 {{ color: #333; }}
-                img {{ max-width: 100%; height: auto; display: block; margin: 20px 0; }}
-                .treatment-stage {{ margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }}
-                ul {{ margin: 10px 0; }}
-                li {{ margin: 5px 0; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                th, td {{ padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }}
-                th {{ background-color: #f2f2f2; }}
-                .confidence-high {{ color: #4CAF50; }}
-                .confidence-medium {{ color: #FFC107; }}
-                .confidence-low {{ color: #F44336; }}
-            </style>
-        </head>
-        <body>
-            <div class="report-container">
-                <div style="background-color: #1e88e5; color: white; padding: 20px; display: flex; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 40px; height: 40px; background-color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                            <span style="color: #1e88e5; font-size: 20px;">🧠</span>
-                        </div>
-                        <span style="font-size: 24px; font-weight: bold;">Scanwise</span>
-                    </div>
-                </div>
-                
-                <h2>Dental Treatment Report for {patient_name}</h2>
-                <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-                
-                <div class="summary">
-                    <h3>Summary</h3>
-                    <p>{summary}</p>
-                </div>
-        """
-        
-        # Add treatment stages
-        if treatment_stages:
-            html += """
-                <div class="treatment-plan">
-                    <h3>Treatment Plan</h3>
-            """
-            
-            for stage in treatment_stages:
-                stage_name = stage.get('stage', '')
-                stage_focus = stage.get('focus', '')
-                stage_summary = stage.get('summary', '')
-                stage_duration = stage.get('duration', '')
-                stage_items = stage.get('items', [])
-                
-                html += f"""
-                    <div class="treatment-stage">
-                        <h4>{stage_name} - {stage_focus}</h4>
-                        <p>{stage_summary}</p>
-                        <p>Estimated duration: {stage_duration}</p>
-                        
-                        <table>
-                            <tr>
-                                <th>Tooth</th>
-                                <th>Condition</th>
-                                <th>Recommended Treatment</th>
-                                <th>ADA Code</th>
-                                <th>Price</th>
-                            </tr>
-                """
-                
-                for item in stage_items:
-                    tooth = item.get('tooth', '')
-                    condition = item.get('condition', '')
-                    treatment = item.get('recommended_treatment', '')
-                    ada_code = item.get('ada_code', '')
-                    price = item.get('price', 0)
-                    
-                    html += f"""
-                            <tr>
-                                <td>{tooth}</td>
-                                <td>{condition}</td>
-                                <td>{treatment}</td>
-                                <td>{ada_code}</td>
-                                <td>${price}</td>
-                            </tr>
-                    """
-                
-                html += """
-                        </table>
-                    </div>
-                """
-            
-            html += """
-                </div>
-            """
-        
-        # Add AI notes
-        if ai_notes:
-            html += f"""
-                <div class="ai-notes">
-                    <h3>Professional Notes</h3>
-                    <p>{ai_notes}</p>
-                </div>
-            """
-        
-        # Add annotated image if available
-        if annotated_image_url:
-            html += f"""
-                <div class="annotated-image">
-                    <h3>Annotated X-ray</h3>
-                    <img src="{annotated_image_url}" alt="Annotated X-ray" />
-                </div>
-            """
-        
-        # Add detections with confidence scores
-        if detections:
-            html += """
-                <div class="detections">
-                    <h3>AI Detection Confidence</h3>
-                    <table>
-                        <tr>
-                            <th>Condition</th>
-                            <th>Confidence</th>
-                        </tr>
-            """
-            
-            for detection in detections:
-                class_name = detection.get('class', 'Unknown')
-                confidence = detection.get('confidence', 0)
-                confidence_percent = int(confidence * 100)
-                confidence_color = get_confidence_color(confidence)
-                confidence_label = get_confidence_label(confidence)
-                
-                html += f"""
-                        <tr>
-                            <td>{class_name}</td>
-                            <td style="color: {confidence_color};">{confidence_percent}% ({confidence_label})</td>
-                        </tr>
-                """
-            
-            html += """
-                    </table>
-                </div>
-            """
-        
-        # Close HTML
-        html += """
-            </div>
-        </body>
-        </html>
-        """
-        
-        return html
-    except Exception as e:
-        logger.error(f"Error generating HTML report: {str(e)}")
-        # Return a simple error report
-        return f"""
-        <html>
-        <body>
-            <h1>Error Generating Report</h1>
-            <p>There was an error generating the detailed report. Please contact support.</p>
-            <p>Error: {str(e)}</p>
-        </body>
-        </html>
-        """
+
 
 async def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
     """Extract JWT token from Authorization header"""
@@ -360,8 +171,9 @@ async def analyze_xray(
         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
         
         # Step 4: Save to database (Supabase handles user_id via RLS)
-        # Generate HTML report
-        html_report = generate_html_report(request.patient_name, ai_analysis, annotated_url)
+        # Generate HTML report using GPT
+        findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
+        html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
         
         diagnosis_data = {
             'patient_name': request.patient_name,
@@ -952,8 +764,8 @@ async def analyze_without_xray(
         # Step 1: Analyze with OpenAI (no Roboflow detection)
         ai_analysis = await openai_service.analyze_dental_conditions(mock_predictions, enhanced_findings)
         
-        # Generate HTML report
-        html_report = generate_html_report(patient_name, ai_analysis)
+        # Generate HTML report using GPT
+        html_report = await openai_service.generate_html_report_content(findings, patient_name)
         
         # Step 2: Save to database without image URLs
         diagnosis_data = {
