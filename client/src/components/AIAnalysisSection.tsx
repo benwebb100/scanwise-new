@@ -313,7 +313,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                     size="sm"
                                     variant="outline"
                                     disabled
-                                    className="bg-green-100 border-green-300 text-green-700"
+                                    className="bg-blue-100 border-blue-300 text-blue-700"
                                   >
                                     <Check className="h-3 w-3 mr-1" />
                                     Added
@@ -322,7 +322,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+                                    className="bg-gray-50 hover:bg-gray-100 border-gray-300 text-gray-700 hover:text-gray-800"
                                     onClick={() => handleAddFinding(detection, originalIndex)}
                                   >
                                     Add Finding
