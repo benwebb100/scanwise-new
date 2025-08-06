@@ -101,6 +101,36 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     return 'Low';
   };
 
+  // Color mapping for conditions
+  const getConditionColor = (condition: string) => {
+    const colorMap: { [key: string]: string } = {
+      'bone-level': '#6C4A35',
+      'caries': '#58eec3',
+      'crown': '#FF00D4',
+      'filling': '#FF004D',
+      'fracture': '#FF69F8',
+      'impacted-tooth': '#FFD700',
+      'implant': '#00FF5A',
+      'missing-teeth-no-distal': '#4FE2E2',
+      'missing-tooth-between': '#8c28fe',
+      'periapical-lesion': '#007BFF',
+      'post': '#00FFD5',
+      'root-piece': '#fe4eed',
+      'root-canal-treatment': '#FF004D',
+      'tissue-level': '#A2925D'
+    };
+    return colorMap[condition.toLowerCase()] || '#666666';
+  };
+
+  // Format condition name for display
+  const formatConditionName = (condition: string) => {
+    return condition
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const handleAcceptDetection = (detection: Detection, index: number) => {
     onAcceptFinding?.(detection);
   };
@@ -153,8 +183,92 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
 
           <CollapsibleContent>
             <CardContent className="space-y-6">
-              {/* Toggle Controls */}
-              <div className="space-y-3">
+
+              {/* Active Conditions Section */}
+              <div className="bg-white p-4 rounded-lg border">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2 text-orange-500" />
+                    Active Conditions
+                  </h4>
+                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                    {activeCount} detected
+                  </Badge>
+                </div>
+                
+                {activeConditions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {activeConditions.map((detection, index) => {
+                      const originalIndex = detections.indexOf(detection);
+                      const confidence = detection.confidence || 0;
+                      const confidencePercent = Math.round(confidence * 100);
+                      const color = getConfidenceColor(confidence);
+                      const label = getConfidenceLabel(confidence);
+                      
+                      return (
+                        <div key={originalIndex} className={`flex items-center justify-between p-3 rounded-lg border ${
+                          confidence >= 0.75 
+                            ? 'bg-green-50 border-green-300' 
+                            : confidence >= 0.50 
+                            ? 'bg-yellow-50 border-yellow-300' 
+                            : 'bg-red-50 border-red-300'
+                        }`}>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-gray-800">
+                                {detection.class || detection.class_name || 'Unknown'}
+                              </span>
+                              <div className="text-lg font-bold" style={{ color }}>
+                                {confidencePercent}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Confidence: <span style={{ color }} className="font-medium">{label}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-1 ml-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-7 p-0 bg-green-50 hover:bg-green-100 border-green-200"
+                                  onClick={() => handleAcceptDetection(detection, originalIndex)}
+                                >
+                                  <Check className="h-3 w-3 text-green-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Accept and add to findings</TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-7 p-0 bg-red-50 hover:bg-red-100 border-red-200"
+                                  onClick={() => handleRejectDetection(detection, originalIndex)}
+                                >
+                                  <X className="h-3 w-3 text-red-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Reject this detection</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    No active conditions detected
+                  </div>
+                )}
+              </div>
+
+              {/* Toggle Controls - Moved below Active Conditions */}
+              <div className="space-y-3 mt-6">
                 {/* Toggle for Existing Work */}
                 <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
                   <div className="flex items-center space-x-2">
@@ -210,110 +324,6 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Overall Summary */}
-              <div className="bg-white p-4 rounded-lg border">
-                <h4 className="font-semibold text-gray-900 mb-2">Overall Assessment</h4>
-                <p className="text-gray-700">{findingsSummary.overall_summary}</p>
-              </div>
-
-              {/* Key Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-3 rounded-lg border text-center">
-                  <div className="text-2xl font-bold text-blue-600">{activeCount}</div>
-                  <div className="text-sm text-gray-600">Active Conditions</div>
-                </div>
-                <div className="bg-white p-3 rounded-lg border text-center">
-                  <div className="text-2xl font-bold text-green-600">{findingsSummary.high_confidence_count}</div>
-                  <div className="text-sm text-gray-600">High Confidence</div>
-                </div>
-                <div className="bg-white p-3 rounded-lg border text-center">
-                  <div className="text-2xl font-bold text-orange-600">{findingsSummary.areas_needing_attention.length}</div>
-                  <div className="text-sm text-gray-600">Areas of Concern</div>
-                </div>
-              </div>
-
-              {/* Active Conditions Section */}
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-gray-900 flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-2 text-orange-500" />
-                    Active Conditions
-                  </h4>
-                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                    {activeCount} detected
-                  </Badge>
-                </div>
-                
-                {activeConditions.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {activeConditions.map((detection, index) => {
-                      const originalIndex = detections.indexOf(detection);
-                      const confidence = detection.confidence || 0;
-                      const confidencePercent = Math.round(confidence * 100);
-                      const color = getConfidenceColor(confidence);
-                      const label = getConfidenceLabel(confidence);
-                      
-                      return (
-                        <div key={originalIndex} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-gray-800">
-                                {detection.class || detection.class_name || 'Unknown'}
-                              </span>
-                              <Badge 
-                                style={{ 
-                                  backgroundColor: color,
-                                  color: 'white'
-                                }}
-                              >
-                                {confidencePercent}%
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Confidence: <span style={{ color }} className="font-medium">{label}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 ml-3">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 bg-green-50 hover:bg-green-100 border-green-200"
-                                  onClick={() => handleAcceptDetection(detection, originalIndex)}
-                                >
-                                  <Check className="h-3 w-3 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Accept and add to findings</TooltipContent>
-                            </Tooltip>
-                            
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 bg-red-50 hover:bg-red-100 border-red-200"
-                                  onClick={() => handleRejectDetection(detection, originalIndex)}
-                                >
-                                  <X className="h-3 w-3 text-red-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Reject this detection</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
-                    No active conditions detected
-                  </div>
-                )}
               </div>
 
               {/* Existing Dental Work Section */}
@@ -475,26 +485,40 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     alt="AI Annotated X-ray" 
                     className="w-full max-w-3xl mx-auto rounded-lg shadow-sm border"
                   />
-                  <p className="text-sm text-gray-600 mt-3">
-                    Colored annotations indicate AI-detected conditions with their confidence levels
-                  </p>
+                  
+                  {/* Dynamic Legend */}
+                  {(() => {
+                    // Get unique conditions from all detections (active + existing)
+                    const allDetections = [...activeConditions, ...existingWork];
+                    const uniqueConditions = Array.from(
+                      new Set(allDetections.map(d => d.class.toLowerCase()))
+                    );
+
+                    if (uniqueConditions.length > 0) {
+                      return (
+                        <div className="mt-4">
+                          <div className="flex flex-wrap gap-3 justify-center">
+                            {uniqueConditions.map((condition, index) => (
+                              <div key={index} className="flex items-center space-x-2">
+                                <div 
+                                  className="w-4 h-4 rounded border border-gray-300"
+                                  style={{ backgroundColor: getConditionColor(condition) }}
+                                />
+                                <span className="text-sm text-gray-700">
+                                  {formatConditionName(condition)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
 
-              {/* Areas Needing Attention */}
-              {findingsSummary.areas_needing_attention.length > 0 && (
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                  <h4 className="font-semibold text-orange-900 mb-2 flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    Priority Areas for Review
-                  </h4>
-                  <ul className="list-disc list-inside space-y-1">
-                    {findingsSummary.areas_needing_attention.map((area, index) => (
-                      <li key={index} className="text-orange-800 text-sm">{area}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+
             </CardContent>
           </CollapsibleContent>
         </Card>

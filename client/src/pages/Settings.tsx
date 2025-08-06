@@ -13,6 +13,10 @@ const Settings = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('branding')
+  const [toothNumberingSystem, setToothNumberingSystem] = useState<'FDI' | 'Universal'>(() => {
+    const saved = localStorage.getItem('toothNumberingSystem');
+    return (saved as 'FDI' | 'Universal') || 'FDI';
+  });
 
   const handleBrandingSave = async (brandingData: any) => {
     try {
@@ -138,7 +142,8 @@ const Settings = () => {
                             type="radio" 
                             name="tooth-system" 
                             value="FDI" 
-                            defaultChecked 
+                            checked={toothNumberingSystem === 'FDI'}
+                            onChange={(e) => setToothNumberingSystem(e.target.value as 'FDI' | 'Universal')}
                             className="text-blue-600"
                           />
                           <div>
@@ -151,6 +156,8 @@ const Settings = () => {
                             type="radio" 
                             name="tooth-system" 
                             value="Universal" 
+                            checked={toothNumberingSystem === 'Universal'}
+                            onChange={(e) => setToothNumberingSystem(e.target.value as 'FDI' | 'Universal')}
                             className="text-blue-600"
                           />
                           <div>
@@ -201,7 +208,16 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end pt-6">
-                      <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Button 
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => {
+                          localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
+                          toast({
+                            title: "Settings Saved",
+                            description: "Your general settings have been saved successfully.",
+                          });
+                        }}
+                      >
                         Save General Settings
                       </Button>
                     </div>

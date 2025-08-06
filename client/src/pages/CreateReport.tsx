@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings } from "lucide-react";
+import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { PricingInput, useClinicPricing } from "@/components/PricingInput";
@@ -57,7 +58,10 @@ const CreateReport = () => {
   const [showAnnotatedImage, setShowAnnotatedImage] = useState(false);
   
   // New state for enhanced functionality
-  const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>('FDI');
+  const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>(() => {
+    const saved = localStorage.getItem('toothNumberingSystem');
+    return (saved as ToothNumberingSystem) || 'FDI';
+  });
   
   // Price validation dialog state
   const [showPriceValidation, setShowPriceValidation] = useState(false);
@@ -1173,33 +1177,7 @@ const CreateReport = () => {
                       </div>
                     )}
 
-                    {/* Tooth Numbering System Toggle */}
-                    {!report && !isAnalyzingImage && (
-                      <Card className="mt-6">
-                        <CardHeader>
-                          <CardTitle className="flex items-center justify-between">
-                            <span className="flex items-center">
-                              <Settings className="mr-2 h-5 w-5" />
-                              Tooth Numbering System
-                            </span>
-                            <div className="flex items-center space-x-2">
-                              <Label htmlFor="tooth-system" className="text-sm font-normal">
-                                {TOOTH_NUMBERING_SYSTEMS[toothNumberingSystem].name}
-                              </Label>
-                              <Switch
-                                id="tooth-system"
-                                checked={toothNumberingSystem === 'Universal'}
-                                onCheckedChange={(checked) => setToothNumberingSystem(checked ? 'Universal' : 'FDI')}
-                                className="data-[state=checked]:bg-blue-600"
-                              />
-                            </div>
-                          </CardTitle>
-                          <CardDescription>
-                            {TOOTH_NUMBERING_SYSTEMS[toothNumberingSystem].description}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    )}
+
 
                     {/* Enhanced Findings Table - Only show if no report and not analyzing */}
                     {!report && !isAnalyzingImage && (
@@ -1224,7 +1202,27 @@ const CreateReport = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Tooth Number */}
                               <div className="space-y-2">
-                                <Label className="text-sm font-medium">Tooth</Label>
+                                <div className="flex items-center space-x-1">
+                                  <Label className="text-sm font-medium">Tooth ({toothNumberingSystem})</Label>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="space-y-2">
+                                        <p>You can change between FDI or Universal in settings.</p>
+                                        <a 
+                                          href="/settings" 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-700 underline"
+                                        >
+                                          Open Settings
+                                        </a>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                                 <SearchableSelect
                                   options={getToothOptions(toothNumberingSystem)}
                                   value={f.tooth}
@@ -1593,7 +1591,27 @@ const CreateReport = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Tooth Number */}
                             <div className="space-y-2">
-                              <Label className="text-sm font-medium">Tooth</Label>
+                              <div className="flex items-center space-x-1">
+                                <Label className="text-sm font-medium">Tooth ({toothNumberingSystem})</Label>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="space-y-2">
+                                      <p>You can change between FDI or Universal in settings.</p>
+                                                                              <a 
+                                          href="/settings" 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-700 underline"
+                                        >
+                                          Open Settings
+                                        </a>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                               <SearchableSelect
                                 options={getToothOptions(toothNumberingSystem)}
                                 value={f.tooth}
