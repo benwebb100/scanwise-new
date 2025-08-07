@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
 import os
@@ -1372,7 +1372,7 @@ async def get_verification_status(
 # Tooth Mapping Endpoints
 class ToothMappingRequest(BaseModel):
     image_url: str
-    detections: List[Dict[str, any]]
+    detections: List[Dict[str, Any]]
     numbering_system: str = "FDI"  # Default to FDI, can be "FDI" or "Universal"
 
 @router.post("/tooth-mapping")
@@ -1424,57 +1424,3 @@ async def map_teeth(
     except Exception as e:
         logger.error(f"Tooth mapping error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Tooth mapping failed: {str(e)}")
-        
-        user_prompt = "Please extract treatment pricing information from this image."
-        
-        response = openai_service.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            temperature=0.1,
-            max_tokens=1000
-        )
-        
-        # Parse the response
-        content = response.choices[0].message.content
-        
-        try:
-            # Try to extract JSON from the response
-            import json
-            import re
-            
-            # Look for JSON object in the response
-            json_match = re.search(r'\{[^}]*\}', content)
-            if json_match:
-                extracted_prices = json.loads(json_match.group())
-            else:
-                extracted_prices = {}
-                
-        except (json.JSONDecodeError, AttributeError):
-            logger.error(f"Failed to parse OCR response: {content}")
-            extracted_prices = {}
-        
-        logger.info(f"OCR extracted {len(extracted_prices)} prices from image")
-        
-        return {
-            "status": "success",
-            "extracted_prices": extracted_prices,
-            "message": f"Extracted {len(extracted_prices)} treatment prices"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error processing image OCR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")

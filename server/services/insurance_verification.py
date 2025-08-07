@@ -32,9 +32,9 @@ class VerificationRequest:
 class VerificationResult:
     verification_id: str
     status: str
+    verification_date: str
     coverage_details: Optional[Dict] = None
     estimated_costs: Optional[Dict] = None
-    verification_date: str
     next_verification_due: Optional[str] = None
     notes: Optional[str] = None
 
