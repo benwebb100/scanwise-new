@@ -22,10 +22,10 @@ class VerificationRequest:
     patient_id: str
     insurance_provider: str
     policy_number: str
-    group_number: Optional[str] = None
     subscriber_name: str
     subscriber_relationship: str
     date_of_birth: str
+    group_number: Optional[str] = None
     treatment_codes: Optional[List[str]] = None
 
 @dataclass
