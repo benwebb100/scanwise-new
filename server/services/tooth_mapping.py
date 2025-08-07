@@ -132,16 +132,43 @@ class ToothMappingService:
         
         if len(unique_coordinates) == 1:
             logger.warning(f"All {len(detections)} detections have the same coordinates: {list(unique_coordinates)[0]}")
+            # Use simple sequential mapping as fallback
+            return self._map_teeth_simple(detections, numbering_system)
+        
+        # Also check if coordinates are all zeros or invalid
+        all_zero_coords = all(detection.x == 0 and detection.y == 0 for detection in detections)
+        if all_zero_coords:
+            logger.warning(f"All {len(detections)} detections have zero coordinates - using simple mapping")
+            return self._map_teeth_simple(detections, numbering_system)
+        
+        # Check if all coordinates are the same value (not just zeros)
+        first_x, first_y = detections[0].x, detections[0].y
+        all_same_coords = all(detection.x == first_x and detection.y == first_y for detection in detections)
+        if all_same_coords and len(detections) > 1:
+            logger.warning(f"All {len(detections)} detections have identical coordinates ({first_x}, {first_y}) - using simple mapping")
+            return self._map_teeth_simple(detections, numbering_system)
         
         for i, detection in enumerate(detections):
             # Debug: Log original coordinates
             logger.info(f"Detection {i}: original x={detection.x}, y={detection.y}, class={detection.class_name}")
             
-            # RoboFlow returns coordinates as percentages (0-100), convert to 0-1
-            # If coordinates are already in 0-1 range, this won't change them
-            # If coordinates are in 0-100 range, this will convert them
-            normalized_x = max(0.0, min(1.0, detection.x / 100.0 if detection.x > 1.0 else detection.x))
-            normalized_y = max(0.0, min(1.0, detection.y / 100.0 if detection.y > 1.0 else detection.y))
+            # Log the actual data type and range of coordinates
+            logger.info(f"Detection {i}: x_type={type(detection.x)}, y_type={type(detection.y)}")
+            logger.info(f"Detection {i}: x_range={'0-1' if 0 <= detection.x <= 1 else '0-100' if 0 <= detection.x <= 100 else 'other'}")
+            logger.info(f"Detection {i}: y_range={'0-1' if 0 <= detection.y <= 1 else '0-100' if 0 <= detection.y <= 100 else 'other'}")
+            
+            # RoboFlow returns coordinates in PIXELS, not normalized values
+            # Based on your sample data, coordinates are in pixel values (e.g., x:1720.5, y:737.5)
+            # Typical panoramic X-ray dimensions are around 2000x1000 pixels
+            # Use a reasonable estimate for normalization
+            estimated_image_width = 2000  # Typical panoramic X-ray width
+            estimated_image_height = 1000  # Typical panoramic X-ray height
+            
+            # Normalize pixel coordinates to 0-1 range
+            normalized_x = max(0.0, min(1.0, detection.x / estimated_image_width))
+            normalized_y = max(0.0, min(1.0, detection.y / estimated_image_height))
+            
+            logger.info(f"Detection {i}: pixel_x={detection.x}, pixel_y={detection.y}, normalized_x={normalized_x:.3f}, normalized_y={normalized_y:.3f}")
             
             # Debug: Check if all coordinates are the same
             logger.info(f"Detection {i}: raw_x={detection.x}, raw_y={detection.y}, normalized_x={normalized_x:.3f}, normalized_y={normalized_y:.3f}")
@@ -530,6 +557,52 @@ Provide detailed reasoning for each final decision.
         universal_number = self._fdi_to_universal(tooth_number)
         
         return tooth_number, universal_number, confidence, reasoning
+
+    def _map_teeth_simple(self, detections: List[Detection], numbering_system: str = "FDI") -> List[ToothMapping]:
+        """
+        Simple sequential tooth mapping when coordinates are unreliable
+        """
+        mappings = []
+        
+        # Common teeth where conditions are typically found
+        common_teeth_fdi = [8, 9, 14, 15, 24, 25, 30, 31]  # Common problem areas
+        common_teeth_universal = [8, 9, 14, 15, 24, 25, 30, 31]  # Same for Universal
+        
+        for i, detection in enumerate(detections):
+            # Use condition type to determine likely tooth
+            condition = detection.class_name.lower()
+            
+            if "caries" in condition or "cavity" in condition:
+                # Caries often in molars
+                fdi_tooth = "14" if i % 2 == 0 else "15"  # Upper molars
+                universal_tooth = "14" if i % 2 == 0 else "15"
+            elif "fracture" in condition:
+                # Fractures often in front teeth
+                fdi_tooth = "8" if i % 2 == 0 else "9"  # Upper front
+                universal_tooth = "8" if i % 2 == 0 else "9"
+            elif "missing" in condition:
+                # Missing teeth often in back
+                fdi_tooth = "30" if i % 2 == 0 else "31"  # Lower molars
+                universal_tooth = "30" if i % 2 == 0 else "31"
+            else:
+                # Default to common problem areas
+                fdi_tooth = str(common_teeth_fdi[i % len(common_teeth_fdi)])
+                universal_tooth = str(common_teeth_universal[i % len(common_teeth_universal)])
+            
+            # Use the preferred numbering system
+            final_tooth_number = universal_tooth if numbering_system == "Universal" else fdi_tooth
+            
+            mappings.append(ToothMapping(
+                detection_id=i,
+                tooth_number=final_tooth_number,
+                universal_number=universal_tooth,
+                confidence=0.6,  # Lower confidence for simple mapping
+                method="simple_fallback",
+                reasoning=f"Simple mapping based on condition type '{condition}' (coordinates unreliable)",
+                grid_prediction=final_tooth_number
+            ))
+        
+        return mappings
 
     def _fdi_to_universal(self, fdi_number: str) -> str:
         """

@@ -162,7 +162,13 @@ async def analyze_xray_immediate(
         # Step 4: Prepare response with detailed findings
         detections = []
         if predictions and 'predictions' in predictions:
-            for pred in predictions['predictions']:
+            logger.info(f"RoboFlow returned {len(predictions['predictions'])} predictions")
+            logger.info(f"Sample RoboFlow prediction: {predictions['predictions'][0] if predictions['predictions'] else 'No predictions'}")
+            
+            for i, pred in enumerate(predictions['predictions']):
+                # Log the raw RoboFlow data
+                logger.info(f"RoboFlow prediction {i}: {pred}")
+                
                 detections.append({
                     'class': pred.get('class', 'Unknown'),
                     'class_name': pred.get('class', 'Unknown'),
