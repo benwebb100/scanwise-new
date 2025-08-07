@@ -1391,6 +1391,7 @@ async def map_teeth(
     """
     try:
         logger.info(f"Starting tooth mapping for {len(request.detections)} detections")
+        logger.info(f"User requested numbering system: {request.numbering_system}")
         
         # Convert detections to Detection objects
         detections = [

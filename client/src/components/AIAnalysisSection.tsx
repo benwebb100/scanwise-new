@@ -172,6 +172,10 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       // Get user's numbering system preference from settings
       const numberingSystem = localStorage.getItem('toothNumberingSystem') || 'FDI';
       
+      // Debug logging
+      console.log('Tooth mapping - User preference:', numberingSystem);
+      console.log('Tooth mapping - Available in localStorage:', localStorage.getItem('toothNumberingSystem'));
+      
       const result = await api.mapTeeth(annotatedImageUrl, activeConditions, numberingSystem);
       
       if (result.success) {

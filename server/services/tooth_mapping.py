@@ -1,6 +1,7 @@
 import logging
 import json
 import math
+import base64
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import openai
@@ -82,34 +83,72 @@ class ToothMappingService:
     
     def _map_teeth_gpt4(self, image_url: str, detections: List[Detection], numbering_system: str = "FDI") -> List[ToothMapping]:
         """
-        Use GPT-4 Vision to map teeth based on visual analysis
+        Use GPT-4 Vision to map teeth based on visual analysis with reference image
         """
         try:
             # Create detailed prompt for dental analysis
             prompt = self._create_gpt4_prompt(detections, numbering_system)
             
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": image_url
+            # Determine reference image path
+            reference_image_path = f"reference_images/{'universal' if numbering_system == 'Universal' else 'fdi'}_reference.png"
+            
+            # Check if reference image exists
+            import os
+            if not os.path.exists(reference_image_path):
+                logger.warning(f"Reference image not found: {reference_image_path}, proceeding without reference")
+                # Fallback to original method without reference image
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url
+                                    }
                                 }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=2000,
-                temperature=0.1
-            )
+                            ]
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.1
+                )
+            else:
+                # Include reference image in the API call
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url
+                                    }
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{self._encode_image_to_base64(reference_image_path)}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.1
+                )
             
             # Parse GPT-4 response
             content = response.choices[0].message.content
@@ -195,34 +234,72 @@ class ToothMappingService:
     
     def _gpt_referee(self, image_url: str, gpt_result: List[ToothMapping], grid_result: List[ToothMapping], numbering_system: str = "FDI") -> List[ToothMapping]:
         """
-        Use GPT-4 as referee to resolve conflicts between GPT and Grid predictions
+        Use GPT-4 as referee to resolve conflicts between GPT and Grid predictions with reference image
         """
         try:
             # Create referee prompt
             referee_prompt = self._create_referee_prompt(gpt_result, grid_result, numbering_system)
             
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": referee_prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": image_url
+            # Determine reference image path
+            reference_image_path = f"reference_images/{'universal' if numbering_system == 'Universal' else 'fdi'}_reference.png"
+            
+            # Check if reference image exists
+            import os
+            if not os.path.exists(reference_image_path):
+                logger.warning(f"Reference image not found for referee: {reference_image_path}, proceeding without reference")
+                # Fallback to original method without reference image
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": referee_prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url
+                                    }
                                 }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=2000,
-                temperature=0.1
-            )
+                            ]
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.1
+                )
+            else:
+                # Include reference image in the referee API call
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": referee_prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url
+                                    }
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{self._encode_image_to_base64(reference_image_path)}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.1
+                )
             
             # Parse referee response
             content = response.choices[0].message.content
@@ -235,7 +312,7 @@ class ToothMappingService:
     
     def _create_gpt4_prompt(self, detections: List[Detection], numbering_system: str = "FDI") -> str:
         """
-        Create detailed prompt for GPT-4 Vision dental analysis
+        Create detailed prompt for GPT-4 Vision dental analysis with reference image
         """
         detections_json = json.dumps([
             {
@@ -255,31 +332,37 @@ UNIVERSAL TOOTH NUMBERING:
 - Lower left: 17-24 (17=third molar, 24=central incisor)
 - Lower right: 25-32 (25=central incisor, 32=third molar)
 """
+            reference_image = "reference_images/universal_reference.png"
         else:
             numbering_info = """
 FDI TOOTH NUMBERING:
-- Upper right: 1-8 (1=central incisor, 8=third molar)
-- Upper left: 9-16 (9=central incisor, 16=third molar)
-- Lower left: 17-24 (17=central incisor, 24=third molar)
-- Lower right: 25-32 (25=central incisor, 32=third molar)
+- Upper right: 11-18 (11=central incisor, 18=third molar)
+- Upper left: 21-28 (21=central incisor, 28=third molar)
+- Lower left: 31-38 (31=central incisor, 38=third molar)
+- Lower right: 41-48 (41=central incisor, 48=third molar)
 """
+            reference_image = "reference_images/fdi_reference.png"
         
         return f"""
 You are a dental expert analyzing a panoramic X-ray for tooth mapping.
+
+REFERENCE IMAGE:
+I will provide you with a reference image showing the {numbering_system} tooth numbering system. Use this reference image to accurately map teeth.
 
 DETECTIONS:
 {detections_json}
 
 TASK:
-For each detection, identify the specific tooth number using the {numbering_system} numbering system.
+For each detection, identify the specific tooth number using the {numbering_system} numbering system by comparing the position and anatomy to the reference image.
 
 {numbering_info}
 
 ANALYSIS GUIDELINES:
-1. Consider the condition type and typical locations
-2. Look at anatomical landmarks and tooth shapes
-3. Consider the patient's head position and image quality
-4. Account for common variations in panoramic positioning
+1. Compare the patient's X-ray to the reference image to understand the numbering system
+2. Consider the condition type and typical locations
+3. Look at anatomical landmarks and tooth shapes
+4. Consider the patient's head position and image quality
+5. Use the reference image as your primary guide for numbering
 
 RESPONSE FORMAT:
 Return a JSON array with this structure:
@@ -294,12 +377,12 @@ Return a JSON array with this structure:
   ]
 }}
 
-Be precise and provide detailed reasoning for each mapping.
+Be precise and provide detailed reasoning for each mapping based on the reference image.
 """
     
     def _create_referee_prompt(self, gpt_result: List[ToothMapping], grid_result: List[ToothMapping], numbering_system: str = "FDI") -> str:
         """
-        Create prompt for GPT referee to resolve conflicts
+        Create prompt for GPT referee to resolve conflicts with reference image
         """
         conflicts = []
         for gpt_mapping in gpt_result:
@@ -320,18 +403,22 @@ Be precise and provide detailed reasoning for each mapping.
         return f"""
 You are a dental expert referee resolving tooth mapping conflicts using {numbering_info} numbering system.
 
+REFERENCE IMAGE:
+I will provide you with a reference image showing the {numbering_info} tooth numbering system. Use this reference image to make accurate final decisions.
+
 CONFLICTS TO RESOLVE:
 {conflicts_json}
 
 TASK:
-For each conflict, analyze both predictions and make a final decision using {numbering_info} numbering.
+For each conflict, analyze both predictions and make a final decision using {numbering_info} numbering by comparing to the reference image.
 
 CONSIDER:
-1. Visual evidence in the image
-2. Anatomical landmarks
-3. Condition type and typical locations
-4. Coordinate positioning vs visual analysis
-5. Clinical reasoning from both methods
+1. Compare both predictions to the reference image for accuracy
+2. Visual evidence in the patient's X-ray
+3. Anatomical landmarks and tooth positions
+4. Condition type and typical locations
+5. Coordinate positioning vs visual analysis
+6. Clinical reasoning from both methods
 
 RESPONSE FORMAT:
 Return a JSON array with this structure:
@@ -348,7 +435,7 @@ Return a JSON array with this structure:
   ]
 }}
 
-Provide detailed reasoning for each final decision.
+Provide detailed reasoning for each final decision based on the reference image.
 """
     
     def _parse_gpt4_response(self, content: str, detections: List[Detection]) -> List[ToothMapping]:
@@ -636,6 +723,17 @@ Provide detailed reasoning for each final decision.
             return str(universal_map.get(fdi_int, fdi_int))
         except ValueError:
             return fdi_number  # Return original if not a number
+
+    def _encode_image_to_base64(self, image_path: str) -> str:
+        """
+        Encode an image file to a base64 string for embedding in the GPT-4 Vision API.
+        """
+        try:
+            with open(image_path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode('utf-8')
+        except FileNotFoundError:
+            logger.error(f"Reference image not found for encoding: {image_path}")
+            return ""
 
 # Global instance
 tooth_mapping_service = ToothMappingService()
