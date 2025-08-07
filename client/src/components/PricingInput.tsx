@@ -39,8 +39,10 @@ export function PricingInput({
   useEffect(() => {
     if (treatment && !disabled) {
       if (knownPrice) {
-        // Auto-fill with known price
-        onChange(knownPrice)
+        // Auto-fill with known price only if no current value
+        if (value === undefined || value === 0) {
+          onChange(knownPrice)
+        }
         setIsNewPrice(false)
       } else {
         // No price found, show as new price
@@ -48,21 +50,27 @@ export function PricingInput({
         setInputValue('')
       }
     }
-  }, [treatment, knownPrice, onChange, disabled])
+  }, [treatment, knownPrice, disabled]) // Removed onChange and value to prevent loops
 
   useEffect(() => {
-    if (value !== undefined) {
+    if (value !== undefined && !isEditing) {
       setInputValue(value.toString())
     }
-  }, [value])
+  }, [value, isEditing])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     console.log('Input change:', newValue)
     setInputValue(newValue)
     
+    // Handle empty input
+    if (newValue === '' || newValue === '.') {
+      return
+    }
+    
+    // Only call onChange if we have a valid number and it's different from current value
     const numericValue = parseFloat(newValue)
-    if (!isNaN(numericValue) && numericValue >= 0) {
+    if (!isNaN(numericValue) && numericValue >= 0 && numericValue !== value) {
       console.log('Calling onChange with:', numericValue)
       onChange(numericValue)
     }
@@ -78,6 +86,8 @@ export function PricingInput({
     if (!isNaN(numericValue) && numericValue > 0) {
       setPendingPrice(numericValue)
       setShowConfirmDialog(true)
+    } else {
+      console.error('Invalid price value:', inputValue)
     }
   }
 
@@ -110,7 +120,7 @@ export function PricingInput({
     }
   }
 
-  if (!treatment || disabled) {
+  if (!treatment || disabled || treatment.trim() === '') {
     return null
   }
 
@@ -137,6 +147,13 @@ export function PricingInput({
                 className="pl-8"
                 min="0"
                 step="0.01"
+                onBlur={() => {
+                  // Validate on blur
+                  const numericValue = parseFloat(inputValue)
+                  if (isNaN(numericValue) || numericValue < 0) {
+                    setInputValue('')
+                  }
+                }}
               />
             </div>
             
@@ -144,7 +161,7 @@ export function PricingInput({
               type="button"
               size="sm"
               onClick={handleSaveClick}
-              disabled={!inputValue || isNaN(parseFloat(inputValue))}
+              disabled={!inputValue || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) <= 0}
             >
               Save
             </Button>
@@ -169,6 +186,13 @@ export function PricingInput({
                 min="0"
                 step="0.01"
                 autoFocus
+                onBlur={() => {
+                  // Validate on blur
+                  const numericValue = parseFloat(inputValue)
+                  if (isNaN(numericValue) || numericValue < 0) {
+                    setInputValue('')
+                  }
+                }}
               />
             </div>
             
@@ -185,7 +209,7 @@ export function PricingInput({
               type="button"
               size="sm"
               onClick={handleSaveClick}
-              disabled={!inputValue || isNaN(parseFloat(inputValue))}
+              disabled={!inputValue || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) <= 0}
             >
               <Check className="h-4 w-4" />
             </Button>
@@ -200,7 +224,7 @@ export function PricingInput({
           <div className="flex items-center space-x-2">
             <DollarSign className="h-4 w-4 text-green-600" />
             <span className="text-sm font-medium text-green-800">
-              ${value || knownPrice}
+              ${value !== undefined ? value : knownPrice}
             </span>
             <span className="text-xs text-green-600">
               {clinicPrice ? '(Clinic price)' : '(Default price)'}
@@ -299,6 +323,10 @@ export function useClinicPricing() {
         } catch (parseError) {
           console.error('Error parsing saved prices:', parseError)
         }
+      }
+      // Set empty object if no fallback data
+      if (!saved) {
+        setClinicPrices({})
       }
     } finally {
       setLoading(false)

@@ -62,7 +62,7 @@ class ToothMappingService:
             
             return MappingResult(
                 mappings=final_result,
-                overall_confidence=sum(m.confidence for m in final_result) / len(final_result),
+                overall_confidence=sum(m.confidence for m in final_result) / len(final_result) if final_result else 0.0,
                 processing_time=processing_time,
                 method_used="ensemble_gpt4_grid_referee"
             )
@@ -75,7 +75,7 @@ class ToothMappingService:
             
             return MappingResult(
                 mappings=grid_result,
-                overall_confidence=sum(m.confidence for m in grid_result) / len(grid_result),
+                overall_confidence=sum(m.confidence for m in grid_result) / len(grid_result) if grid_result else 0.0,
                 processing_time=processing_time,
                 method_used="grid_fallback"
             )
@@ -126,9 +126,11 @@ class ToothMappingService:
         mappings = []
         
         for i, detection in enumerate(detections):
-            # Normalize coordinates (assuming image is 800x400 typical panoramic)
-            normalized_x = detection.x / 800.0
-            normalized_y = detection.y / 400.0
+            # Normalize coordinates to 0-1 range
+            # For panoramic X-rays, we assume a typical aspect ratio
+            # The coordinates should already be normalized by the detection system
+            normalized_x = max(0.0, min(1.0, detection.x))  # Clamp to 0-1
+            normalized_y = max(0.0, min(1.0, detection.y))  # Clamp to 0-1
             
             # Map to tooth number based on position
             tooth_number, universal_number, confidence, reasoning = self._grid_to_tooth(normalized_x, normalized_y, detection.class_name)
@@ -383,63 +385,77 @@ Provide detailed reasoning for each final decision.
             # Fallback to GPT result
             return gpt_result
     
-    def _grid_to_tooth(self, normalized_x: float, normalized_y: float, condition: str) -> Tuple[str, float, str]:
+    def _grid_to_tooth(self, normalized_x: float, normalized_y: float, condition: str) -> Tuple[str, str, float, str]:
         """
         Map normalized coordinates to tooth number using grid-based logic
         """
-        # Define tooth zones based on typical panoramic positioning
-        # This is a simplified grid mapping - can be refined with more sophisticated logic
+        # Simplified but more accurate grid mapping for panoramic X-rays
         
-        # Horizontal zones (left to right)
-        if normalized_x < 0.125: zone_x = 0  # Far left
-        elif normalized_x < 0.25: zone_x = 1
-        elif normalized_x < 0.375: zone_x = 2
-        elif normalized_x < 0.5: zone_x = 3
-        elif normalized_x < 0.625: zone_x = 4
-        elif normalized_x < 0.75: zone_x = 5
-        elif normalized_x < 0.875: zone_x = 6
-        else: zone_x = 7  # Far right
+        # Determine arch (upper/lower)
+        if normalized_y < 0.5:
+            arch = "upper"
+            arch_center = 0.25
+        else:
+            arch = "lower"
+            arch_center = 0.75
         
-        # Vertical zones (top to bottom)
-        if normalized_y < 0.5: zone_y = "upper"  # Upper arch
-        else: zone_y = "lower"  # Lower arch
-        
-        # Map zones to tooth numbers (FDI system)
-        tooth_mapping = {
-            ("upper", 0): "1", ("upper", 1): "2", ("upper", 2): "3", ("upper", 3): "4",
-            ("upper", 4): "5", ("upper", 5): "6", ("upper", 6): "7", ("upper", 7): "8",
-            ("upper", 8): "9", ("upper", 9): "10", ("upper", 10): "11", ("upper", 11): "12",
-            ("upper", 12): "13", ("upper", 13): "14", ("upper", 14): "15", ("upper", 15): "16",
-            ("lower", 0): "17", ("lower", 1): "18", ("lower", 2): "19", ("lower", 3): "20",
-            ("lower", 4): "21", ("lower", 5): "22", ("lower", 6): "23", ("lower", 7): "24",
-            ("lower", 8): "25", ("lower", 9): "26", ("lower", 10): "27", ("lower", 11): "28",
-            ("lower", 12): "29", ("lower", 13): "30", ("lower", 14): "31", ("lower", 15): "32"
-        }
-        
-        # Adjust for left/right side
-        if zone_x < 4:  # Left side
-            tooth_number = tooth_mapping.get((zone_y, zone_x), "Unknown")
+        # Determine quadrant and position within quadrant
+        if normalized_x < 0.5:  # Left side
+            if arch == "upper":
+                # Upper left: teeth 9-16
+                tooth_base = 9
+            else:
+                # Lower left: teeth 17-24
+                tooth_base = 17
         else:  # Right side
-            adjusted_zone = zone_x - 4
-            tooth_number = tooth_mapping.get((zone_y, adjusted_zone), "Unknown")
+            if arch == "upper":
+                # Upper right: teeth 1-8
+                tooth_base = 1
+            else:
+                # Lower right: teeth 25-32
+                tooth_base = 25
+        
+        # Calculate position within quadrant (0-7)
+        quadrant_x = normalized_x if normalized_x < 0.5 else normalized_x - 0.5
+        position_in_quadrant = int(quadrant_x * 8)  # 8 teeth per quadrant
+        position_in_quadrant = max(0, min(7, position_in_quadrant))  # Clamp to 0-7
+        
+        # Map to tooth number
+        tooth_number = str(tooth_base + position_in_quadrant)
+        
+        # Ensure tooth number is valid (1-32)
+        try:
+            tooth_int = int(tooth_number)
+            if tooth_int < 1 or tooth_int > 32:
+                tooth_number = "Unknown"
+        except ValueError:
+            tooth_number = "Unknown"
         
         # Calculate confidence based on position accuracy
-        x_accuracy = 1 - abs(normalized_x - (zone_x * 0.125 + 0.0625)) / 0.125
-        y_accuracy = 1 - abs(normalized_y - (0.25 if zone_y == "upper" else 0.75)) / 0.25
-        confidence = (x_accuracy + y_accuracy) / 2
+        # Distance from center of the arch
+        arch_distance = abs(normalized_y - arch_center)
+        arch_confidence = max(0, 1 - (arch_distance / 0.25))  # 0.25 is half the arch height
+        
+        # Distance from center of the quadrant
+        quadrant_center = 0.25 if normalized_x < 0.5 else 0.75
+        quadrant_distance = abs(normalized_x - quadrant_center)
+        quadrant_confidence = max(0, 1 - (quadrant_distance / 0.25))
+        
+        # Overall confidence
+        confidence = (arch_confidence + quadrant_confidence) / 2
         
         # Adjust confidence based on condition type
         condition_confidence_boost = {
-            "caries": 0.1,  # Caries are easier to locate
-            "fracture": 0.05,  # Fractures can be more ambiguous
-            "missing-tooth": 0.15,  # Missing teeth are very clear
-            "periapical-lesion": 0.0,  # Lesions can be harder to pinpoint
+            "caries": 0.1,
+            "fracture": 0.05,
+            "missing-tooth": 0.15,
+            "periapical-lesion": 0.0,
         }
         
         confidence += condition_confidence_boost.get(condition.lower(), 0.0)
-        confidence = min(confidence, 0.95)  # Cap at 95%
+        confidence = max(0.1, min(confidence, 0.95))  # Ensure confidence is between 10% and 95%
         
-        reasoning = f"Grid mapping: {zone_y} arch, zone {zone_x} (x={normalized_x:.2f}, y={normalized_y:.2f})"
+        reasoning = f"Grid mapping: {arch} arch, quadrant {'left' if normalized_x < 0.5 else 'right'}, position {position_in_quadrant} (x={normalized_x:.2f}, y={normalized_y:.2f})"
         
         # Convert FDI to Universal numbering
         universal_number = self._fdi_to_universal(tooth_number)

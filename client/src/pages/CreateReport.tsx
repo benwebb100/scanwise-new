@@ -1886,6 +1886,7 @@ const CreateReport = () => {
                                 onChange={(price) => handleFindingChange(idx, "price", price)}
                                 clinicPrices={clinicPrices}
                                 onPriceSave={handlePriceSave}
+                                disabled={isProcessing}
                               />
                             </div>
                           )}
