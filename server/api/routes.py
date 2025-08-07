@@ -17,6 +17,8 @@ from utils.image import generate_annotated_filename
 
 from services.video_generator import video_generator_service
 from services.elevenlabs_service import elevenlabs_service
+from services.insurance_verification import insurance_service
+from services.tooth_mapping import tooth_mapping_service, Detection
 import tempfile
 import uuid
 
@@ -47,6 +49,59 @@ class EnhancedAnalyzeRequest(BaseModel):
     observations: Optional[str] = None
     tooth_numbering_system: Optional[str] = "FDI"
     clinic_branding: Optional[ClinicBrandingData] = None
+
+# Insurance verification models
+class InsuranceProvider(BaseModel):
+    id: str
+    name: str
+    phone: str
+    website: str
+    api_endpoint: Optional[str] = None
+    api_key: Optional[str] = None
+
+class PatientInsurance(BaseModel):
+    patient_id: str
+    patient_name: str
+    insurance_provider: str
+    policy_number: str
+    group_number: Optional[str] = None
+    subscriber_name: str
+    subscriber_relationship: str  # Self, Spouse, Child, etc.
+    effective_date: str
+    expiration_date: str
+    copay_amount: Optional[float] = None
+    deductible_remaining: Optional[float] = None
+    max_annual_benefit: Optional[float] = None
+    last_verified: Optional[str] = None
+
+class InsuranceVerificationRequest(BaseModel):
+    patient_id: str
+    insurance_provider: str
+    policy_number: str
+    group_number: Optional[str] = None
+    subscriber_name: str
+    subscriber_relationship: str
+    date_of_birth: str
+    treatment_codes: Optional[List[str]] = None
+
+class InsuranceVerificationResponse(BaseModel):
+    verification_id: str
+    status: str  # "pending", "completed", "failed"
+    coverage_details: Optional[Dict] = None
+    estimated_costs: Optional[Dict] = None
+    verification_date: str
+    next_verification_due: Optional[str] = None
+    notes: Optional[str] = None
+
+class TreatmentCostEstimate(BaseModel):
+    treatment_code: str
+    treatment_name: str
+    total_cost: float
+    insurance_coverage: float
+    patient_responsibility: float
+    copay_amount: float
+    deductible_applied: float
+    coverage_percentage: float
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1136,6 +1191,239 @@ async def process_image_ocr(
         - "Implant" -> "implant-placement"
         - etc.
         """
+        
+        # Mock OCR response for now
+        mock_pricing_data = {
+            "filling": 120.00,
+            "crown": 1200.00,
+            "root-canal-treatment": 400.00,
+            "extraction": 180.00,
+            "scale-and-clean": 80.00
+        }
+        
+        return {
+            "success": True,
+            "pricing_data": mock_pricing_data,
+            "message": "OCR processing completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"OCR processing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+
+# Insurance Verification Endpoints
+@router.post("/insurance/verify", response_model=InsuranceVerificationResponse)
+async def verify_insurance(
+    request: InsuranceVerificationRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Verify patient insurance coverage and get cost estimates
+    """
+    try:
+        logger.info(f"Starting insurance verification for patient: {request.patient_id}")
+        
+        # Use the insurance verification service
+        from services.insurance_verification import VerificationRequest
+        
+        verification_request = VerificationRequest(
+            patient_id=request.patient_id,
+            insurance_provider=request.insurance_provider,
+            policy_number=request.policy_number,
+            group_number=request.group_number,
+            subscriber_name=request.subscriber_name,
+            subscriber_relationship=request.subscriber_relationship,
+            date_of_birth=request.date_of_birth,
+            treatment_codes=request.treatment_codes
+        )
+        
+        result = insurance_service.verify_insurance(verification_request)
+        
+        return InsuranceVerificationResponse(
+            verification_id=result.verification_id,
+            status=result.status,
+            coverage_details=result.coverage_details,
+            estimated_costs=result.estimated_costs,
+            verification_date=result.verification_date,
+            next_verification_due=result.next_verification_due,
+            notes=result.notes
+        )
+        
+    except Exception as e:
+        logger.error(f"Insurance verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Insurance verification failed: {str(e)}")
+
+@router.post("/insurance/patient")
+async def save_patient_insurance(
+    insurance_data: PatientInsurance,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Save patient insurance information
+    """
+    try:
+        logger.info(f"Saving insurance data for patient: {insurance_data.patient_id}")
+        
+        # Use the insurance service
+        result = insurance_service.save_patient_insurance(insurance_data.dict())
+        return result
+        
+    except Exception as e:
+        logger.error(f"Save insurance error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save insurance data: {str(e)}")
+
+@router.get("/insurance/patient/{patient_id}")
+async def get_patient_insurance(
+    patient_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Get patient insurance information
+    """
+    try:
+        logger.info(f"Fetching insurance data for patient: {patient_id}")
+        
+        # Use the insurance service
+        insurance_data = insurance_service.get_patient_insurance(patient_id)
+        
+        return {
+            "success": True,
+            "insurance_data": insurance_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Get insurance error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get insurance data: {str(e)}")
+
+@router.get("/insurance/providers")
+async def get_insurance_providers(
+    token: str = Depends(get_auth_token)
+):
+    """
+    Get list of supported insurance providers
+    """
+    try:
+        logger.info("Fetching insurance providers")
+        
+        # Use the insurance service
+        providers = insurance_service.get_providers()
+        
+        return {
+            "success": True,
+            "providers": providers
+        }
+        
+    except Exception as e:
+        logger.error(f"Get providers error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get insurance providers: {str(e)}")
+
+@router.get("/insurance/verification/{verification_id}")
+async def get_verification_status(
+    verification_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Get insurance verification status and results
+    """
+    try:
+        logger.info(f"Fetching verification status for: {verification_id}")
+        
+        # Mock verification status
+        mock_status = {
+            "verification_id": verification_id,
+            "status": "completed",
+            "coverage_details": {
+                "eligibility_status": "Active",
+                "coverage_period": {
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31"
+                },
+                "benefits": {
+                    "preventive": {"coverage": 100, "frequency": "2x/year"},
+                    "basic": {"coverage": 80, "frequency": "unlimited"},
+                    "major": {"coverage": 50, "frequency": "unlimited"}
+                }
+            },
+            "estimated_costs": {
+                "D0150": {
+                    "treatment_name": "Comprehensive Oral Evaluation",
+                    "total_cost": 150.0,
+                    "insurance_coverage": 120.0,
+                    "patient_responsibility": 30.0,
+                    "copay_amount": 20.0,
+                    "deductible_applied": 10.0,
+                    "coverage_percentage": 80.0
+                }
+            },
+            "verification_date": datetime.now().isoformat(),
+            "next_verification_due": (datetime.now().replace(month=datetime.now().month + 1)).isoformat(),
+            "notes": "Insurance verification completed successfully"
+        }
+        
+        return {
+            "success": True,
+            "verification": mock_status
+        }
+        
+    except Exception as e:
+        logger.error(f"Get verification status error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get verification status: {str(e)}")
+
+# Tooth Mapping Endpoints
+class ToothMappingRequest(BaseModel):
+    image_url: str
+    detections: List[Dict[str, any]]
+    numbering_system: str = "FDI"  # Default to FDI, can be "FDI" or "Universal"
+
+@router.post("/tooth-mapping")
+async def map_teeth(
+    request: ToothMappingRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Map dental conditions to specific tooth numbers using ensemble AI approach
+    """
+    try:
+        logger.info(f"Starting tooth mapping for {len(request.detections)} detections")
+        
+        # Convert detections to Detection objects
+        detections = [
+            Detection(
+                class_name=detection["class"],
+                confidence=detection["confidence"],
+                x=detection["x"],
+                y=detection["y"],
+                width=detection.get("width", 0),
+                height=detection.get("height", 0)
+            )
+            for detection in request.detections
+        ]
+        
+        # Perform ensemble tooth mapping with user's numbering system preference
+        result = tooth_mapping_service.map_teeth_ensemble(request.image_url, detections, request.numbering_system)
+        
+        return {
+            "success": True,
+            "mappings": [
+                {
+                    "detection_id": mapping.detection_id,
+                    "tooth_number": mapping.tooth_number,  # Will be in user's preferred system
+                    "confidence": mapping.confidence,
+                    "method": mapping.method,
+                    "reasoning": mapping.reasoning,
+                    "gpt_prediction": mapping.gpt_prediction,
+                    "grid_prediction": mapping.grid_prediction
+                }
+                for mapping in result.mappings
+            ],
+            "overall_confidence": result.overall_confidence,
+            "processing_time": result.processing_time,
+            "method_used": result.method_used
+        }
+        
+    except Exception as e:
+        logger.error(f"Tooth mapping error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tooth mapping failed: {str(e)}")
         
         user_prompt = "Please extract treatment pricing information from this image."
         

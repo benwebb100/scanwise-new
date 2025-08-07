@@ -235,4 +235,119 @@ export const api = {
     if (!response.ok) throw new Error('Failed to analyze X-ray immediately');
     return response.json();
   },
+
+  // Insurance Verification Methods
+  async verifyInsurance(data: {
+    patient_id: string;
+    insurance_provider: string;
+    policy_number: string;
+    group_number?: string;
+    subscriber_name: string;
+    subscriber_relationship: string;
+    date_of_birth: string;
+    treatment_codes?: string[];
+  }) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/insurance/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) throw new Error('Insurance verification failed');
+    return response.json();
+  },
+
+  async savePatientInsurance(insuranceData: {
+    patient_id: string;
+    patient_name: string;
+    insurance_provider: string;
+    policy_number: string;
+    group_number?: string;
+    subscriber_name: string;
+    subscriber_relationship: string;
+    effective_date: string;
+    expiration_date: string;
+    copay_amount?: number;
+    deductible_remaining?: number;
+    max_annual_benefit?: number;
+  }) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/insurance/patient`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(insuranceData),
+    });
+
+    if (!response.ok) throw new Error('Failed to save insurance data');
+    return response.json();
+  },
+
+  async getPatientInsurance(patientId: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/insurance/patient/${patientId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get insurance data');
+    return response.json();
+  },
+
+  async getInsuranceProviders() {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/insurance/providers`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get insurance providers');
+    return response.json();
+  },
+
+  async getVerificationStatus(verificationId: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/insurance/verification/${verificationId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get verification status');
+    return response.json();
+  },
+
+  // Tooth Mapping Methods
+  async mapTeeth(imageUrl: string, detections: any[], numberingSystem: string = 'FDI') {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/tooth-mapping`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        detections: detections,
+        numbering_system: numberingSystem
+      }),
+    });
+
+    if (!response.ok) throw new Error('Tooth mapping failed');
+    return response.json();
+  }
 };

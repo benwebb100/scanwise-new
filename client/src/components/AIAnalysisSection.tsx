@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Brain, AlertTriangle, CheckCircle, Clock, Info, ChevronDown, ChevronUp, Check, Eye, EyeOff } from 'lucide-react';
+import { Brain, AlertTriangle, CheckCircle, Clock, Info, ChevronDown, ChevronUp, Check, Eye, EyeOff, Plus, MapPin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { api } from '@/services/api';
 
 interface DetailedFinding {
   condition: string;
@@ -39,7 +41,7 @@ interface AIAnalysisSectionProps {
   };
   detections: Detection[];
   annotatedImageUrl: string;
-  onAcceptFinding?: (detection: Detection) => void;
+  onAcceptFinding?: (detection: Detection, toothMapping?: {tooth: string, confidence: number, reasoning: string}) => void;
   onRejectFinding?: (detection: Detection) => void;
 }
 
@@ -66,10 +68,13 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   onAcceptFinding,
   onRejectFinding
 }) => {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(true);
   const [showExistingWork, setShowExistingWork] = useState(false);
   const [showClinicalAssessment, setShowClinicalAssessment] = useState(false);
   const [rejectedDetections, setRejectedDetections] = useState<Set<number>>(new Set());
+  const [toothMappings, setToothMappings] = useState<{[key: number]: {tooth: string, confidence: number, reasoning: string}}>({});
+  const [isMappingTeeth, setIsMappingTeeth] = useState(false);
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -142,11 +147,61 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   const [addedDetections, setAddedDetections] = useState<Set<number>>(new Set());
 
   const handleAddFinding = (detection: Detection, index: number) => {
-    // Add to findings
-    onAcceptFinding?.(detection);
+    // Get tooth mapping if available
+    const toothMapping = toothMappings[index];
+    
+    // Add to findings with tooth mapping
+    onAcceptFinding?.(detection, toothMapping);
     
     // Mark as added
     setAddedDetections(prev => new Set([...prev, index]));
+  };
+
+  const handleMapTeeth = async () => {
+    if (activeConditions.length === 0) {
+      toast({
+        title: "No Conditions",
+        description: "No active conditions to map teeth for.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsMappingTeeth(true);
+    try {
+      // Get user's numbering system preference from settings
+      const numberingSystem = localStorage.getItem('toothNumberingSystem') || 'FDI';
+      
+      const result = await api.mapTeeth(annotatedImageUrl, activeConditions, numberingSystem);
+      
+      if (result.success) {
+        const mappings: {[key: number]: {tooth: string, confidence: number, reasoning: string}} = {};
+        
+        result.mappings.forEach((mapping: any) => {
+          mappings[mapping.detection_id] = {
+            tooth: mapping.tooth_number,
+            confidence: mapping.confidence,
+            reasoning: mapping.reasoning
+          };
+        });
+        
+        setToothMappings(mappings);
+        
+        toast({
+          title: "Tooth Mapping Complete",
+          description: `Mapped ${result.mappings.length} conditions to teeth with ${Math.round(result.overall_confidence * 100)}% confidence using ${numberingSystem} numbering.`,
+        });
+      }
+    } catch (error) {
+      console.error("Tooth mapping failed:", error);
+      toast({
+        title: "Mapping Failed",
+        description: "Failed to map teeth. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMappingTeeth(false);
+    }
   };
 
   // Normalize condition name for comparison
@@ -251,10 +306,58 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
               {/* Active Conditions Section */}
               <div className="bg-white p-4 rounded-lg border">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-gray-900 flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-2 text-orange-500" />
-                    Active Conditions
-                  </h4>
+                  <div className="flex items-center space-x-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <AlertTriangle className="w-4 h-4 mr-2 text-orange-500" />
+                      Active Conditions
+                    </h4>
+                    <div className="flex items-center space-x-2">
+                      {activeConditions.length > 0 && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-purple-50 hover:bg-purple-100 border-purple-300 text-purple-700 hover:text-purple-800"
+                            onClick={handleMapTeeth}
+                            disabled={isMappingTeeth}
+                          >
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {isMappingTeeth ? "Mapping..." : "Map Teeth"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
+                            onClick={() => {
+                              let addedCount = 0;
+                              activeConditions.forEach((detection, index) => {
+                                const originalIndex = detections.indexOf(detection);
+                                if (!addedDetections.has(originalIndex)) {
+                                  handleAddFinding(detection, originalIndex);
+                                  addedCount++;
+                                }
+                              });
+                              
+                              if (addedCount > 0) {
+                                toast({
+                                  title: "Findings Added",
+                                  description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.`,
+                                });
+                              } else {
+                                toast({
+                                  title: "No New Findings",
+                                  description: "All active conditions have already been added to dental findings.",
+                                });
+                              }
+                            }}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add All
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                                    </div>
                   <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
                     {activeCount} detected
                   </Badge>
@@ -292,6 +395,11 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                       ? 'text-yellow-600' 
                                       : 'text-red-600'
                                   }`}>{label}</span>
+                                  {toothMappings[originalIndex] && (
+                                    <div className="text-xs text-purple-600 mt-1 font-medium">
+                                      Tooth #{toothMappings[originalIndex].tooth}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               

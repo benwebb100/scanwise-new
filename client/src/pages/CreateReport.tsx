@@ -268,7 +268,7 @@ const CreateReport = () => {
     setFindings((prev) => [{ tooth: "", condition: "", treatment: "", price: undefined }, ...prev]);
   };
 
-  const handleAcceptAIFinding = (detection: any) => {
+  const handleAcceptAIFinding = (detection: any, toothMapping?: {tooth: string, confidence: number}) => {
     const conditionName = detection.class_name || detection.class || 'Unknown';
     const normalizedCondition = conditionName.toLowerCase().replace(/\s+/g, '-');
     
@@ -279,17 +279,25 @@ const CreateReport = () => {
     // Auto-fill price if available
     const price = recommendedTreatment ? getPrice(recommendedTreatment) : undefined;
     
+    // Auto-fill tooth number if mapping is available
+    const tooth = toothMapping ? toothMapping.tooth : '';
+    
     const newFinding = {
-      tooth: '', // Will be filled by user
+      tooth: tooth, // Auto-filled if mapping available
       condition: normalizedCondition,
       treatment: recommendedTreatment,
       price: price
     };
     
     setFindings(prev => [newFinding, ...prev]);
+    
+    const message = toothMapping 
+      ? `${conditionName} has been added to your findings table with suggested treatment and tooth #${tooth} (${Math.round(toothMapping.confidence * 100)}% confidence).`
+      : `${conditionName} has been added to your findings table with suggested treatment.`;
+    
     toast({
       title: "AI Finding Added",
-      description: `${conditionName} has been added to your findings table with suggested treatment.`,
+      description: message,
     });
   };
 

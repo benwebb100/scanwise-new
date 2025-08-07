@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateReport from "./pages/CreateReport";
 import ViewReport from "./pages/ViewReport";
 import Settings from "./pages/Settings";
+import InsuranceVerification from "./pages/InsuranceVerification";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/create-report" element={<CreateReport />} />
           <Route path="/report/:reportId" element={<ViewReport />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/insurance" element={<InsuranceVerification />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

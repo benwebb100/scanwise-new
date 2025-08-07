@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, Plus, Calendar, FileText, User, Settings, LogOut, Search, Filter, Loader2 } from "lucide-react";
+import { Brain, Plus, Calendar, FileText, User, Settings, LogOut, Search, Filter, Loader2, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from '@/services/api';
 import { supabase } from '@/services/supabase';
@@ -298,6 +298,37 @@ const Dashboard = () => {
               <Plus className="mr-2 h-5 w-5" />
               Create New Report
             </Button>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/insurance")}>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Shield className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Insurance Verification</h3>
+                    <p className="text-sm text-gray-600">Verify coverage & costs</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/settings")}>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Settings className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Settings</h3>
+                    <p className="text-sm text-gray-600">Clinic preferences</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Recent Reports */}
