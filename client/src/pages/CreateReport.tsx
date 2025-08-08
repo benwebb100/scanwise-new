@@ -289,7 +289,13 @@ const CreateReport = () => {
       price: price
     };
     
-    setFindings(prev => [newFinding, ...prev]);
+    setFindings(prev => {
+      // If the first row is still the initial empty placeholder, remove it
+      const isEmptyFinding = (f: { tooth: string; condition: string; treatment: string; price?: number | undefined }) =>
+        (!f.tooth || f.tooth.trim() === '') && (!f.condition || f.condition.trim() === '') && (!f.treatment || f.treatment.trim() === '') && (f.price === undefined);
+      const next = prev.length > 0 && isEmptyFinding(prev[0]) ? prev.slice(1) : prev;
+      return [newFinding, ...next];
+    });
     
     const message = toothMapping 
       ? `${conditionName} has been added to your findings table with suggested treatment and tooth #${tooth} (${Math.round(toothMapping.confidence * 100)}% confidence).`
@@ -1104,6 +1110,19 @@ const CreateReport = () => {
       };
     }
   };
+
+  useEffect(() => {
+    const handler = () => {
+      setFindings(prev => {
+        if (prev.length === 0) return prev;
+        const f = prev[0];
+        const isEmpty = (!f.tooth || f.tooth.trim() === '') && (!f.condition || f.condition.trim() === '') && (!f.treatment || f.treatment.trim() === '') && (f.price === undefined);
+        return isEmpty ? prev.slice(1) : prev;
+      });
+    };
+    window.addEventListener('remove-empty-finding-placeholder', handler as EventListener);
+    return () => window.removeEventListener('remove-empty-finding-placeholder', handler as EventListener);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">

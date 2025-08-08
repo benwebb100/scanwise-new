@@ -334,9 +334,15 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                             className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
                             onClick={() => {
                               let addedCount = 0;
+                              let removedPlaceholder = false;
                               activeConditions.forEach((detection, index) => {
                                 const originalIndex = detections.indexOf(detection);
                                 if (!addedDetections.has(originalIndex)) {
+                                  // Remove placeholder once via a custom event for parent to handle
+                                  if (!removedPlaceholder) {
+                                    window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
+                                    removedPlaceholder = true;
+                                  }
                                   handleAddFinding(detection, originalIndex);
                                   addedCount++;
                                 }
