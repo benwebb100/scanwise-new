@@ -17,10 +17,18 @@ class OpenAIService:
             raise ValueError("OpenAI API key must be set")
         
         self.client = OpenAI(api_key=self.api_key)
+        
+        # Centralized, env-driven model configuration
+        # Defaults aligned with recommendations
+        self.model_analysis = os.getenv("OPENAI_MODEL_ANALYSIS", "gpt-5")
+        self.model_html = os.getenv("OPENAI_MODEL_HTML", "gpt-5")
+        self.model_edit = os.getenv("OPENAI_MODEL_EDIT", "gpt-5")
+        self.model_summary = os.getenv("OPENAI_MODEL_SUMMARY", "gpt-4o")
+        self.model_script = os.getenv("OPENAI_MODEL_SCRIPT", "gpt-4o")
     
     async def analyze_dental_conditions(self, roboflow_predictions: Dict, patient_findings: List[Dict]) -> Dict:
         """
-        Use GPT-4o to analyze Roboflow predictions and generate treatment plan
+        Use GPT to analyze Roboflow predictions and generate treatment plan
         """
         try:
             # Updated system prompt with more specific formatting
@@ -109,7 +117,7 @@ Keep the tone professional, educational, and reassuring. Avoid clinical jargon u
             Please provide a comprehensive analysis and treatment plan with staged treatments."""
             
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model_analysis,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -265,7 +273,7 @@ Do not:
     Please generate a clear, friendly voiceover script explaining these findings to the patient."""
 
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model=self.model_script,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -349,7 +357,7 @@ Do not:
             Please provide a comprehensive clinical summary to assist the dentist in their assessment."""
             
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model_summary,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -398,7 +406,6 @@ Generate a professional, patient-friendly HTML report with the following section
    - Include: What the condition is, why treatment is needed, what the treatment involves
    - Add urgency/importance level
    - Use 🔴 emoji for risks if untreated
-   - Keep language patient-friendly but professional
 
 IMPORTANT REQUIREMENTS:
 - Use ONLY the dentist's confirmed findings (patient_findings)
@@ -434,7 +441,7 @@ Dentist's Confirmed Findings:
 Please generate a comprehensive HTML report with treatment overview table, plan summary, and detailed condition explanations."""
             
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model_html,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

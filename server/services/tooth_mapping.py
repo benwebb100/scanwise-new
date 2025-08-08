@@ -40,6 +40,8 @@ class MappingResult:
 class ToothMappingService:
     def __init__(self):
         self.openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Allow overriding the vision model
+        self.model_vision = os.getenv("OPENAI_MODEL_VISION", "gpt-5-vision")
         
     def map_teeth_ensemble(self, image_url: str, detections: List[Detection], numbering_system: str = "FDI") -> MappingResult:
         """
@@ -98,7 +100,7 @@ class ToothMappingService:
                 logger.warning(f"Reference image not found: {reference_image_path}, proceeding without reference")
                 # Fallback to original method without reference image
                 response = self.openai_client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model=self.model_vision,
                     messages=[
                         {
                             "role": "user",
@@ -122,7 +124,7 @@ class ToothMappingService:
             else:
                 # Include reference image in the API call
                 response = self.openai_client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model=self.model_vision,
                     messages=[
                         {
                             "role": "user",
@@ -249,7 +251,7 @@ class ToothMappingService:
                 logger.warning(f"Reference image not found for referee: {reference_image_path}, proceeding without reference")
                 # Fallback to original method without reference image
                 response = self.openai_client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model=self.model_vision,
                     messages=[
                         {
                             "role": "user",
@@ -273,7 +275,7 @@ class ToothMappingService:
             else:
                 # Include reference image in the referee API call
                 response = self.openai_client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model=self.model_vision,
                     messages=[
                         {
                             "role": "user",

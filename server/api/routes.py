@@ -557,7 +557,7 @@ Here is the dentist's change request (typed or dictated):
 Please apply the change exactly as described, keeping the HTML structure intact and updating only the necessary content."""
 
         response = openai_service.client.chat.completions.create(
-            model="gpt-4",
+            model=openai_service.model_edit,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
