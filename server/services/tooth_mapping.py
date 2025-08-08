@@ -152,7 +152,7 @@ class ToothMappingService:
             
             # Parse GPT-4 response
             content = response.choices[0].message.content
-            return self._parse_gpt4_response(content, detections)
+            return self._parse_gpt4_response(content, detections, numbering_system)
             
         except Exception as e:
             logger.error(f"GPT-4 mapping failed: {str(e)}")
@@ -215,10 +215,10 @@ class ToothMappingService:
             logger.info(f"Detection {i}: normalized x={normalized_x:.3f}, y={normalized_y:.3f}")
             
             # Map to tooth number based on position
-            tooth_number, universal_number, confidence, reasoning = self._grid_to_tooth(normalized_x, normalized_y, detection.class_name)
+            fdi_number, universal_number, confidence, reasoning = self._grid_to_tooth(normalized_x, normalized_y, detection.class_name)
             
             # Use the preferred numbering system
-            final_tooth_number = universal_number if numbering_system == "Universal" else tooth_number
+            final_tooth_number = universal_number if numbering_system == "Universal" else fdi_number
             
             mappings.append(ToothMapping(
                 detection_id=i,
@@ -303,7 +303,7 @@ class ToothMappingService:
             
             # Parse referee response
             content = response.choices[0].message.content
-            return self._parse_referee_response(content, gpt_result, grid_result)
+            return self._parse_referee_response(content, gpt_result, grid_result, numbering_system)
             
         except Exception as e:
             logger.error(f"GPT referee failed: {str(e)}")
@@ -438,9 +438,9 @@ Return a JSON array with this structure:
 Provide detailed reasoning for each final decision based on the reference image.
 """
     
-    def _parse_gpt4_response(self, content: str, detections: List[Detection]) -> List[ToothMapping]:
+    def _parse_gpt4_response(self, content: str, detections: List[Detection], numbering_system: str = "FDI") -> List[ToothMapping]:
         """
-        Parse GPT-4 response into ToothMapping objects
+        Parse GPT-4 response into ToothMapping objects, respecting user's numbering system
         """
         try:
             # Extract JSON from response
@@ -452,17 +452,24 @@ Provide detailed reasoning for each final decision based on the reference image.
             mappings = []
             
             for mapping_data in data.get('mappings', []):
-                fdi_number = mapping_data['tooth_number']
-                universal_number = self._fdi_to_universal(fdi_number)
+                predicted = str(mapping_data['tooth_number'])
+                if numbering_system == "Universal":
+                    universal_number = predicted
+                    fdi_number = self._universal_to_fdi(universal_number)
+                    final_tooth_number = universal_number
+                else:
+                    fdi_number = predicted
+                    universal_number = self._fdi_to_universal(fdi_number)
+                    final_tooth_number = fdi_number
                 
                 mappings.append(ToothMapping(
                     detection_id=mapping_data['detection_id'],
-                    tooth_number=fdi_number,
+                    tooth_number=final_tooth_number,
                     universal_number=universal_number,
                     confidence=mapping_data['confidence'],
                     method="gpt4_vision",
                     reasoning=mapping_data['reasoning'],
-                    gpt_prediction=fdi_number
+                    gpt_prediction=final_tooth_number
                 ))
             
             return mappings
@@ -470,10 +477,10 @@ Provide detailed reasoning for each final decision based on the reference image.
         except Exception as e:
             logger.error(f"Failed to parse GPT-4 response: {str(e)}")
             raise
-    
-    def _parse_referee_response(self, content: str, gpt_result: List[ToothMapping], grid_result: List[ToothMapping]) -> List[ToothMapping]:
+
+    def _parse_referee_response(self, content: str, gpt_result: List[ToothMapping], grid_result: List[ToothMapping], numbering_system: str = "FDI") -> List[ToothMapping]:
         """
-        Parse referee response and create final mappings
+        Parse referee response and create final mappings, respecting user's numbering system
         """
         try:
             # Extract JSON from response
@@ -491,8 +498,13 @@ Provide detailed reasoning for each final decision based on the reference image.
                 if gpt_mapping.detection_id in conflicts:
                     # Use referee decision
                     resolution = conflicts[gpt_mapping.detection_id]
-                    final_tooth = resolution['final_tooth']
-                    universal_number = self._fdi_to_universal(final_tooth)
+                    predicted = str(resolution['final_tooth'])
+                    if numbering_system == "Universal":
+                        universal_number = predicted
+                        final_tooth = universal_number
+                    else:
+                        universal_number = self._fdi_to_universal(predicted)
+                        final_tooth = predicted
                     
                     final_mappings.append(ToothMapping(
                         detection_id=gpt_mapping.detection_id,
@@ -514,17 +526,15 @@ Provide detailed reasoning for each final decision based on the reference image.
             logger.error(f"Failed to parse referee response: {str(e)}")
             # Fallback to GPT result
             return gpt_result
-    
+
     def _grid_to_tooth(self, normalized_x: float, normalized_y: float, condition: str) -> Tuple[str, str, float, str]:
         """
-        Map normalized coordinates to tooth number using grid-based logic
+        Map normalized coordinates to tooth number using grid-based logic.
+        Returns (fdi_number, universal_number, confidence, reasoning)
         """
         # Add debugging
         logger.info(f"Grid mapping: x={normalized_x:.3f}, y={normalized_y:.3f}, condition={condition}")
         logger.info(f"Coordinate analysis: x_range={'left' if normalized_x < 0.45 else 'right' if normalized_x > 0.55 else 'center'}, y_range={'upper' if normalized_y < 0.4 else 'lower' if normalized_y > 0.6 else 'middle'}")
-        
-        # More sophisticated mapping for panoramic X-rays
-        # Based on typical panoramic X-ray anatomy
         
         # Determine arch (upper/lower) with more precise boundaries
         if normalized_y < 0.4:  # Upper arch (adjusted boundary)
@@ -535,7 +545,6 @@ Provide detailed reasoning for each final decision based on the reference image.
             arch_center = 0.8
         else:  # Middle area - determine based on condition type
             if condition.lower() in ["caries", "fracture"]:
-                # These conditions are more common in upper teeth
                 arch = "upper"
                 arch_center = 0.2
             else:
@@ -543,107 +552,104 @@ Provide detailed reasoning for each final decision based on the reference image.
                 arch_center = 0.8
         
         # Determine quadrant with more precise boundaries
-        if normalized_x < 0.45:  # Left side (adjusted boundary)
+        if normalized_x < 0.45:  # Left side (patient's right)
             if arch == "upper":
-                # Upper left: teeth 9-16
-                tooth_base = 9
+                # Upper left in the image corresponds to Universal 9-16 range
+                universal_base = 9
             else:
-                # Lower left: teeth 17-24
-                tooth_base = 17
-        elif normalized_x > 0.55:  # Right side (adjusted boundary)
+                # Lower left: Universal 17-24
+                universal_base = 17
+        elif normalized_x > 0.55:  # Right side
             if arch == "upper":
-                # Upper right: teeth 1-8
-                tooth_base = 1
+                # Upper right: Universal 1-8
+                universal_base = 1
             else:
-                # Lower right: teeth 25-32
-                tooth_base = 25
-        else:  # Center area - use condition to determine
-            if condition.lower() in ["caries", "fracture"]:
-                # More likely to be front teeth
-                if arch == "upper":
-                    tooth_base = 8  # Upper right central
-                else:
-                    tooth_base = 24  # Lower left central
-            else:
-                # More likely to be back teeth
-                if arch == "upper":
-                    tooth_base = 9  # Upper left central
-                else:
-                    tooth_base = 25  # Lower right central
+                # Lower right: Universal 25-32
+                universal_base = 25
+        else:  # Center area - default to central incisors of respective arch
+            universal_base = 8 if arch == "upper" else 24
         
-        # Calculate position within quadrant (0-7) with better distribution
+        # Calculate position within quadrant (0-7)
         if normalized_x < 0.45:  # Left side
             quadrant_x = normalized_x
-            position_in_quadrant = int(quadrant_x * 8)  # 8 teeth per quadrant
+            position_in_quadrant = int(quadrant_x * 8)
         elif normalized_x > 0.55:  # Right side
             quadrant_x = normalized_x - 0.55
-            position_in_quadrant = int(quadrant_x * 8)  # 8 teeth per quadrant
+            position_in_quadrant = int(quadrant_x * 8)
         else:  # Center area
-            position_in_quadrant = 0  # Default to first position
+            position_in_quadrant = 0
         
-        position_in_quadrant = max(0, min(7, position_in_quadrant))  # Clamp to 0-7
+        position_in_quadrant = max(0, min(7, position_in_quadrant))
         
-        # Map to tooth number
-        tooth_number = str(tooth_base + position_in_quadrant)
+        # Universal tooth number first, then convert to FDI
+        universal_number_int = universal_base + position_in_quadrant
+        universal_number = str(universal_number_int)
+        fdi_number = self._universal_to_fdi(universal_number)
         
-        # Add debugging
-        logger.info(f"Grid result: arch={arch}, tooth_base={tooth_base}, position={position_in_quadrant}, tooth_number={tooth_number}")
+        logger.info(f"Grid result: arch={arch}, universal_base={universal_base}, position={position_in_quadrant}, universal={universal_number}, fdi={fdi_number}")
         
-        # Ensure tooth number is valid (1-32)
-        try:
-            tooth_int = int(tooth_number)
-            if tooth_int < 1 or tooth_int > 32:
-                # Fallback to a simple mapping based on position
-                if normalized_x < 0.5:
-                    if normalized_y < 0.5:
-                        tooth_number = "9"  # Upper left
-                    else:
-                        tooth_number = "17"  # Lower left
-                else:
-                    if normalized_y < 0.5:
-                        tooth_number = "1"  # Upper right
-                    else:
-                        tooth_number = "25"  # Lower right
-                logger.info(f"Invalid tooth number {tooth_int}, using fallback: {tooth_number}")
-        except ValueError:
-            tooth_number = "Unknown"
-        
-        # Calculate confidence based on position accuracy
-        # Distance from center of the arch
+        # Calculate confidence
         arch_distance = abs(normalized_y - arch_center)
-        arch_confidence = max(0, 1 - (arch_distance / 0.2))  # Adjusted for new boundaries
-        
-        # Distance from center of the quadrant
+        arch_confidence = max(0, 1 - (arch_distance / 0.2))
         if normalized_x < 0.45:
-            quadrant_center = 0.225  # Center of left quadrant
+            quadrant_center = 0.225
         elif normalized_x > 0.55:
-            quadrant_center = 0.775  # Center of right quadrant
+            quadrant_center = 0.775
         else:
-            quadrant_center = 0.5  # Center of middle area
-        
+            quadrant_center = 0.5
         quadrant_distance = abs(normalized_x - quadrant_center)
         quadrant_confidence = max(0, 1 - (quadrant_distance / 0.225))
-        
-        # Overall confidence
         confidence = (arch_confidence + quadrant_confidence) / 2
-        
-        # Adjust confidence based on condition type
         condition_confidence_boost = {
             "caries": 0.1,
             "fracture": 0.05,
             "missing-tooth": 0.15,
             "periapical-lesion": 0.0,
         }
-        
         confidence += condition_confidence_boost.get(condition.lower(), 0.0)
-        confidence = max(0.1, min(confidence, 0.95))  # Ensure confidence is between 10% and 95%
+        confidence = max(0.1, min(confidence, 0.95))
         
-        reasoning = f"Grid mapping: {arch} arch, quadrant {'left' if normalized_x < 0.45 else 'right' if normalized_x > 0.55 else 'center'}, position {position_in_quadrant} (x={normalized_x:.2f}, y={normalized_y:.2f})"
+        reasoning = f"Grid mapping: {arch} arch, position {position_in_quadrant} (x={normalized_x:.2f}, y={normalized_y:.2f})"
         
-        # Convert FDI to Universal numbering
-        universal_number = self._fdi_to_universal(tooth_number)
-        
-        return tooth_number, universal_number, confidence, reasoning
+        return fdi_number, universal_number, confidence, reasoning
+
+    def _universal_to_fdi(self, universal_number: str) -> str:
+        """Convert Universal (1-32) to FDI (11-18, 21-28, 31-38, 41-48)."""
+        try:
+            u = int(universal_number)
+            if 1 <= u <= 8:  # Upper right (molars to central)
+                mapping = {1: 18, 2: 17, 3: 16, 4: 15, 5: 14, 6: 13, 7: 12, 8: 11}
+                return str(mapping[u])
+            if 9 <= u <= 16:  # Upper left (central to molars)
+                return str(20 + (u - 8))  # 21..28
+            if 17 <= u <= 24:  # Lower left (molars to central)
+                mapping = {17: 38, 18: 37, 19: 36, 20: 35, 21: 34, 22: 33, 23: 32, 24: 31}
+                return str(mapping[u])
+            if 25 <= u <= 32:  # Lower right (central to molars)
+                return str(40 + (u - 24))  # 41..48
+            return universal_number
+        except ValueError:
+            return universal_number
+
+    def _fdi_to_universal(self, fdi_number: str) -> str:
+        """
+        Convert FDI numbering (11-18, 21-28, 31-38, 41-48) to Universal numbering (1-32)
+        """
+        try:
+            f = int(fdi_number)
+            if 11 <= f <= 18:  # Upper right, 11..18 maps to 8..1
+                mapping = {11: 8, 12: 7, 13: 6, 14: 5, 15: 4, 16: 3, 17: 2, 18: 1}
+                return str(mapping[f])
+            if 21 <= f <= 28:  # Upper left, 21..28 maps to 9..16
+                return str(8 + (f - 20))  # 9..16
+            if 31 <= f <= 38:  # Lower left, 31..38 maps to 24..17
+                mapping = {31: 24, 32: 23, 33: 22, 34: 21, 35: 20, 36: 19, 37: 18, 38: 17}
+                return str(mapping[f])
+            if 41 <= f <= 48:  # Lower right, 41..48 maps to 25..32
+                return str(24 + (f - 40))  # 25..32
+            return fdi_number
+        except ValueError:
+            return fdi_number
 
     def _map_teeth_simple(self, detections: List[Detection], numbering_system: str = "FDI") -> List[ToothMapping]:
         """
@@ -690,39 +696,6 @@ Provide detailed reasoning for each final decision based on the reference image.
             ))
         
         return mappings
-
-    def _fdi_to_universal(self, fdi_number: str) -> str:
-        """
-        Convert FDI numbering to Universal numbering
-        FDI: 1-32 (1=upper right central incisor, 32=lower right third molar)
-        Universal: 1-32 (1=upper right third molar, 32=lower right third molar)
-        """
-        try:
-            fdi_int = int(fdi_number)
-            # Universal numbering is the same as FDI for most teeth
-            # The main difference is in the molars (1-4, 13-16, 17-20, 29-32)
-            if fdi_int in [1, 2, 3, 4]:  # Upper right molars
-                universal_map = {1: 1, 2: 2, 3: 3, 4: 4}
-            elif fdi_int in [5, 6, 7, 8]:  # Upper right premolars/canines/incisors
-                universal_map = {5: 5, 6: 6, 7: 7, 8: 8}
-            elif fdi_int in [9, 10, 11, 12]:  # Upper left incisors/canines/premolars
-                universal_map = {9: 9, 10: 10, 11: 11, 12: 12}
-            elif fdi_int in [13, 14, 15, 16]:  # Upper left molars
-                universal_map = {13: 13, 14: 14, 15: 15, 16: 16}
-            elif fdi_int in [17, 18, 19, 20]:  # Lower left molars
-                universal_map = {17: 17, 18: 18, 19: 19, 20: 20}
-            elif fdi_int in [21, 22, 23, 24]:  # Lower left premolars/canines/incisors
-                universal_map = {21: 21, 22: 22, 23: 23, 24: 24}
-            elif fdi_int in [25, 26, 27, 28]:  # Lower right incisors/canines/premolars
-                universal_map = {25: 25, 26: 26, 27: 27, 28: 28}
-            elif fdi_int in [29, 30, 31, 32]:  # Lower right molars
-                universal_map = {29: 29, 30: 30, 31: 31, 32: 32}
-            else:
-                return fdi_number  # Fallback
-            
-            return str(universal_map.get(fdi_int, fdi_int))
-        except ValueError:
-            return fdi_number  # Return original if not a number
 
     def _encode_image_to_base64(self, image_path: str) -> str:
         """
