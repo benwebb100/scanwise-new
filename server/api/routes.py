@@ -21,6 +21,7 @@ from services.insurance_verification import insurance_service
 from services.tooth_mapping import tooth_mapping_service, Detection
 import tempfile
 import uuid
+from services.stripe_service import stripe_service
 
 # Enhanced models for new functionality
 class EnhancedFinding(BaseModel):
@@ -1431,3 +1432,36 @@ async def map_teeth(
     except Exception as e:
         logger.error(f"Tooth mapping error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Tooth mapping failed: {str(e)}")
+
+
+@router.post("/billing/checkout")
+async def create_checkout_session(interval: str = "monthly", token: str = Depends(get_auth_token)):
+    try:
+        url = stripe_service.create_checkout_session(token, interval)
+        return {"url": url}
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/billing/portal")
+async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_token)):
+    try:
+        url = stripe_service.create_billing_portal(customer_id)
+        return {"url": url}
+    except Exception as e:
+        logger.error(f"Stripe portal error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+from fastapi import Request
+@router.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        stripe_service.handle_webhook(payload, sig)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {str(e)}")
+        raise HTTPException(status_code=400, detail="Webhook Error")
