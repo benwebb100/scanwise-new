@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -158,7 +158,9 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   };
 
   const handleMapTeeth = async () => {
-    if (activeConditions.length === 0) {
+    // Build the subset we send for mapping: include both active conditions and existing work
+    const toMap = [...activeConditions, ...existingWork];
+    if (toMap.length === 0) {
       toast({
         title: "No Conditions",
         description: "No active conditions to map teeth for.",
@@ -176,24 +178,30 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       console.log('Tooth mapping - User preference:', numberingSystem);
       console.log('Tooth mapping - Available in localStorage:', localStorage.getItem('toothNumberingSystem'));
       
-      const result = await api.mapTeeth(annotatedImageUrl, activeConditions, numberingSystem);
+      const result = await api.mapTeeth(annotatedImageUrl, toMap, numberingSystem);
       
       if (result.success) {
         const mappings: {[key: number]: {tooth: string, confidence: number, reasoning: string}} = {};
-        
+
+        // detection_id indexes the array we sent (activeConditions). Convert to global index in full detections
         result.mappings.forEach((mapping: any) => {
-          mappings[mapping.detection_id] = {
-            tooth: mapping.tooth_number,
-            confidence: mapping.confidence,
-            reasoning: mapping.reasoning
-          };
+          const subsetIndex: number = mapping.detection_id;
+          const detectionFromSubset = toMap[subsetIndex];
+          const globalIndex = detections.indexOf(detectionFromSubset);
+          if (globalIndex !== -1 && mapping.tooth_number) {
+            mappings[globalIndex] = {
+              tooth: mapping.tooth_number,
+              confidence: mapping.confidence,
+              reasoning: mapping.reasoning
+            };
+          }
         });
-        
+
         setToothMappings(mappings);
         
         toast({
           title: "Tooth Mapping Complete",
-          description: `Mapped ${result.mappings.length} conditions to teeth with ${Math.round(result.overall_confidence * 100)}% confidence using ${numberingSystem} numbering.`,
+          description: `Mapped ${result.mappings.length} findings to teeth with ${Math.round(result.overall_confidence * 100)}% confidence using ${numberingSystem} numbering.`,
         });
       }
     } catch (error) {
@@ -230,6 +238,18 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
 
   const activeCount = activeConditions.length;
   const existingCount = existingWork.length;
+
+  // Auto-map teeth when detections arrive or numbering system changes, and no mappings yet
+  useEffect(() => {
+    if (!annotatedImageUrl) return;
+    const numberingSystem = localStorage.getItem('toothNumberingSystem') || 'FDI';
+    const hasAnyToMap = activeConditions.length + existingWork.length > 0;
+    const hasMappings = Object.keys(toothMappings).length > 0;
+    if (hasAnyToMap && !hasMappings && !isMappingTeeth) {
+      handleMapTeeth();
+    }
+    // re-run when numbering setting changes
+  }, [annotatedImageUrl, detections]);
 
   return (
     <TooltipProvider>
@@ -268,7 +288,11 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                   <p className="text-gray-600 mb-3">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
                   <div className="w-1/3 h-0.5 bg-blue-500 mx-auto"></div>
                 </div>
-                <div className="text-center">
+                  <div className="text-center">
+                  <div className="inline-flex items-center gap-2 mb-2 text-sm text-gray-600">
+                    <Info className="h-4 w-4" />
+                    <span>Tooth mapping accuracy improves when R/L markers are visible on the image.</span>
+                  </div>
                   <img 
                     src={annotatedImageUrl} 
                     alt="AI Annotated X-ray" 
@@ -316,18 +340,9 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                       Active Conditions
                     </h4>
                     <div className="flex items-center space-x-2">
-                      {activeConditions.length > 0 && (
+                      {false && activeConditions.length > 0 && (
                         <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-purple-50 hover:bg-purple-100 border-purple-300 text-purple-700 hover:text-purple-800"
-                            onClick={handleMapTeeth}
-                            disabled={isMappingTeeth}
-                          >
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {isMappingTeeth ? "Mapping..." : "Map Teeth"}
-                          </Button>
+                          {/* Map Teeth button removed; auto-mapping is enabled */}
                           <Button
                             size="sm"
                             variant="outline"
@@ -566,8 +581,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                     }`}>{label}</span>
                                   </div>
                                 </div>
-                                
-                                {/* Right side: Confidence badge and Add Finding button */}
+                                {/* Right side: Confidence badge (no Add button for existing work) */}
                                 <div className="flex flex-col items-end space-y-2">
                                   <div className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
                                     confidence >= 0.75 
@@ -578,28 +592,6 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                   }`}>
                                     {confidencePercent}%
                                   </div>
-                                  
-                                  {/* Add Finding Button */}
-                                  {addedDetections.has(originalIndex) ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled
-                                      className="bg-green-100 border-green-300 text-green-700"
-                                    >
-                                      <Check className="h-3 w-3 mr-1" />
-                                      Added
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
-                                      onClick={() => handleAddFinding(detection, originalIndex)}
-                                    >
-                                      Add Finding
-                                    </Button>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -655,6 +647,24 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                           </div>
 
                           <div className="space-y-2 text-sm">
+                            {(() => {
+                              // Try to show mapped tooth for this condition when available
+                              const normalized = normalizeConditionName(finding.condition);
+                              const matchingDetection = activeConditions.find(d => normalizeConditionName(d.class) === normalized);
+                              if (matchingDetection) {
+                                const originalIndex = detections.indexOf(matchingDetection);
+                                const mapping = toothMappings[originalIndex];
+                                if (mapping && mapping.tooth) {
+                                  return (
+                                    <div>
+                                      <span className="font-medium text-gray-700">Location:</span>
+                                      <p className="text-gray-600 mt-1">Tooth #{mapping.tooth}</p>
+                                    </div>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
                             <div>
                               <span className="font-medium text-gray-700">Description:</span>
                               <p className="text-gray-600 mt-1">{finding.description}</p>

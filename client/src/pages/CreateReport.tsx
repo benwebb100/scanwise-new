@@ -866,6 +866,28 @@ const CreateReport = () => {
         }
       }
 
+      // Validate findings rows: either all empty, or all required filled
+      const invalidIndex = findings.findIndex(f => {
+        const toothOk = !!(f.tooth && f.tooth.trim() !== '');
+        const condOk = !!(f.condition && f.condition.trim() !== '');
+        const treatOk = !!(f.treatment && f.treatment.trim() !== '');
+        const allEmpty = !toothOk && !condOk && !treatOk;
+        const allFilled = toothOk && condOk && treatOk;
+        return !(allEmpty || allFilled);
+      });
+      if (invalidIndex !== -1) {
+        // Scroll to the problematic finding card and show a gentle prompt
+        const cards = document.querySelectorAll('#findings-list .finding-card');
+        const target = cards[invalidIndex] as HTMLElement | undefined;
+        if (target && typeof target.scrollIntoView === 'function') {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('ring-2', 'ring-red-400');
+          setTimeout(() => target.classList.remove('ring-2', 'ring-red-400'), 2000);
+        }
+        toast({ title: 'Incomplete finding', description: 'Please complete tooth, condition, and treatment (or clear the row).'});
+        return;
+      }
+
       // Validate pricing for all treatments
       const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
       const treatments = validFindings.map(f => f.treatment);
@@ -1398,9 +1420,9 @@ const CreateReport = () => {
                           </div>
                         </div>
                         
-                        <div className="space-y-4">
+                        <div id="findings-list" className="space-y-4">
                         {findings.map((f, idx) => (
-                          <Card key={idx} className="p-4">
+                          <Card key={idx} className="p-4 finding-card">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Tooth Number */}
                               <div className="space-y-2">

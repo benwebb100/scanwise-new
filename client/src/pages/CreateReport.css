@@ -1,3 +1,5 @@
+/* highlight helper for invalid finding */
+.ring-red-400 { box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.8) inset; border-radius: 8px; }
 @keyframes gridMove {
   0% { transform: translate(0, 0); }
   100% { transform: translate(50px, 50px); }
