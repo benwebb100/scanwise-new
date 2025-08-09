@@ -146,12 +146,30 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
 
   const [addedDetections, setAddedDetections] = useState<Set<number>>(new Set());
 
+  // Helper to normalize missing tooth variants
+  const normalizeMissingToGeneric = (detection: Detection): Detection => {
+    const conditionName = detection.class_name || detection.class || '';
+    const normalized = conditionName.toLowerCase().replace(/\s+/g, '-');
+    
+    if (normalized === 'missing-tooth-between' || normalized === 'missing-teeth-no-distal') {
+      return {
+        ...detection,
+        class: 'missing-tooth',
+        class_name: 'missing-tooth'
+      };
+    }
+    return detection;
+  };
+
   const handleAddFinding = (detection: Detection, index: number) => {
     // Get tooth mapping if available
     const toothMapping = toothMappings[index];
     
+    // Normalize missing tooth variants before adding
+    const normalizedDetection = normalizeMissingToGeneric(detection);
+    
     // Add to findings with tooth mapping
-    onAcceptFinding?.(detection, toothMapping);
+    onAcceptFinding?.(normalizedDetection, toothMapping);
     
     // Mark as added
     setAddedDetections(prev => new Set([...prev, index]));
@@ -369,7 +387,9 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                               const mapData = mappings && mappings[originalIndex]
                                 ? { tooth: mappings[originalIndex].tooth, confidence: mappings[originalIndex].confidence, reasoning: mappings[originalIndex].reasoning }
                                 : undefined;
-                              onAcceptFinding?.(detection as any, mapData as any);
+                              // Normalize missing tooth variants before adding
+                              const normalizedDetection = normalizeMissingToGeneric(detection);
+                              onAcceptFinding?.(normalizedDetection as any, mapData as any);
                               setAddedDetections(prev => new Set([...prev, originalIndex]));
                               addedCount++;
                             }
@@ -411,21 +431,22 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                 <div className="font-semibold text-gray-900 text-lg">
                                   {detection.class || detection.class_name || 'Unknown'}
                                 </div>
-                                <div className="text-sm text-gray-600 mt-1">
-                                  <span>Confidence: </span>
-                                  <span className={`font-medium ${
-                                    confidence >= 0.75 
-                                      ? 'text-green-600' 
-                                      : confidence >= 0.50 
-                                      ? 'text-yellow-600' 
-                                      : 'text-red-600'
-                                  }`}>{label}</span>
-                                  {toothMappings[originalIndex] && (
+                                                                  <div className="text-sm text-gray-600 mt-1">
+                                    <span>Confidence: </span>
+                                    <span className={`font-medium ${
+                                      confidence >= 0.75 
+                                        ? 'text-green-600' 
+                                        : confidence >= 0.50 
+                                        ? 'text-yellow-600' 
+                                        : 'text-red-600'
+                                    }`}>{label}</span>
                                     <div className="text-xs text-purple-600 mt-1 font-medium">
-                                      Tooth #{toothMappings[originalIndex].tooth}
+                                      {toothMappings[originalIndex] && toothMappings[originalIndex].tooth 
+                                        ? `Tooth #${toothMappings[originalIndex].tooth}`
+                                        : 'Tooth: Uncertain'
+                                      }
                                     </div>
-                                  )}
-                                </div>
+                                  </div>
                               </div>
                               
                               {/* Right side: Confidence badge and Add Finding button */}
@@ -579,6 +600,12 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                         ? 'text-yellow-600' 
                                         : 'text-red-600'
                                     }`}>{label}</span>
+                                    <div className="text-xs text-purple-600 mt-1 font-medium">
+                                      {toothMappings[originalIndex] && toothMappings[originalIndex].tooth 
+                                        ? `Tooth #${toothMappings[originalIndex].tooth}`
+                                        : 'Tooth: Uncertain'
+                                      }
+                                    </div>
                                   </div>
                                 </div>
                                 {/* Right side: Confidence badge (no Add button for existing work) */}

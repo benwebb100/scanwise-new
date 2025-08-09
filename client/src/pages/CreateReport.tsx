@@ -278,7 +278,12 @@ const CreateReport = () => {
 
   const handleAcceptAIFinding = (detection: any, toothMapping?: {tooth: string, confidence: number}) => {
     const conditionName = detection.class_name || detection.class || 'Unknown';
-    const normalizedCondition = conditionName.toLowerCase().replace(/\s+/g, '-');
+    let normalizedCondition = conditionName.toLowerCase().replace(/\s+/g, '-');
+    
+    // Normalize missing tooth variants to standard "missing-tooth"
+    if (normalizedCondition === 'missing-tooth-between' || normalizedCondition === 'missing-teeth-no-distal') {
+      normalizedCondition = 'missing-tooth';
+    }
     
     // Auto-suggest treatment based on condition
     const suggestedTreatments = getSuggestedTreatments(normalizedCondition);
@@ -1432,7 +1437,7 @@ const CreateReport = () => {
                         {findings.map((f, idx) => {
                           const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                           return (
-                          <Card key={idx} className="p-4 finding-card">
+                          <Card key={idx} className="p-4 finding-card relative">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Tooth Number */}
                               <div className="space-y-2">
@@ -1507,28 +1512,38 @@ const CreateReport = () => {
                                     Remove
                                   </Button>
                                   {isMissingTooth && (
-                                    <div className="mt-2 flex items-center justify-between rounded border p-2">
-                                      <div className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                                        Show missing-tooth treatment options
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button type="button" className="text-gray-500 hover:text-gray-700" aria-label="Help">
-                                              <Info className="h-3.5 w-3.5" />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs text-xs leading-snug">
-                                            Adds a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic’s pricing. Turn off to omit from the report.
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </div>
-                                      <Switch
-                                        checked={showMissingToothOptions}
-                                        onCheckedChange={(checked) => {
-                                          setShowMissingToothOptions(checked as boolean);
-                                          localStorage.setItem('showMissingToothOptions', String(checked));
-                                        }}
-                                        className="data-[state=checked]:bg-blue-600"
-                                      />
+                                    <div className="absolute top-2 right-2">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const newValue = !showMissingToothOptions;
+                                              setShowMissingToothOptions(newValue);
+                                              localStorage.setItem('showMissingToothOptions', String(newValue));
+                                            }}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                                              showMissingToothOptions
+                                                ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
+                                                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                            }`}
+                                          >
+                                            <Settings className="h-3 w-3" />
+                                            Treatment Options
+                                            {showMissingToothOptions ? (
+                                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                            ) : (
+                                              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                            )}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs text-xs leading-snug">
+                                          {showMissingToothOptions 
+                                            ? "Treatment comparison will be included in the report. Click to disable."
+                                            : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
+                                          }
+                                        </TooltipContent>
+                                      </Tooltip>
                                     </div>
                                   )}
                                 </div>
@@ -1880,7 +1895,7 @@ const CreateReport = () => {
                       {findings.map((f, idx) => {
                         const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                         return (
-                        <Card key={idx} className="p-4">
+                        <Card key={idx} className="p-4 relative">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Tooth Number */}
                             <div className="space-y-2">
@@ -1952,28 +1967,38 @@ const CreateReport = () => {
                                 Remove
                               </Button>
                               {isMissingTooth && (
-                                <div className="mt-2 flex items-center justify-between rounded border p-2">
-                                  <div className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                                    Show missing-tooth treatment options
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button type="button" className="text-gray-500 hover:text-gray-700" aria-label="Help">
-                                          <Info className="h-3.5 w-3.5" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs text-xs leading-snug">
-                                        Adds a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic’s pricing. Turn off to omit from the report.
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </div>
-                                  <Switch
-                                    checked={showMissingToothOptions}
-                                    onCheckedChange={(checked) => {
-                                      setShowMissingToothOptions(checked as boolean);
-                                      localStorage.setItem('showMissingToothOptions', String(checked));
-                                    }}
-                                    className="data-[state=checked]:bg-blue-600"
-                                  />
+                                <div className="absolute top-2 right-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newValue = !showMissingToothOptions;
+                                          setShowMissingToothOptions(newValue);
+                                          localStorage.setItem('showMissingToothOptions', String(newValue));
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                                          showMissingToothOptions
+                                            ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        <Settings className="h-3 w-3" />
+                                        Treatment Options
+                                        {showMissingToothOptions ? (
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                        ) : (
+                                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs text-xs leading-snug">
+                                      {showMissingToothOptions 
+                                        ? "Treatment comparison will be included in the report. Click to disable."
+                                        : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
+                                      }
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
                               )}
                             </div>
