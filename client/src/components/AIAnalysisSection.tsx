@@ -157,7 +157,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     setAddedDetections(prev => new Set([...prev, index]));
   };
 
-  const handleMapTeeth = async () => {
+  const handleMapTeeth = async (): Promise<{[key: number]: {tooth: string, confidence: number, reasoning: string}} | undefined> => {
     // Build the subset we send for mapping: include both active conditions and existing work
     const toMap = [...activeConditions, ...existingWork];
     if (toMap.length === 0) {
@@ -166,7 +166,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
         description: "No active conditions to map teeth for.",
         variant: "destructive",
       });
-      return;
+      return undefined;
     }
 
     setIsMappingTeeth(true);
@@ -203,6 +203,8 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
           title: "Tooth Mapping Complete",
           description: `Mapped ${result.mappings.length} findings to teeth with ${Math.round(result.overall_confidence * 100)}% confidence using ${numberingSystem} numbering.`,
         });
+
+        return mappings;
       }
     } catch (error) {
       console.error("Tooth mapping failed:", error);
@@ -288,11 +290,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                   <p className="text-gray-600 mb-3">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
                   <div className="w-1/3 h-0.5 bg-blue-500 mx-auto"></div>
                 </div>
-                  <div className="text-center">
-                  <div className="inline-flex items-center gap-2 mb-2 text-sm text-gray-600">
-                    <Info className="h-4 w-4" />
-                    <span>Tooth mapping accuracy improves when R/L markers are visible on the image.</span>
-                  </div>
+                <div className="text-center">
                   <img 
                     src={annotatedImageUrl} 
                     alt="AI Annotated X-ray" 
@@ -339,53 +337,55 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                       <AlertTriangle className="w-4 h-4 mr-2 text-orange-500" />
                       Active Conditions
                     </h4>
-                    <div className="flex items-center space-x-2">
-                      {false && activeConditions.length > 0 && (
-                        <>
-                          {/* Map Teeth button removed; auto-mapping is enabled */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
-                            onClick={() => {
-                              let addedCount = 0;
-                              let removedPlaceholder = false;
-                              activeConditions.forEach((detection, index) => {
-                                const originalIndex = detections.indexOf(detection);
-                                if (!addedDetections.has(originalIndex)) {
-                                  // Remove placeholder once via a custom event for parent to handle
-                                  if (!removedPlaceholder) {
-                                    window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
-                                    removedPlaceholder = true;
-                                  }
-                                  handleAddFinding(detection, originalIndex);
-                                  addedCount++;
-                                }
-                              });
-                              
-                              if (addedCount > 0) {
-                                toast({
-                                  title: "Findings Added",
-                                  description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.`,
-                                });
-                              } else {
-                                toast({
-                                  title: "No New Findings",
-                                  description: "All active conditions have already been added to dental findings.",
-                                });
+                    {/* Info tooltip */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-gray-500 hover:text-gray-700" aria-label="Tooth mapping info">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <span>Tooth mapping accuracy improves when R/L markers are visible on the image.</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {activeConditions.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
+                        onClick={async () => {
+                          let removedPlaceholder = false;
+                          const mappings = await handleMapTeeth();
+                          let addedCount = 0;
+                          activeConditions.forEach((detection) => {
+                            const originalIndex = detections.indexOf(detection);
+                            if (!addedDetections.has(originalIndex)) {
+                              if (!removedPlaceholder) {
+                                window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
+                                removedPlaceholder = true;
                               }
-                            }}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add All
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                                    </div>
-                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                    {activeCount} detected
-                  </Badge>
+                              const mapData = mappings && mappings[originalIndex]
+                                ? { tooth: mappings[originalIndex].tooth, confidence: mappings[originalIndex].confidence, reasoning: mappings[originalIndex].reasoning }
+                                : undefined;
+                              onAcceptFinding?.(detection as any, mapData as any);
+                              setAddedDetections(prev => new Set([...prev, originalIndex]));
+                              addedCount++;
+                            }
+                          });
+                          if (addedCount > 0) {
+                            toast({ title: 'Findings Added', description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.` });
+                          } else {
+                            toast({ title: 'No New Findings', description: 'All active conditions have already been added to dental findings.' });
+                          }
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add All
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 {activeConditions.length > 0 ? (
