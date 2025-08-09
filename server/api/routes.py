@@ -18,7 +18,10 @@ from utils.image import generate_annotated_filename
 from services.video_generator import video_generator_service
 from services.elevenlabs_service import elevenlabs_service
 from services.insurance_verification import insurance_service
+import os
 from services.tooth_mapping import tooth_mapping_service, Detection
+from services.roboflow import roboflow_service
+from services.april_vision_mapper import map_with_segmentation
 import tempfile
 import uuid
 from services.stripe_service import stripe_service
@@ -1407,8 +1410,35 @@ async def map_teeth(
             for detection in request.detections
         ]
         
-        # Perform ensemble tooth mapping with user's numbering system preference
-        result = tooth_mapping_service.map_teeth_ensemble(request.image_url, detections, request.numbering_system)
+        # Use provider switch; default to existing ensemble
+        provider = os.getenv("TOOTH_MAPPING_PROVIDER", "ensemble").lower()
+        if provider == "april_vision":
+            # Call Roboflow condition detections already produced upstream; here we only have detections list
+            # For AprilVision flow we also need segmentation predictions
+            seg_json = await roboflow_service.segment_teeth(request.image_url)
+            if not seg_json:
+                # fallback to existing implementation if segmentation unavailable
+                result = tooth_mapping_service.map_teeth_ensemble(request.image_url, detections, request.numbering_system)
+            else:
+                # Build synthetic condition_detections payload from incoming detections
+                cond_json = {
+                    "predictions": [
+                        {
+                            "class": d.class_name,
+                            "confidence": d.confidence,
+                            "x": d.x,
+                            "y": d.y,
+                            "width": d.width,
+                            "height": d.height,
+                        }
+                        for d in detections
+                    ]
+                }
+                # Image width is unknown here; AprilVision uses it to midline-correct if provided.
+                result = map_with_segmentation(None, cond_json, seg_json, request.numbering_system)
+        else:
+            # Perform ensemble tooth mapping with user's numbering system preference
+            result = tooth_mapping_service.map_teeth_ensemble(request.image_url, detections, request.numbering_system)
         
         return {
             "success": True,
