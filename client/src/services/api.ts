@@ -72,11 +72,11 @@ export const api = {
 
   // Get report by ID
   async getReport(reportId: string) {
-    const token = await this.getAuthToken(); // Add await here
+    const token = await this.getAuthToken();
     
     const response = await fetch(`${API_BASE_URL}/diagnoses/${reportId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`, // Use the awaited token
+        'Authorization': `Bearer ${token}`,
       },
     });
 
@@ -349,5 +349,32 @@ export const api = {
 
     if (!response.ok) throw new Error('Tooth mapping failed');
     return response.json();
+  },
+
+  // Billing endpoints
+  async createCheckout(interval: 'monthly' | 'yearly' = 'monthly') {
+    const token = await this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/billing/checkout?interval=${interval}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to create checkout session');
+    return response.json() as Promise<{ url: string }>
+  },
+
+  async createBillingPortal(customerId: string) {
+    const token = await this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/billing/portal`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customer_id: customerId }),
+    });
+    if (!response.ok) throw new Error('Failed to create billing portal session');
+    return response.json() as Promise<{ url: string }>
   }
 };

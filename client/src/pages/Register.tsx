@@ -6,15 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import { Brain, Upload, ArrowLeft } from "lucide-react";
+import { Brain, Upload, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/services/supabase";
+import { api } from "@/services/api";
 
 const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
     clinicName: "",
     clinicWebsite: "",
     country: "",
@@ -28,19 +32,54 @@ const Register = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Registration data:", formData);
-    
-    toast({
-      title: "Account Created Successfully!",
-      description: "Welcome to Scanwise. Redirecting to your dashboard...",
-    });
-    
-    // Simulate account creation and redirect to dashboard
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 2000);
+
+    if (!formData.email || !formData.password || !formData.name || !formData.clinicName || !formData.country) {
+      toast({ title: "Missing information", description: "Please complete all required fields.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1) Sign up
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            clinic_name: formData.clinicName,
+            clinic_website: formData.clinicWebsite,
+            country: formData.country,
+          }
+        }
+      });
+      if (signUpError) throw signUpError;
+
+      // If email confirmation is required, there will be no session
+      if (!signUpData.session) {
+        toast({
+          title: "Confirm your email",
+          description: "We've sent a verification link. After confirming, sign in to continue to payment.",
+        });
+        navigate("/login");
+        return;
+      }
+
+      // 2) Optionally save branding basics (non-blocking)
+      try {
+        await api.saveClinicBranding({ clinic_name: formData.clinicName, website: formData.clinicWebsite });
+      } catch {}
+
+      // 3) Create Stripe checkout and redirect
+      const checkout = await api.createCheckout('monthly');
+      window.location.assign(checkout.url);
+    } catch (error: any) {
+      toast({ title: "Registration failed", description: error.message || String(error), variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -101,6 +140,18 @@ const Register = () => {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -178,8 +229,13 @@ const Register = () => {
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg py-3"
+                  disabled={isSubmitting}
                 >
-                  Create Account & Start Trial
+                  {isSubmitting ? (
+                    <span className="inline-flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account…</span>
+                  ) : (
+                    "Create Account & Subscribe"
+                  )}
                 </Button>
                 
                 <p className="text-center text-sm text-gray-500">
