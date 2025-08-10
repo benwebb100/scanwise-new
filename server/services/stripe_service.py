@@ -1,7 +1,8 @@
 import os
 import logging
 import json
-from typing import Optional
+import base64
+from typing import Optional, Dict, Any
 
 import stripe
 import jwt
@@ -77,6 +78,127 @@ class StripeService:
         )
         return session.url
 
+    def create_registration_checkout_session(self, user_data: Dict[str, Any], interval: str = "monthly") -> str:
+        """Create a checkout session for new user registration (payment first)"""
+        price_id = self._resolve_price_id(interval)
+        if not price_id:
+            raise ValueError("Stripe price id not configured. Provide STRIPE_PRICE_ID_MONTHLY/STRIPE_PRICE_ID_YEARLY or STRIPE_PRODUCT_ID with active recurring prices.")
+
+        # Encode user data in base64 to store in metadata
+        user_data_encoded = base64.b64encode(json.dumps(user_data).encode()).decode()
+        
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            success_url=f"{self.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{self.frontend_url}/billing/canceled",
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={
+                "registration_data": user_data_encoded,
+                "is_registration": "true"
+            },
+            subscription_data={
+                "metadata": {
+                    "registration_data": user_data_encoded,
+                    "is_registration": "true"
+                }
+            },
+            allow_promotion_codes=True,
+        )
+        return session.url
+
+    def verify_payment_session(self, session_id: str, access_token: str) -> dict:
+        """Verify that a payment session was completed successfully"""
+        try:
+            # Get user ID from token
+            user_id = self._get_user_id_from_token(access_token)
+            if not user_id:
+                return {"success": False, "error": "Invalid token"}
+
+            # Retrieve the session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+            
+            # Check if the session belongs to this user
+            session_user_id = session.metadata.get('user_id')
+            if session_user_id != user_id:
+                return {"success": False, "error": "Session does not belong to user"}
+            
+            # Check if payment was successful
+            if session.payment_status == 'paid':
+                # Check if subscription was created
+                if session.subscription:
+                    subscription = stripe.Subscription.retrieve(session.subscription)
+                    return {
+                        "success": True,
+                        "session": {
+                            "id": session.id,
+                            "payment_status": session.payment_status,
+                            "subscription_id": session.subscription,
+                            "subscription_status": subscription.status,
+                            "customer_id": session.customer
+                        }
+                    }
+                else:
+                    return {"success": False, "error": "No subscription created"}
+            else:
+                return {"success": False, "error": f"Payment not completed: {session.payment_status}"}
+                
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe API error during verification: {e}")
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            logger.error(f"Unexpected error during payment verification: {e}")
+            return {"success": False, "error": "Verification failed"}
+
+    def _handle_registration_webhook(self, session_data: Dict[str, Any]) -> Optional[str]:
+        """Handle registration webhook - create user account after successful payment"""
+        try:
+            metadata = session_data.get("metadata", {})
+            registration_data_encoded = metadata.get("registration_data")
+            
+            if not registration_data_encoded:
+                logger.error("No registration data found in session metadata")
+                return None
+            
+            # Decode user data
+            user_data = json.loads(base64.b64decode(registration_data_encoded).decode())
+            
+            # Create user account with Supabase
+            auth_client = supabase_service.client
+            
+            # Sign up the user
+            signup_response = auth_client.auth.sign_up({
+                "email": user_data.get("email"),
+                "password": user_data.get("password"),
+                "options": {
+                    "data": {
+                        "name": user_data.get("name"),
+                        "clinic_name": user_data.get("clinicName"),
+                        "clinic_website": user_data.get("clinicWebsite", ""),
+                        "country": user_data.get("country"),
+                    }
+                }
+            })
+            
+            if signup_response.user:
+                user_id = signup_response.user.id
+                logger.info(f"Successfully created user account {user_id} after payment")
+                
+                # Optionally save clinic branding
+                try:
+                    # This could be called via API if needed
+                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to save clinic branding for {user_id}: {e}")
+                
+                return user_id
+            else:
+                logger.error(f"Failed to create user account: {signup_response}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error handling registration webhook: {e}")
+            return None
+
     def handle_webhook(self, payload: bytes, sig_header: str) -> str:
         webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
         event = None
@@ -99,9 +221,16 @@ class StripeService:
             try:
                 if event_type == "checkout.session.completed":
                     metadata = data_object.get("metadata", {}) or {}
-                    user_id = metadata.get("user_id")
                     customer_id = data_object.get("customer")
                     status = "active"
+                    
+                    # Check if this is a registration session
+                    if metadata.get("is_registration") == "true":
+                        # Handle new user registration
+                        user_id = self._handle_registration_webhook(data_object)
+                    else:
+                        # Handle existing user subscription
+                        user_id = metadata.get("user_id")
                 else:
                     user_id = (data_object.get("metadata") or {}).get("user_id")
                     customer_id = data_object.get("customer")

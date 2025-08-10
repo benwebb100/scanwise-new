@@ -364,6 +364,37 @@ export const api = {
     return response.json() as Promise<{ url: string }>
   },
 
+  // Create registration checkout (payment before account creation)
+  async createRegistrationCheckout(data: { userData: any; interval: string }) {
+    const response = await fetch(`${API_BASE_URL}/billing/registration-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create registration checkout');
+    return response.json() as Promise<{ url: string }>;
+  },
+
+  // Verify payment session
+  async verifyPayment(sessionId: string) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/billing/verify?session_id=${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to verify payment');
+      return response.json() as Promise<{ success: boolean; session?: any }>;
+    } catch (error) {
+      console.error('Payment verification failed:', error);
+      return { success: false };
+    }
+  },
+
   async createBillingPortal(customerId: string) {
     const token = await this.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/billing/portal`, {
