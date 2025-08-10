@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { api } from '@/services/api';
 import { supabase } from '@/services/supabase';
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/contexts/TranslationContext";
+import { LanguageToggleSimple } from "@/components/LanguageToggle";
 
 interface Report {
   id: string;
@@ -33,6 +35,7 @@ interface Stats {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,7 +193,7 @@ const Dashboard = () => {
             
             <nav className="hidden md:flex items-center space-x-6">
               <button className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">
-                Dashboard
+                {t.dashboard.title}
               </button>
               <button className="text-gray-600 hover:text-gray-900">
                 Reports
@@ -202,9 +205,10 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            <LanguageToggleSimple />
             <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
               <Settings className="h-4 w-4 mr-2" />
-              Settings
+              {t.settings.title}
             </Button>
             <Button variant="ghost" size="sm">
               <User className="h-4 w-4 mr-2" />
@@ -224,7 +228,7 @@ const Dashboard = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome back, Dr. {userName}
+              {t.dashboard.welcome}, Dr. {userName}
             </h1>
             <p className="text-gray-600">
               {userEmail} • Last login: {formatDate(new Date().toISOString())}
@@ -237,7 +241,7 @@ const Dashboard = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Total Reports</p>
+                    <p className="text-sm text-gray-600">{t.dashboard.totalReports}</p>
                     <p className="text-2xl font-bold text-gray-900">
                       {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.totalReports}
                     </p>

@@ -6,12 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Brain, ArrowLeft, Settings as SettingsIcon, Building2, DollarSign } from 'lucide-react'
 import { ClinicBranding } from '@/components/ClinicBranding'
 import { PricingManagement } from '@/components/PricingManagement'
+import { LanguageToggle } from '@/components/LanguageToggle'
+import { useTranslation } from '@/contexts/TranslationContext'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/services/api'
 
 const Settings = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('branding')
   const [toothNumberingSystem, setToothNumberingSystem] = useState<'FDI' | 'Universal'>(() => {
     const saved = localStorage.getItem('toothNumberingSystem');
@@ -51,10 +54,13 @@ const Settings = () => {
             </div>
           </div>
 
-          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="flex items-center">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="flex items-center">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {t.nav.dashboard}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -64,7 +70,7 @@ const Settings = () => {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
               <SettingsIcon className="mr-3 h-8 w-8" />
-              Settings
+              {t.settings.title}
             </h1>
             <p className="text-gray-600">
               Configure your clinic settings, branding, and preferences

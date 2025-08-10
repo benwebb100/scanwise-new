@@ -6,11 +6,14 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Brain, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/contexts/TranslationContext";
+import { LanguageToggleSimple } from "@/components/LanguageToggle";
 import { supabase } from "@/services/supabase";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [credentials, setCredentials] = useState({

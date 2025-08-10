@@ -17,6 +17,8 @@ import { AIFindingsDisplay } from "@/components/AIFindingsDisplay";
 import { PriceValidationDialog } from "@/components/PriceValidationDialog";
 import { useClinicBranding } from "@/components/ClinicBranding";
 import { AIAnalysisSection } from '@/components/AIAnalysisSection';
+import { LanguageToggleSimple } from '@/components/LanguageToggle';
+import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
 import {
   ToothNumberingSystem,
@@ -31,6 +33,7 @@ import './CreateReport.css';
 const CreateReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t, translateCondition, translateTreatment } = useTranslation();
   const { clinicPrices, savePrice, savePrices, getPrice, validatePricing, loading: pricingLoading } = useClinicPricing();
   const { applyBrandingToReport } = useClinicBranding();
   
@@ -1175,10 +1178,13 @@ const CreateReport = () => {
             </div>
           </div>
 
-          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="flex items-center">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-3">
+            <LanguageToggleSimple />
+            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="flex items-center">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {t.nav.dashboard}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -1202,7 +1208,7 @@ const CreateReport = () => {
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center">
                       <Brain className="mr-2 h-5 w-5" />
-                      Report Generation Mode
+                      {t.createReport.title}
                     </span>
                     <div className="flex items-center space-x-2">
                       <Label htmlFor="xray-mode" className="text-sm font-normal">
@@ -1231,7 +1237,7 @@ const CreateReport = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <FileImage className="mr-2 h-5 w-5" />
-                    Upload Panoramic X-ray (OPG)
+                    {t.createReport.uploadXray}
                   </CardTitle>
                   <CardDescription>
                     Upload the patient's panoramic X-ray for AI analysis and treatment planning
@@ -1387,11 +1393,11 @@ const CreateReport = () => {
                     {/* Patient Name Input - Only show if no report and not analyzing */}
                     {!report && !isAnalyzingImage && (
                       <div className={`mt-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
-                        <label className="block font-medium text-blue-900 mb-1">Patient Name</label>
+                        <label className="block font-medium text-blue-900 mb-1">{t.createReport.patientName}</label>
                         <Input
                           value={patientName}
                           onChange={e => setPatientName(e.target.value)}
-                          placeholder="Enter patient name"
+                          placeholder={t.createReport.patientNamePlaceholder}
                           required
                           disabled={isProcessing}
                         />
@@ -1415,7 +1421,7 @@ const CreateReport = () => {
                           <div className="flex items-center space-x-4">
                             <div className="flex items-center space-x-2">
                               <Label htmlFor="show-pricing" className="text-sm font-medium text-gray-700">
-                                Show treatment pricing
+                                {t.createReport.showTreatmentPricing}
                               </Label>
                               <Switch
                                 id="show-pricing"
@@ -1428,7 +1434,7 @@ const CreateReport = () => {
                               />
                             </div>
                             <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
-                              + Add Finding
+                              + {t.createReport.addFinding}
                             </Button>
                           </div>
                         </div>
@@ -1442,7 +1448,7 @@ const CreateReport = () => {
                               {/* Tooth Number */}
                               <div className="space-y-2">
                                 <div className="flex items-center space-x-1">
-                                  <Label className="text-sm font-medium">Tooth ({toothNumberingSystem})</Label>
+                                  <Label className="text-sm font-medium">{t.createReport.tooth} ({toothNumberingSystem})</Label>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Info className="h-3 w-3 text-gray-400 cursor-help" />
@@ -1466,7 +1472,7 @@ const CreateReport = () => {
                                   options={getToothOptions(toothNumberingSystem)}
                                   value={f.tooth}
                                   onValueChange={(value) => handleFindingChange(idx, "tooth", value)}
-                                  placeholder="Select tooth"
+                                  placeholder={t.createReport.selectTooth}
                                   searchPlaceholder="Search tooth number..."
                                   disabled={isProcessing}
                                 />
@@ -1474,12 +1480,12 @@ const CreateReport = () => {
 
                               {/* Condition */}
                               <div className="space-y-2">
-                                <Label className="text-sm font-medium">Condition</Label>
+                                <Label className="text-sm font-medium">{t.createReport.condition}</Label>
                                 <SearchableSelect
                                   options={ALL_CONDITIONS}
                                   value={f.condition}
                                   onValueChange={(value) => handleFindingChange(idx, "condition", value)}
-                                  placeholder="Select condition"
+                                  placeholder={t.createReport.selectCondition}
                                   searchPlaceholder="Search conditions..."
                                   disabled={isProcessing}
                                 />
@@ -1487,12 +1493,12 @@ const CreateReport = () => {
 
                               {/* Treatment */}
                               <div className="space-y-2">
-                                <Label className="text-sm font-medium">Treatment</Label>
+                                <Label className="text-sm font-medium">{t.createReport.treatment}</Label>
                                 <SearchableSelect
                                   options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
                                   value={f.treatment}
                                   onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
-                                  placeholder="Select treatment"
+                                  placeholder={t.createReport.selectTreatment}
                                   searchPlaceholder="Search treatments..."
                                   disabled={isProcessing}
                                 />
@@ -1509,7 +1515,7 @@ const CreateReport = () => {
                                     disabled={findings.length === 1 || isProcessing}
                                     className="w-full"
                                   >
-                                    Remove
+                                    {t.common.remove}
                                   </Button>
                                   {isMissingTooth && (
                                     <div className="absolute top-2 right-2">
@@ -1581,12 +1587,12 @@ const CreateReport = () => {
                           {isProcessing ? (
                             <>
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                              Generating Report & Video...
+                              {t.createReport.analyzing}...
                             </>
                           ) : (
                             <>
                               <Brain className="mr-2 h-5 w-5" />
-                              Generate Treatment Report
+                              {t.createReport.generateReport}
                             </>
                           )}
                         </Button>
@@ -1869,13 +1875,13 @@ const CreateReport = () => {
                     </div>
                     <div>
                       <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
-                        Clinical Observations
+                        {t.createReport.clinicalObservations}
                       </Label>
                       <Textarea
                         id="observations"
                         value={patientObservations}
                         onChange={e => setPatientObservations(e.target.value)}
-                        placeholder="Enter your observations about the patient's dental condition, symptoms, medical history, etc."
+                        placeholder={t.createReport.clinicalObservationsPlaceholder}
                         rows={6}
                         className="w-full"
                       />
@@ -1887,7 +1893,7 @@ const CreateReport = () => {
                     <div className="flex items-center justify-between mb-4">
                       <span className="font-medium text-blue-900">Manual Findings</span>
                       <Button type="button" variant="outline" onClick={addFinding} size="sm">
-                        + Add Finding
+                        + {t.createReport.addFinding}
                       </Button>
                     </div>
                     
@@ -1900,7 +1906,7 @@ const CreateReport = () => {
                             {/* Tooth Number */}
                             <div className="space-y-2">
                               <div className="flex items-center space-x-1">
-                                <Label className="text-sm font-medium">Tooth ({toothNumberingSystem})</Label>
+                                <Label className="text-sm font-medium">{t.createReport.tooth} ({toothNumberingSystem})</Label>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Info className="h-3 w-3 text-gray-400 cursor-help" />

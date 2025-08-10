@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/contexts/TranslationContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
 
@@ -69,6 +70,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   onRejectFinding
 }) => {
   const { toast } = useToast();
+  const { t, translateCondition } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const [showExistingWork, setShowExistingWork] = useState(false);
   const [showClinicalAssessment, setShowClinicalAssessment] = useState(false);
@@ -280,7 +282,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center text-blue-900">
                   <Brain className="mr-2 h-5 w-5" />
-                  AI Analysis Results
+                  {t.aiAnalysis.title}
                   <Badge variant="outline" className="ml-3 bg-white">
                     {activeCount} active, {existingCount} existing
                   </Badge>
@@ -293,7 +295,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                 </div>
               </div>
               <CardDescription>
-                Review AI-detected findings to assist with your clinical assessment
+                {t.aiAnalysis.subtitle}
               </CardDescription>
             </CardHeader>
           </CollapsibleTrigger>
