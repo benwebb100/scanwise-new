@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language, Translations, getTranslation } from '@/lib/translations';
+import { useDocumentLang } from '@/hooks/useDocumentLang';
 
 interface TranslationContextType {
   language: Language;
@@ -19,6 +20,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   });
 
   const [t, setTranslations] = useState<Translations>(() => getTranslation(language));
+
+  // Update document language attribute when language changes
+  useDocumentLang(language);
 
   const setLanguage = (newLanguage: Language) => {
     setLanguageState(newLanguage);

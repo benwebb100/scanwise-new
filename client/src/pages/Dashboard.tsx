@@ -10,6 +10,8 @@ import { supabase } from '@/services/supabase';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { LanguageToggleSimple } from "@/components/LanguageToggle";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { ViewInBulgarian } from "@/components/ViewInBulgarian";
 
 interface Report {
   id: string;
@@ -205,7 +207,8 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <LanguageToggleSimple />
+            <ViewInBulgarian />
+            <LanguageSelector />
             <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
               <Settings className="h-4 w-4 mr-2" />
               {t.settings.title}

@@ -2,6 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Google Translate Widget Styles */
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
+#google_translate_element * {
+  font-family: inherit;
+}
+
+/* Style the Google Translate dropdown */
+.goog-te-gadget {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  color: inherit !important;
+}
+
+.goog-te-gadget .goog-te-combo {
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  background-color: white !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+}
+
+.goog-te-gadget .goog-te-combo:focus {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Hide the "Powered by Google Translate" text */
+.goog-logo-link {
+  display: none !important;
+}
+
+.goog-te-gadget > span > a {
+  display: none !important;
+}
+
+/* Custom styles for better integration */
+.goog-te-gadget-simple {
+  background-color: transparent !important;
+  border: none !important;
+  font-size: inherit !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value {
+  color: inherit !important;
+  font-family: inherit !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value span {
+  color: inherit !important;
+}
+
+/* Ensure translated content maintains proper styling */
+.translated-ltr {
+  direction: ltr !important;
+}
+
+/* Hide the Google Translate iframe */
+.goog-te-banner-frame {
+  display: none !important;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
 
 @layer base {

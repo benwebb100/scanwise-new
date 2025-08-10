@@ -18,6 +18,8 @@ import { PriceValidationDialog } from "@/components/PriceValidationDialog";
 import { useClinicBranding } from "@/components/ClinicBranding";
 import { AIAnalysisSection } from '@/components/AIAnalysisSection';
 import { LanguageToggleSimple } from '@/components/LanguageToggle';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
 import {
@@ -1179,7 +1181,8 @@ const CreateReport = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <LanguageToggleSimple />
+            <ViewInBulgarian />
+            <LanguageSelector />
             <Button variant="ghost" onClick={() => navigate("/dashboard")} className="flex items-center">
               <ArrowLeft className="mr-2 h-4 w-4" />
               {t.nav.dashboard}

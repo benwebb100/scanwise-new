@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useToast } from '@/hooks/use-toast';
+import { NoTranslateTooth } from '@/components/NoTranslate';
 import { api } from '@/services/api';
 
 interface DetailedFinding {

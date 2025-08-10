@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Globe } from 'lucide-react';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useToast } from '@/hooks/use-toast';
+import { ViewInBulgarian } from './ViewInBulgarian';
+import { GoogleTranslateWidget } from './GoogleTranslateWidget';
 
 export function LanguageToggle() {
   const { language, setLanguage, t } = useTranslation();
