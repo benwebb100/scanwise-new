@@ -13,9 +13,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   preview: {
-    port: 8080,
-    host: true,
-    allowedHosts: ['frontend-scanwise.onrender.com'],
+    allowedHosts: ['scan-wise.com', 'www.scan-wise.com']
   },
   plugins: [
     react(),
