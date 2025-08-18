@@ -345,24 +345,51 @@ export function useClinicBranding() {
   }, [])
 
   const applyBrandingToReport = (reportHtml: string): string => {
-    if (!brandingData) return reportHtml
-
-    // Replace the default header and footer with clinic branding
-    let brandedReport = reportHtml
-
-    // Replace default header
-    const headerRegex = /<div[^>]*class="report-container"[^>]*>[\s\S]*?<div[^>]*background-color:\s*#1e88e5[^>]*>[\s\S]*?<\/div>/
-    if (headerRegex.test(brandedReport)) {
-      brandedReport = brandedReport.replace(headerRegex, `<div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">${brandingData.headerTemplate}`)
+    console.log('🎨 BRANDING: Starting applyBrandingToReport');
+    console.log('🎨 BRANDING: Input HTML length:', reportHtml?.length || 0);
+    console.log('🎨 BRANDING: Has branding data:', !!brandingData);
+    
+    // If no branding data or empty HTML, return the original HTML
+    if (!brandingData || !reportHtml || reportHtml.trim().length === 0) {
+      console.log('🎨 BRANDING: No branding data or empty HTML, returning original');
+      return reportHtml || '';
     }
 
-    // Add footer before closing div
-    const footerInsertPoint = brandedReport.lastIndexOf('</div>')
-    if (footerInsertPoint !== -1) {
-      brandedReport = brandedReport.slice(0, footerInsertPoint) + brandingData.footerTemplate + brandedReport.slice(footerInsertPoint)
-    }
+    try {
+      // Replace the default header and footer with clinic branding
+      let brandedReport = reportHtml;
 
-    return brandedReport
+      // Only try to replace header if we have header template
+      if (brandingData.headerTemplate) {
+        console.log('🎨 BRANDING: Attempting to replace header');
+        const headerRegex = /<div[^>]*class="report-container"[^>]*>[\s\S]*?<div[^>]*background-color:\s*#1e88e5[^>]*>[\s\S]*?<\/div>/;
+        if (headerRegex.test(brandedReport)) {
+          brandedReport = brandedReport.replace(headerRegex, `<div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">${brandingData.headerTemplate}`);
+          console.log('🎨 BRANDING: Header replaced successfully');
+        } else {
+          console.log('🎨 BRANDING: Header pattern not found, skipping header replacement');
+        }
+      }
+
+      // Only add footer if we have footer template
+      if (brandingData.footerTemplate) {
+        console.log('🎨 BRANDING: Attempting to add footer');
+        const footerInsertPoint = brandedReport.lastIndexOf('</div>');
+        if (footerInsertPoint !== -1) {
+          brandedReport = brandedReport.slice(0, footerInsertPoint) + brandingData.footerTemplate + brandedReport.slice(footerInsertPoint);
+          console.log('🎨 BRANDING: Footer added successfully');
+        } else {
+          console.log('🎨 BRANDING: Could not find insertion point for footer');
+        }
+      }
+
+      console.log('🎨 BRANDING: Output HTML length:', brandedReport?.length || 0);
+      return brandedReport || reportHtml;
+    } catch (error) {
+      console.error('🎨 BRANDING: Error applying branding:', error);
+      // Return original HTML if branding fails
+      return reportHtml || '';
+    }
   }
 
   return {

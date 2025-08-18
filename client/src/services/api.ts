@@ -5,8 +5,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/
 export const api = {
   // Get auth token
   async getAuthToken() {
+    console.log('🔐 API: Getting auth token...');
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('No session');
+    console.log('🔐 API: Session exists:', !!session);
+    if (!session) {
+      console.error('🔐 API: No session found - user not authenticated');
+      throw new Error('No session');
+    }
+    console.log('🔐 API: Auth token retrieved successfully');
     return session.access_token;
   },
 
@@ -34,7 +40,23 @@ export const api = {
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
   } & { generateVideo?: boolean }) {
+    console.log('📊 API: Starting analyzeXray request...');
+    console.log('📊 API: Request data:', {
+      patientName: data.patientName,
+      imageUrl: data.imageUrl?.substring(0, 50) + '...',
+      findingsCount: data.findings?.length || 0
+    });
+    
     const token = await this.getAuthToken();
+    
+    const requestBody = {
+      patient_name: data.patientName,
+      image_url: data.imageUrl,
+      findings: data.findings,
+    };
+    
+    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-xray?generate_video=true`);
+    console.log('📊 API: Request body:', requestBody);
     
     const response = await fetch(`${API_BASE_URL}/analyze-xray?generate_video=true`, {
       method: 'POST',
@@ -42,15 +64,24 @@ export const api = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        patient_name: data.patientName,
-        image_url: data.imageUrl,
-        findings: data.findings,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) throw new Error('Analysis failed');
-    return response.json();
+    console.log('📊 API: Response status:', response.status);
+    console.log('📊 API: Response ok:', response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('📊 API: Error response:', errorText);
+      throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('📊 API: Response received, keys:', Object.keys(result));
+    console.log('📊 API: Has report_html:', !!result.report_html);
+    console.log('📊 API: Report HTML length:', result.report_html?.length || 0);
+    
+    return result;
   },
 
   // Get diagnoses for dashboard
@@ -100,7 +131,23 @@ export const api = {
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
     generateVideo?: boolean;
   }) {
+    console.log('📊 API: Starting analyzeWithoutXray request...');
+    console.log('📊 API: Request data:', {
+      patientName: data.patientName,
+      observationsLength: data.observations?.length || 0,
+      findingsCount: data.findings?.length || 0
+    });
+    
     const token = await this.getAuthToken();
+    
+    const requestBody = {
+      patient_name: data.patientName,
+      observations: data.observations,
+      findings: data.findings,
+    };
+    
+    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-without-xray`);
+    console.log('📊 API: Request body:', requestBody);
     
     const response = await fetch(`${API_BASE_URL}/analyze-without-xray`, {
       method: 'POST',
@@ -108,15 +155,24 @@ export const api = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        patient_name: data.patientName,
-        observations: data.observations,
-        findings: data.findings,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) throw new Error('Analysis failed');
-    return response.json();
+    console.log('📊 API: Response status:', response.status);
+    console.log('📊 API: Response ok:', response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('📊 API: Error response:', errorText);
+      throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('📊 API: Response received, keys:', Object.keys(result));
+    console.log('📊 API: Has report_html:', !!result.report_html);
+    console.log('📊 API: Report HTML length:', result.report_html?.length || 0);
+    
+    return result;
   },
 
   // Clinic pricing endpoints

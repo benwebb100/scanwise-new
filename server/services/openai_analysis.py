@@ -122,7 +122,6 @@ Keep the tone professional, educational, and reassuring. Avoid clinical jargon u
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3,
                 response_format={"type": "json_object"}
             )
             
@@ -278,8 +277,7 @@ Do not:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                max_completion_tokens=1000
             )
             
             script = response.choices[0].message.content.strip()
@@ -362,7 +360,6 @@ Do not:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3,
                 response_format={"type": "json_object"}
             )
             
@@ -446,8 +443,7 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3,
-                max_tokens=4000
+                max_completion_tokens=4000
             )
             
             html_content = response.choices[0].message.content.strip()

@@ -253,77 +253,7 @@ async def analyze_xray(
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
         diagnosis_id = saved_diagnosis.get('id')
         
-        # Step 5: Generate video if requested
-        video_url = None
-        if generate_video and diagnosis_id:
-            try:
-                logger.info("Generating patient education video...")
-                
-                # Convert annotated image to base64
-                image_base64 = video_generator_service.image_to_base64(annotated_url)
-                
-                # Generate video script
-                video_script = await openai_service.generate_video_script(
-                    ai_analysis.get('treatment_stages', []), 
-                    image_base64
-                )
-                
-                # Generate voice audio
-                audio_bytes = await elevenlabs_service.generate_voice(video_script)
-                
-                # Create temporary files
-                temp_dir = tempfile.mkdtemp()
-                unique_id = str(uuid.uuid4())[:8]
-                
-                # Save image
-                image_response = requests.get(annotated_url)
-                image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
-                with open(image_path, 'wb') as f:
-                    f.write(image_response.content)
-                
-                # Save audio
-                audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
-                with open(audio_path, 'wb') as f:
-                    f.write(audio_bytes)
-                
-                # Create video
-                video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
-                video_generator_service.create_video_with_subtitles(
-                    image_path, 
-                    audio_path, 
-                    video_path
-                )
-                
-                # Upload video
-                with open(video_path, 'rb') as video_file:
-                    video_data = video_file.read()
-                
-                video_filename = f"patient_videos/{request.patient_name.replace(' ', '_')}_{unique_id}.mp4"
-                video_url = await supabase_service.upload_video(
-                    video_data,
-                    video_filename,
-                    token
-                )
-                
-                # Update diagnosis with video URL
-                if video_url:
-                    auth_client = supabase_service._create_authenticated_client(token)
-                    auth_client.table('patient_diagnosis').update({
-                        'video_url': video_url,
-                        'video_script': video_script,
-                        'video_generated_at': datetime.now().isoformat()
-                    }).eq('id', diagnosis_id).execute()
-                
-                # Cleanup
-                import shutil
-                shutil.rmtree(temp_dir)
-                
-            except Exception as e:
-                logger.error(f"Error generating video: {str(e)}")
-                # Don't fail the whole request if video generation fails
-                video_url = None
-        
-        # Step 6: Prepare response
+        # Step 5: Return response immediately, start video generation in background if requested
         response_data = {
             "status": "success",
             "summary": ai_analysis.get('summary', ''),
@@ -332,12 +262,16 @@ async def analyze_xray(
             "diagnosis_timestamp": datetime.now(),
             "annotated_image_url": annotated_url,
             "detections": ai_analysis.get('detections', []),
-            "report_html": html_report
+            "report_html": html_report,
+            "diagnosis_id": diagnosis_id  # Include diagnosis_id for video polling
         }
         
-        # Add video URL to response if available
-        if video_url:
-            response_data["video_url"] = video_url
+        # Start video generation in background if requested
+        if generate_video and diagnosis_id:
+            logger.info(f"Starting background video generation for diagnosis: {diagnosis_id}")
+            # Import asyncio to run video generation in background
+            import asyncio
+            asyncio.create_task(generate_video_background(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token))
         
         response = AnalyzeXrayResponse(**response_data)
         
@@ -349,7 +283,89 @@ async def analyze_xray(
     except Exception as e:
         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-    
+
+
+async def generate_video_background(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str):
+    """
+    Generate video in background without blocking the main response
+    """
+    try:
+        logger.info(f"Background video generation started for diagnosis: {diagnosis_id}")
+        
+        # Convert annotated image to base64
+        image_base64 = video_generator_service.image_to_base64(annotated_url)
+        
+        # Generate video script
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
+        
+        # Generate voice audio
+        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        
+        # Create temporary files
+        temp_dir = tempfile.mkdtemp()
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Save image
+        image_response = requests.get(annotated_url)
+        image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
+        with open(image_path, 'wb') as f:
+            f.write(image_response.content)
+        
+        # Save audio
+        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+        with open(audio_path, 'wb') as f:
+            f.write(audio_bytes)
+        
+        # Create video
+        video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
+        video_generator_service.create_video_with_subtitles(
+            image_path,
+            audio_path,
+            video_path
+        )
+        
+        # Upload video
+        with open(video_path, 'rb') as video_file:
+            video_data = video_file.read()
+        
+        video_filename = f"patient_videos/{patient_name.replace(' ', '_')}_{unique_id}.mp4"
+        video_url = await supabase_service.upload_video(
+            video_data,
+            video_filename,
+            token
+        )
+        
+        # Update diagnosis with video URL
+        if video_url:
+            auth_client = supabase_service._create_authenticated_client(token)
+            auth_client.table('patient_diagnosis').update({
+                'video_url': video_url,
+                'video_script': video_script,
+                'video_generated_at': datetime.now().isoformat()
+            }).eq('id', diagnosis_id).execute()
+            
+            logger.info(f"Background video generation completed for diagnosis: {diagnosis_id}")
+        else:
+            logger.error(f"Failed to upload video for diagnosis: {diagnosis_id}")
+        
+        # Cleanup
+        import shutil
+        shutil.rmtree(temp_dir)
+        
+    except Exception as e:
+        logger.error(f"Error in background video generation for diagnosis {diagnosis_id}: {str(e)}")
+        # Update diagnosis to indicate video generation failed
+        try:
+            auth_client = supabase_service._create_authenticated_client(token)
+            auth_client.table('patient_diagnosis').update({
+                'video_generation_failed': True,
+                'video_error': str(e),
+                'video_generated_at': datetime.now().isoformat()
+            }).eq('id', diagnosis_id).execute()
+        except Exception as update_error:
+            logger.error(f"Failed to update diagnosis with video error: {str(update_error)}")
+
+
 @router.get("/health")
 async def health_check() -> Dict:
     """Basic health check endpoint"""

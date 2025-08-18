@@ -62,13 +62,22 @@ export function SearchableSelect({
   const selectedOption = options.find(option => option.value === value)
 
   const handleSelect = (selectedValue: string) => {
+    console.log('SearchableSelect: handleSelect called with:', selectedValue)
+    console.log('SearchableSelect: Current value:', value)
+    console.log('SearchableSelect: Available options:', options.map(o => o.value))
+    
     // Find the option by value (not label)
     const option = options.find(opt => opt.value === selectedValue)
+    console.log('SearchableSelect: Found option:', option)
+    
     if (option) {
       const newValue = selectedValue === value ? "" : selectedValue
+      console.log('SearchableSelect: Setting new value:', newValue)
       onValueChange?.(newValue)
       setOpen(false)
       setSearchValue("") // Clear search when selecting
+    } else {
+      console.error('SearchableSelect: Option not found for value:', selectedValue)
     }
   }
 
@@ -96,8 +105,8 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] p-0" 
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
         align="start"
         sideOffset={4}
       >
@@ -118,8 +127,17 @@ export function SearchableSelect({
                   <CommandItem
                     key={option.value}
                     value={option.value}
-                    onSelect={handleSelect}
-                    className="cursor-pointer"
+                    onSelect={() => {
+                      console.log('SearchableSelect: Pinned option selected via onSelect:', option.value);
+                      handleSelect(option.value);
+                    }}
+                    onMouseDown={(e) => {
+                      // Prevent default to avoid focus issues but don't trigger selection here
+                      e.preventDefault();
+                      console.log('SearchableSelect: Pinned option mousedown:', option.value);
+                    }}
+                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground"
+                    disabled={false}
                   >
                     <Check
                       className={cn(
@@ -140,8 +158,17 @@ export function SearchableSelect({
                   <CommandItem
                     key={option.value}
                     value={option.value}
-                    onSelect={handleSelect}
-                    className="cursor-pointer"
+                    onSelect={() => {
+                      console.log('SearchableSelect: Regular option selected via onSelect:', option.value);
+                      handleSelect(option.value);
+                    }}
+                    onMouseDown={(e) => {
+                      // Prevent default to avoid focus issues but don't trigger selection here
+                      e.preventDefault();
+                      console.log('SearchableSelect: Regular option mousedown:', option.value);
+                    }}
+                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground"
+                    disabled={false}
                   >
                     <Check
                       className={cn(
