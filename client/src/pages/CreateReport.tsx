@@ -46,7 +46,7 @@ const CreateReport = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedReport, setEditedReport] = useState<string | null>(null);
+  const [originalReportBackup, setOriginalReportBackup] = useState<string | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -959,12 +959,6 @@ const CreateReport = () => {
                   </div>
                 `;
               }).join('')}
-              
-              <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px; margin-top: 20px;">
-                <p style="margin: 0; color: #856404; font-size: 14px;">
-                  <strong>Note:</strong> This staging is based on urgency and complexity. Your dentist may adjust the timing based on your specific needs and availability.
-                </p>
-              </div>
             </div>
           `;
         })()}
@@ -1091,25 +1085,59 @@ const CreateReport = () => {
             <h3 style="font-size: 24px; margin-bottom: 10px;">Annotated X-Ray Image</h3>
             <p style="color: #666; margin-bottom: 30px;">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
             
-            <!-- Legend -->
-            <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
-              <div style="display: flex; align-items: center; gap: 5px;">
-                <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
-                <span style="font-size: 14px;">Caries</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 5px;">
-                <div style="width: 15px; height: 15px; background-color: #9C27B0;"></div>
-                <span style="font-size: 14px;">Missing-tooth-between</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 5px;">
-                <div style="width: 15px; height: 15px; background-color: #00BCD4;"></div>
-                <span style="font-size: 14px;">Missing-teeth-no-distal</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 5px;">
-                <div style="width: 15px; height: 15px; background-color: #E91E63;"></div>
-                <span style="font-size: 14px;">Root Piece</span>
-              </div>
-            </div>
+            ${(() => {
+              // Only show legend if there are detections
+              if (!data.detections || data.detections.length === 0) {
+                return '';
+              }
+
+              // Define hex colors for each condition type
+              const conditionColors: {[key: string]: string} = {
+                'bone-level': '#6C4A35',
+                'caries': '#58eec3',
+                'crown': '#FF00D4',
+                'filling': '#FF004D',
+                'fracture': '#FF69F8',
+                'impacted-tooth': '#FFD700',
+                'implant': '#00FF5A',
+                'missing-teeth-no-distal': '#4FE2E2',
+                'missing-tooth-between': '#8c28fe',
+                'periapical-lesion': '#007BFF',
+                'post': '#00FFD5',
+                'root-piece': '#fe4eed',
+                'root-canal-treatment': '#FF004D',
+                'tissue-level': '#A2925D'
+              };
+
+              // Get unique detected conditions
+              const uniqueConditions = [...new Set(data.detections.map((detection: any) => detection.class || detection.class_name))];
+
+              // Format condition names for display
+              const formatConditionName = (condition: string) => {
+                return condition
+                  .replace(/-/g, ' ')
+                  .replace(/\b\w/g, (l) => l.toUpperCase())
+                  .replace(/\b(tooth|teeth)\b/gi, (match) => match.toLowerCase());
+              };
+
+              // Generate dynamic legend
+              return `
+                <!-- Dynamic Legend -->
+                <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+                  ${uniqueConditions.map((condition: string) => {
+                    const color = conditionColors[condition.toLowerCase()] || '#666666'; // Default gray if color not found
+                    const displayName = formatConditionName(condition);
+                    
+                    return `
+                      <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 15px; height: 15px; background-color: ${color}; border-radius: 2px;"></div>
+                        <span style="font-size: 14px;">${displayName}</span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `;
+            })()}
             
             <img src="${data.annotated_image_url}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
           </div>
@@ -1232,7 +1260,9 @@ const CreateReport = () => {
 
   const handleEditClick = () => {
     setIsEditing(true);
-    setEditedReport(report);
+    // Store the original report content as a backup for cancellation
+    setOriginalReportBackup(report);
+    // Don't set editedReport here - let the contentEditable div work with the current report
   };
 
   const handleSaveEdit = () => {
@@ -1246,8 +1276,10 @@ const CreateReport = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditedReport(null); // Clear the edited report
-    // The original report content remains in the 'report' state
+    // Restore the original report content from backup
+    if (originalReportBackup) {
+      setReport(originalReportBackup);
+    }
     toast({
       title: "Changes Cancelled",
       description: "Report reverted to its original state.",
@@ -1304,7 +1336,7 @@ const CreateReport = () => {
       }
       
       setReport(data.updated_html);
-      setEditedReport(null);
+      setOriginalReportBackup(null); // Clear backup since report has changed
       setAiSuggestion("");
       addVersion(data.updated_html, "AI Edit", aiSuggestion);
       
@@ -2308,7 +2340,7 @@ const CreateReport = () => {
                                     className="border rounded p-4 min-h-[120px] bg-gray-50 focus:outline-blue-400 outline outline-2"
                                     contentEditable={true}
                                     suppressContentEditableWarning={true}
-                                    dangerouslySetInnerHTML={{ __html: editedReport || report }}
+                                    dangerouslySetInnerHTML={{ __html: report }}
                                     style={{ overflowX: 'auto', wordBreak: 'break-word' }}
                                   />
                                 ) : (

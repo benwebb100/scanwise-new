@@ -53,12 +53,13 @@ export const api = {
       patient_name: data.patientName,
       image_url: data.imageUrl,
       findings: data.findings,
+      generate_video: data.generateVideo || false,
     };
     
-    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-xray?generate_video=true`);
+    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-xray`);
     console.log('📊 API: Request body:', requestBody);
     
-    const response = await fetch(`${API_BASE_URL}/analyze-xray?generate_video=true`, {
+    const response = await fetch(`${API_BASE_URL}/analyze-xray`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

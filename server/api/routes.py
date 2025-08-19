@@ -204,15 +204,20 @@ async def analyze_xray_immediate(
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
 async def analyze_xray(
     request: AnalyzeXrayRequest,
-    generate_video: bool = False,  # Add this parameter
+    generate_video: bool = False,  # Remove this parameter
     token: str = Depends(get_auth_token)
 ):
     """
-    Main endpoint to analyze dental X-ray
-    Note: Supabase handles user authentication and RLS automatically
+    Analyze X-ray image and generate comprehensive dental report
     """
     try:
+        # Extract generate_video from request body
+        generate_video = getattr(request, 'generate_video', False)
+        logger.info(f"Video generation requested: {generate_video}")
+        
         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
+        logger.info(f"Findings count: {len(request.findings) if request.findings else 0}")
+        logger.info(f"Generate video: {generate_video}")
         
         # Step 1: Send image to Roboflow for detection
         predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
@@ -239,6 +244,9 @@ async def analyze_xray(
         # Generate HTML report using GPT
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
         html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
+        
+        print(f"DEBUG: Generated HTML report length: {len(html_report) if html_report else 0}")
+        print(f"DEBUG: HTML report preview: {html_report[:100] if html_report else 'None'}...")
         
         diagnosis_data = {
             'patient_name': request.patient_name,
@@ -268,10 +276,21 @@ async def analyze_xray(
         
         # Start video generation in background if requested
         if generate_video and diagnosis_id:
-            logger.info(f"Starting background video generation for diagnosis: {diagnosis_id}")
-            # Import asyncio to run video generation in background
-            import asyncio
-            asyncio.create_task(generate_video_background(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token))
+            logger.info(f"Starting video generation for diagnosis: {diagnosis_id}")
+            logger.info(f"Annotated image URL: {annotated_url}")
+            logger.info(f"Treatment stages count: {len(ai_analysis.get('treatment_stages', []))}")
+            # Start video generation asynchronously
+            try:
+                # Call the video generation endpoint asynchronously
+                import asyncio
+                logger.info(f"Creating background task for video generation: {diagnosis_id}")
+                asyncio.create_task(_start_video_generation(diagnosis_id, token))
+                logger.info(f"Background task created successfully for diagnosis: {diagnosis_id}")
+            except Exception as e:
+                logger.error(f"Failed to start video generation: {str(e)}")
+                logger.error(f"Video generation error details: {type(e).__name__}: {str(e)}")
+        else:
+            logger.info(f"Video generation not requested or no diagnosis ID. generate_video: {generate_video}, diagnosis_id: {diagnosis_id}")
         
         response = AnalyzeXrayResponse(**response_data)
         
@@ -285,46 +304,84 @@ async def analyze_xray(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-async def generate_video_background(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str):
+async def _start_video_generation(diagnosis_id: str, token: str):
     """
-    Generate video in background without blocking the main response
+    Asynchronously generate video for a diagnosis.
+    This function is called by the main analyze_xray endpoint.
     """
+    temp_files = []
     try:
         logger.info(f"Background video generation started for diagnosis: {diagnosis_id}")
+        print(f"DEBUG: Starting video generation for diagnosis: {diagnosis_id}")
+        
+        # Fetch diagnosis from database
+        auth_client = supabase_service._create_authenticated_client(token)
+        diagnosis_response = auth_client.table('patient_diagnosis').select("*").eq('id', diagnosis_id).execute()
+        
+        if not diagnosis_response.data:
+            logger.error(f"Diagnosis not found for background video generation: {diagnosis_id}")
+            print(f"DEBUG: Diagnosis not found: {diagnosis_id}")
+            return
+        
+        diagnosis = diagnosis_response.data[0]
+        annotated_image_url = diagnosis.get('annotated_image_url')
+        treatment_stages = diagnosis.get('treatment_stages', [])
+        patient_name = diagnosis.get('patient_name')
+        
+        print(f"DEBUG: Diagnosis data - annotated_image_url: {annotated_image_url}, treatment_stages: {len(treatment_stages)}, patient_name: {patient_name}")
+        
+        if not annotated_image_url:
+            logger.error(f"No annotated image URL for diagnosis: {diagnosis_id}")
+            print(f"DEBUG: No annotated image URL for diagnosis: {diagnosis_id}")
+            return
         
         # Convert annotated image to base64
-        image_base64 = video_generator_service.image_to_base64(annotated_url)
+        logger.info("Converting annotated image to base64...")
+        print(f"DEBUG: Converting image to base64: {annotated_image_url}")
+        image_base64 = video_generator_service.image_to_base64(annotated_image_url)
+        print(f"DEBUG: Image converted to base64, length: {len(image_base64) if image_base64 else 0}")
         
-        # Generate video script
+        # Generate video script with OpenAI
+        logger.info("Generating video script...")
+        print(f"DEBUG: Generating video script with {len(treatment_stages)} treatment stages")
         video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
+        print(f"DEBUG: Video script generated, length: {len(video_script) if video_script else 0}")
         
-        # Generate voice audio
+        # Generate voice audio with ElevenLabs
+        logger.info("Generating voice audio...")
+        print(f"DEBUG: Generating voice audio with ElevenLabs")
         audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        print(f"DEBUG: Voice audio generated, size: {len(audio_bytes) if audio_bytes else 0} bytes")
         
         # Create temporary files
         temp_dir = tempfile.mkdtemp()
         unique_id = str(uuid.uuid4())[:8]
         
-        # Save image
-        image_response = requests.get(annotated_url)
+        # Download and save annotated image
+        image_response = requests.get(annotated_image_url)
         image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
         with open(image_path, 'wb') as f:
             f.write(image_response.content)
+        temp_files.append(image_path)
         
-        # Save audio
+        # Save audio file
         audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
         with open(audio_path, 'wb') as f:
             f.write(audio_bytes)
+        temp_files.append(audio_path)
         
-        # Create video
+        # Create video with subtitles
+        logger.info("Creating video with subtitles...")
         video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
-        video_generator_service.create_video_with_subtitles(
-            image_path,
-            audio_path,
+        duration = video_generator_service.create_video_with_subtitles(
+            image_path, 
+            audio_path, 
             video_path
         )
+        temp_files.append(video_path)
         
-        # Upload video
+        # Upload video to Supabase Storage
+        logger.info("Uploading video to storage...")
         with open(video_path, 'rb') as video_file:
             video_data = video_file.read()
         
@@ -335,22 +392,19 @@ async def generate_video_background(diagnosis_id: str, annotated_url: str, treat
             token
         )
         
-        # Update diagnosis with video URL
-        if video_url:
-            auth_client = supabase_service._create_authenticated_client(token)
-            auth_client.table('patient_diagnosis').update({
-                'video_url': video_url,
-                'video_script': video_script,
-                'video_generated_at': datetime.now().isoformat()
-            }).eq('id', diagnosis_id).execute()
-            
-            logger.info(f"Background video generation completed for diagnosis: {diagnosis_id}")
-        else:
+        if not video_url:
             logger.error(f"Failed to upload video for diagnosis: {diagnosis_id}")
+            return
         
-        # Cleanup
-        import shutil
-        shutil.rmtree(temp_dir)
+        # Update diagnosis with video URL
+        logger.info(f"Updating diagnosis {diagnosis_id} with video URL: {video_url}")
+        update_response = auth_client.table('patient_diagnosis').update({
+            'video_url': video_url,
+            'video_script': video_script,
+            'video_generated_at': datetime.now().isoformat()
+        }).eq('id', diagnosis_id).execute()
+        
+        logger.info(f"Background video generation completed for diagnosis: {diagnosis_id}")
         
     except Exception as e:
         logger.error(f"Error in background video generation for diagnosis {diagnosis_id}: {str(e)}")
@@ -364,6 +418,13 @@ async def generate_video_background(diagnosis_id: str, annotated_url: str, treat
             }).eq('id', diagnosis_id).execute()
         except Exception as update_error:
             logger.error(f"Failed to update diagnosis with video error: {str(update_error)}")
+    finally:
+        # Cleanup temporary files
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+        except Exception as cleanup_error:
+            logger.error(f"Failed to cleanup temporary files: {str(cleanup_error)}")
 
 
 @router.get("/health")
@@ -583,7 +644,7 @@ Please apply the change exactly as described, keeping the HTML structure intact 
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.3,
-            max_tokens=2000
+            max_completion_tokens=2000
         )
         
         updated_html = response.choices[0].message.content

@@ -404,6 +404,16 @@ Generate a professional, patient-friendly HTML report with the following section
    - Add urgency/importance level
    - Use 🔴 emoji for risks if untreated
 
+CRITICAL REQUIREMENTS FOR CONDITION DESCRIPTIONS:
+- Each "What This Means" section must be COMPLETE and COMPREHENSIVE
+- NEVER leave descriptions incomplete or cut off mid-sentence
+- For CARIES/CAVITIES: Explain what causes cavities, how they progress, symptoms, and why early treatment is crucial
+- For PERIAPICAL LESIONS: Explain infection at tooth root, causes, symptoms, and risks of untreated infection
+- For IMPACTED TEETH: Explain what makes a tooth impacted, symptoms, complications, and treatment necessity
+- For ROOT PIECES: Explain what root pieces are, why they remain, infection risks, and removal importance
+- For FRACTURES: Explain types of fractures, symptoms, complications, and treatment urgency
+- Each description should be 3-5 sentences minimum, explaining cause, symptoms, progression, and risks
+
 IMPORTANT REQUIREMENTS:
 - Use ONLY the dentist's confirmed findings (patient_findings)
 - Do NOT use any AI detections or automated findings
@@ -412,13 +422,14 @@ IMPORTANT REQUIREMENTS:
 - Make the report comprehensive but easy to understand
 - Focus on accuracy and patient education
 - Do not include pricing or cost information
+- Ensure ALL text is complete - no truncated sentences
 
 URGENCY LOGIC (use this exact mapping):
 - HIGH URGENCY: caries, periapical-lesion, fracture, root-piece
 - MEDIUM URGENCY: impacted-tooth, missing-teeth-no-distal, missing-tooth-between, bone-level, tissue-level  
 - LOW URGENCY: All other conditions (existing dental work like crown, filling, implant, post, root-canal-treatment)
 
-Return the complete HTML report as a single string."""
+Return the complete HTML report as a single string. Ensure every description is complete and comprehensive."""
             
             # Format findings for the prompt
             findings_text = ""
@@ -448,11 +459,187 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
             
             html_content = response.choices[0].message.content.strip()
             logger.info("Successfully generated HTML report content")
+            
+            # Validate that all descriptions are complete (no truncated sentences)
+            if self._has_truncated_descriptions(html_content):
+                logger.warning(f"Detected truncated descriptions in HTML, regenerating with higher token limit")
+                # Try again with higher token limit
+                response = self.client.chat.completions.create(
+                    model=self.model_html,
+                    messages=[
+                        {"role": "system", "content": system_prompt + "\n\nIMPORTANT: If you hit token limits, prioritize complete descriptions over length. Each description must be complete."},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_completion_tokens=6000  # Increase token limit for complete descriptions
+                )
+                html_content = response.choices[0].message.content.strip()
+                logger.info("Regenerated HTML content with higher token limit")
+            
             return html_content
             
         except Exception as e:
             logger.error(f"Error generating HTML report content: {str(e)}")
-            raise
+            logger.info("Generating fallback HTML report with complete descriptions")
+            fallback_html = self._generate_fallback_descriptions(patient_findings)
+            return fallback_html
+
+    def _has_truncated_descriptions(self, html_content: str) -> bool:
+        """
+        Checks if any condition explanation box in the HTML content has a truncated description.
+        Looks for incomplete sentences, missing content, or cut-off text.
+        """
+        # Check for common truncation patterns
+        truncation_indicators = [
+            # Incomplete sentences that end abruptly
+            '...',
+            '..',
+            '. .',
+            # Common incomplete phrases
+            'This condition',
+            'The treatment',
+            'Without treatment',
+            'Early treatment',
+            'Delaying treatment',
+            # Check if any "What This Means" sections are too short
+            'What This Means:</strong><br>',
+            'Recommended Treatment:</strong><br>',
+            'Urgency:</strong><br>'
+        ]
+        
+        for indicator in truncation_indicators:
+            if indicator in html_content:
+                logger.warning(f"Found potential truncation indicator: {indicator}")
+                return True
+        
+        # Check if any condition explanation boxes have very short content
+        # Look for the pattern: <div class="condition-explanation">...content...</div>
+        import re
+        condition_boxes = re.findall(r'<div class="condition-explanation">(.*?)</div>', html_content, re.DOTALL)
+        
+        for box in condition_boxes:
+            # Remove HTML tags to get plain text
+            import re
+            plain_text = re.sub(r'<[^>]+>', '', box)
+            plain_text = re.sub(r'&[^;]+;', '', plain_text)  # Remove HTML entities
+            
+            # Check if the text is too short (likely truncated)
+            if len(plain_text.strip()) < 100:  # Less than 100 characters is suspicious
+                logger.warning(f"Found suspiciously short condition description: {plain_text.strip()[:50]}...")
+                return True
+            
+            # Check for incomplete sentences (sentences that don't end with proper punctuation)
+            sentences = plain_text.split('.')
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if sentence and not sentence.endswith(('.', '!', '?')) and len(sentence) > 20:
+                    # Long sentence without proper ending - likely truncated
+                    logger.warning(f"Found incomplete sentence: {sentence[:50]}...")
+                    return True
+        
+        return False
+
+    def _generate_fallback_descriptions(self, patient_findings: List[Dict]) -> str:
+        """
+        Generate fallback HTML descriptions for common dental conditions.
+        This ensures complete descriptions even if AI generation fails.
+        """
+        fallback_html = ""
+        
+        for finding in patient_findings:
+            condition = finding.get('condition', '').lower()
+            treatment = finding.get('treatment', '').lower()
+            tooth = finding.get('tooth', 'N/A')
+            
+            # Generate comprehensive descriptions for common conditions
+            if 'caries' in condition or 'cavity' in condition:
+                description = f"""
+                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #ffeb3b; padding: 15px; font-weight: bold; font-size: 18px;">
+                        Filling for Caries
+                    </div>
+                    <div style="padding: 20px; background-color: white;">
+                        <h3 style="margin-top: 0; color: #333;">Treatment for Caries</h3>
+                        <p><strong>Teeth {tooth} have caries that requires filling.</strong></p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">What This Means:</h4>
+                        <p>Caries, commonly known as cavities, are areas of tooth decay caused by bacteria that produce acids that eat away at your tooth enamel. This decay starts on the surface and can progress deeper into the tooth if left untreated. Cavities can cause sensitivity to hot and cold foods, visible dark spots on teeth, and eventually severe pain if they reach the nerve.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Recommended Treatment:</h4>
+                        <p>A dental filling involves removing the decayed portion of the tooth and filling the space with a durable material like composite resin or amalgam. This treatment restores the tooth's function and prevents further decay. The procedure is typically quick, taking about 30-60 minutes per tooth, and recovery is immediate.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
+                        <p>⚠️ <strong>Physical Risks:</strong> Untreated cavities grow larger and can reach the nerve, causing severe pain and potential infection. The decay can spread to other teeth and may eventually require more extensive treatment like root canals or extractions.</p>
+                    </div>
+                </div>
+                """
+            elif 'periapical' in condition or 'lesion' in condition:
+                description = f"""
+                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #ffeb3b; padding: 15px; font-weight: bold; font-size: 18px;">
+                        Root Canal Treatment for Periapical Lesion
+                    </div>
+                    <div style="padding: 20px; background-color: white;">
+                        <h3 style="margin-top: 0; color: #333;">Treatment for Periapical Lesion</h3>
+                        <p><strong>Teeth {tooth} have periapical lesion that requires root canal treatment.</strong></p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">What This Means:</h4>
+                        <p>A periapical lesion is an infection or inflammation at the tip of the tooth root, usually caused by untreated decay that has reached the pulp or by trauma to the tooth. This condition can cause severe pain, sensitivity to pressure, and may lead to abscess formation. The infection can spread to surrounding bone and tissues if left untreated.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Recommended Treatment:</h4>
+                        <p>Root canal treatment involves removing the infected pulp from inside the tooth, cleaning and disinfecting the root canals, and sealing them to prevent future infection. This procedure saves the natural tooth and eliminates the source of pain and infection. The treatment typically takes 1-2 hours and may require multiple visits.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
+                        <p>⚠️ <strong>Physical Risks:</strong> Without treatment, the infection can spread to the jawbone, other teeth, and potentially to other parts of the body. Early treatment is crucial to save the tooth and prevent more serious complications.</p>
+                    </div>
+                </div>
+                """
+            elif 'impacted' in condition:
+                description = f"""
+                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #ffeb3b; padding: 15px; font-weight: bold; font-size: 18px;">
+                        Surgical Extraction for Impacted Tooth
+                    </div>
+                    <div style="padding: 20px; background-color: white;">
+                        <h3 style="margin-top: 0; color: #333;">Treatment for Impacted Tooth</h3>
+                        <p><strong>Teeth {tooth} have impacted tooth that requires surgical extraction.</strong></p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">What This Means:</h4>
+                        <p>An impacted tooth is one that has not fully erupted through the gum or has grown in at an angle, often due to lack of space or obstruction by other teeth. Impacted teeth can cause pain, swelling, and damage to neighboring teeth. They may also lead to infection and cyst formation in the surrounding bone.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Recommended Treatment:</h4>
+                        <p>Surgical extraction involves making a small incision in the gum to access and remove the impacted tooth. This procedure is necessary when a tooth cannot be removed using simpler extraction techniques. The surgery is performed under local anesthesia and typically takes 30-60 minutes.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
+                        <p>⚠️ <strong>Physical Risks:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to the jawbone. The longer you wait, the more complex the procedure becomes.</p>
+                    </div>
+                </div>
+                """
+            else:
+                # Generic description for other conditions
+                description = f"""
+                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #ffeb3b; padding: 15px; font-weight: bold; font-size: 18px;">
+                        {treatment.title()} for {condition.title()}
+                    </div>
+                    <div style="padding: 20px; background-color: white;">
+                        <h3 style="margin-top: 0; color: #333;">Treatment for {condition.title()}</h3>
+                        <p><strong>Teeth {tooth} have {condition} that requires {treatment}.</strong></p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">What This Means:</h4>
+                        <p>This dental condition requires professional treatment to restore oral health and prevent further complications. Your dentist has identified this issue and recommended appropriate treatment to address it effectively.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Recommended Treatment:</h4>
+                        <p>The recommended treatment will be performed according to standard dental protocols to ensure the best possible outcome for your oral health.</p>
+                        
+                        <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
+                        <p>⚠️ <strong>Physical Risks:</strong> Delaying treatment may lead to complications and more extensive procedures. It's important to address this condition promptly.</p>
+                    </div>
+                </div>
+                """
+            
+            fallback_html += description
+        
+        return fallback_html
 
 # Create singleton instance
 openai_service = OpenAIService()
