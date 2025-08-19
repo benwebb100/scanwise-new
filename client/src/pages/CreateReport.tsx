@@ -13,18 +13,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { PricingInput, useClinicPricing } from "@/components/PricingInput";
-import { AIFindingsDisplay } from "@/components/AIFindingsDisplay";
 import { PriceValidationDialog } from "@/components/PriceValidationDialog";
 import { useClinicBranding } from "@/components/ClinicBranding";
 import { AIAnalysisSection } from '@/components/AIAnalysisSection';
-import { LanguageToggleSimple } from '@/components/LanguageToggle';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
 import {
   ToothNumberingSystem,
-  TOOTH_NUMBERING_SYSTEMS,
   ALL_CONDITIONS,
   ALL_TREATMENTS,
   getToothOptions,
@@ -60,7 +57,6 @@ const CreateReport = () => {
   const [useXrayMode, setUseXrayMode] = useState(true);
   const [patientObservations, setPatientObservations] = useState("");
   const [detections, setDetections] = useState<any[]>([]);
-  const [showAnnotatedImage, setShowAnnotatedImage] = useState(false);
   
   // New state for enhanced functionality
   const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>(() => {
@@ -1669,7 +1665,300 @@ const CreateReport = () => {
                         </Button>
                       </div>
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            )}
 
+            {/* Upload Guidelines - Only show when no report */}
+            {!report && (
+              <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Upload Guidelines</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Image Quality Requirements</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• High resolution (minimum 1200x800 pixels)</li>
+                      <li>• Clear visibility of all teeth and surrounding structures</li>
+                      <li>• Minimal motion artifacts or blur</li>
+                      <li>• Proper exposure and contrast</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">What's Included</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• AI-powered dental condition detection</li>
+                      <li>• Comprehensive treatment plan</li>
+                      <li>• Patient-friendly video explanation</li>
+                      <li>• Downloadable reports in multiple formats</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Observations Section - Only show when useXrayMode is false and no report */}
+            {!useXrayMode && !report && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="mr-2 h-5 w-5" />
+                    Patient Observations
+                  </CardTitle>
+                  <CardDescription>
+                    Enter your clinical observations and notes about the patient's dental condition
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className={`space-y-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
+                    <div>
+                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-1">
+                        Patient Name
+                      </Label>
+                      <Input
+                        id="patient-name-no-xray"
+                        value={patientName}
+                        onChange={e => setPatientName(e.target.value)}
+                        placeholder="Enter patient name"
+                        required
+                        disabled={isProcessing}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
+                        {t.createReport.clinicalObservations}
+                      </Label>
+                      <Textarea
+                        id="observations"
+                        value={patientObservations}
+                        onChange={e => setPatientObservations(e.target.value)}
+                        placeholder={t.createReport.clinicalObservationsPlaceholder}
+                        rows={6}
+                        className="w-full"
+                        disabled={isProcessing}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Manual Findings for Non-X-ray Mode */}
+                  <div className={`mt-6 ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-medium text-blue-900">Manual Findings</span>
+                      <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
+                        + {t.createReport.addFinding}
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {findings.map((f, idx) => {
+                        const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
+                        return (
+                        <Card key={idx} className="p-4 relative">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Tooth Number */}
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-1">
+                                <Label className="text-sm font-medium">{t.createReport.tooth} ({toothNumberingSystem})</Label>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="space-y-2">
+                                      <p>You can change between FDI or Universal in settings.</p>
+                                                                              <a 
+                                          href="/settings" 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-700 underline"
+                                        >
+                                          Open Settings
+                                        </a>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                              <SearchableSelect
+                                options={getToothOptions(toothNumberingSystem)}
+                                value={f.tooth}
+                                onValueChange={(value) => handleFindingChange(idx, "tooth", value)}
+                                placeholder="Select tooth"
+                                searchPlaceholder="Search tooth number..."
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            {/* Condition */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Condition</Label>
+                              <SearchableSelect
+                                options={ALL_CONDITIONS}
+                                value={f.condition}
+                                onValueChange={(value) => handleFindingChange(idx, "condition", value)}
+                                placeholder="Select condition"
+                                searchPlaceholder="Search conditions..."
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            {/* Treatment */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Treatment</Label>
+                              <SearchableSelect
+                                options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
+                                value={f.treatment}
+                                onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
+                                placeholder="Select treatment"
+                                searchPlaceholder="Search treatments..."
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            {/* Remove Button / Toggle Column */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium opacity-0">Actions</Label>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => removeFinding(idx)}
+                                disabled={findings.length === 1 || isProcessing}
+                                className="w-full"
+                              >
+                                Remove
+                              </Button>
+                              {isMissingTooth && (
+                                <div className="absolute top-2 right-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newValue = !showMissingToothOptions;
+                                          setShowMissingToothOptions(newValue);
+                                          localStorage.setItem('showMissingToothOptions', String(newValue));
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                                          showMissingToothOptions
+                                            ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        <Settings className="h-3 w-3" />
+                                        Treatment Options
+                                        {showMissingToothOptions ? (
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                        ) : (
+                                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs text-xs leading-snug">
+                                      {showMissingToothOptions 
+                                        ? "Treatment comparison will be included in the report. Click to disable."
+                                        : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
+                                      }
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Pricing Input */}
+                          {f.treatment && showTreatmentPricing && (
+                            <div className="mt-4 pt-4 border-t">
+                              <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
+                              <PricingInput
+                                treatment={f.treatment}
+                                value={f.price}
+                                onChange={(price) => handleFindingChange(idx, "price", price)}
+                                clinicPrices={clinicPrices}
+                                onPriceSave={handlePriceSave}
+                                disabled={isProcessing}
+                              />
+                            </div>
+                          )}
+                        </Card>
+                      )})}
+                    </div>
+                  </div>
+
+                  {/* Submit Button for Non-X-ray Mode */}
+                  <div className="flex justify-center mt-8">
+                    <Button
+                      size="lg"
+                      type="submit"
+                      disabled={isProcessing}
+                      className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Generating Report...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="mr-2 h-5 w-5" />
+                          Generate Treatment Report
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Full-Screen Loading Modal for Non-X-ray Mode */}
+                  {isProcessing && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+                      <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-4">
+                        <div className="text-center">
+                          <div className="relative inline-flex">
+                            <Brain className="w-16 h-16 text-blue-600" />
+                            <div className="absolute inset-0 w-16 h-16 bg-blue-600/20 rounded-full animate-ping" />
+                          </div>
+                          <h3 className="text-xl font-semibold mt-4 mb-2">Generating Treatment Report</h3>
+                          <p className="text-gray-600 mb-6">Creating comprehensive treatment plan</p>
+                          
+                          {/* Single Dynamic Progress Bar */}
+                          <div className="space-y-4">
+                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                              <div
+                                className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                                style={{ width: `${reportProgress}%` }}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-blue-600 font-medium">{reportProgress}%</span>
+                              <span className="text-gray-600">Complete</span>
+                            </div>
+                            
+                            {/* Current Step Text */}
+                            {reportProgressText && (
+                              <div className="text-sm text-gray-700 mt-3">
+                                {reportProgressText}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="mt-6 flex items-center justify-center text-sm text-gray-500">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            This may take up to 2 minutes...
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            </form>
+
+            
                     {/* Report Display Section - Clean without duplicate confidence scores */}
                     {report && (
                       <Card className="mt-8 bg-white border-blue-200">
@@ -1880,256 +2169,8 @@ const CreateReport = () => {
                         </CardContent>
                       </Card>
                     )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Upload Guidelines - Only show when no report */}
-            {!report && (
-              <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Upload Guidelines</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-3">Image Quality Requirements</h4>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li>• High resolution (minimum 1200x800 pixels)</li>
-                      <li>• Clear visibility of all teeth and surrounding structures</li>
-                      <li>• Minimal motion artifacts or blur</li>
-                      <li>• Proper exposure and contrast</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-3">What's Included</h4>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li>• AI-powered dental condition detection</li>
-                      <li>• Comprehensive treatment plan</li>
-                      <li>• Patient-friendly video explanation</li>
-                      <li>• Downloadable reports in multiple formats</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Observations Section - Only show when useXrayMode is false and no report */}
-            {!useXrayMode && !report && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="mr-2 h-5 w-5" />
-                    Patient Observations
-                  </CardTitle>
-                  <CardDescription>
-                    Enter your clinical observations and notes about the patient's dental condition
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-1">
-                        Patient Name
-                      </Label>
-                      <Input
-                        id="patient-name-no-xray"
-                        value={patientName}
-                        onChange={e => setPatientName(e.target.value)}
-                        placeholder="Enter patient name"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
-                        {t.createReport.clinicalObservations}
-                      </Label>
-                      <Textarea
-                        id="observations"
-                        value={patientObservations}
-                        onChange={e => setPatientObservations(e.target.value)}
-                        placeholder={t.createReport.clinicalObservationsPlaceholder}
-                        rows={6}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Manual Findings for Non-X-ray Mode */}
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="font-medium text-blue-900">Manual Findings</span>
-                      <Button type="button" variant="outline" onClick={addFinding} size="sm">
-                        + {t.createReport.addFinding}
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {findings.map((f, idx) => {
-                        const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
-                        return (
-                        <Card key={idx} className="p-4 relative">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {/* Tooth Number */}
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-1">
-                                <Label className="text-sm font-medium">{t.createReport.tooth} ({toothNumberingSystem})</Label>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <div className="space-y-2">
-                                      <p>You can change between FDI or Universal in settings.</p>
-                                                                              <a 
-                                          href="/settings" 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-700 underline"
-                                        >
-                                          Open Settings
-                                        </a>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <SearchableSelect
-                                options={getToothOptions(toothNumberingSystem)}
-                                value={f.tooth}
-                                onValueChange={(value) => handleFindingChange(idx, "tooth", value)}
-                                placeholder="Select tooth"
-                                searchPlaceholder="Search tooth number..."
-                              />
-                            </div>
-
-                            {/* Condition */}
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Condition</Label>
-                              <SearchableSelect
-                                options={ALL_CONDITIONS}
-                                value={f.condition}
-                                onValueChange={(value) => handleFindingChange(idx, "condition", value)}
-                                placeholder="Select condition"
-                                searchPlaceholder="Search conditions..."
-                              />
-                            </div>
-
-                            {/* Treatment */}
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Treatment</Label>
-                              <SearchableSelect
-                                options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
-                                value={f.treatment}
-                                onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
-                                placeholder="Select treatment"
-                                searchPlaceholder="Search treatments..."
-                              />
-                            </div>
-
-                            {/* Remove Button / Toggle Column */}
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium opacity-0">Actions</Label>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => removeFinding(idx)}
-                                disabled={findings.length === 1}
-                                className="w-full"
-                              >
-                                Remove
-                              </Button>
-                              {isMissingTooth && (
-                                <div className="absolute top-2 right-2">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newValue = !showMissingToothOptions;
-                                          setShowMissingToothOptions(newValue);
-                                          localStorage.setItem('showMissingToothOptions', String(newValue));
-                                        }}
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                                          showMissingToothOptions
-                                            ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
-                                            : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        <Settings className="h-3 w-3" />
-                                        Treatment Options
-                                        {showMissingToothOptions ? (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                        ) : (
-                                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                        )}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs text-xs leading-snug">
-                                      {showMissingToothOptions 
-                                        ? "Treatment comparison will be included in the report. Click to disable."
-                                        : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
-                                      }
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Pricing Input */}
-                          {f.treatment && showTreatmentPricing && (
-                            <div className="mt-4 pt-4 border-t">
-                              <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
-                              <PricingInput
-                                treatment={f.treatment}
-                                value={f.price}
-                                onChange={(price) => handleFindingChange(idx, "price", price)}
-                                clinicPrices={clinicPrices}
-                                onPriceSave={handlePriceSave}
-                                disabled={isProcessing}
-                              />
-                            </div>
-                          )}
-                        </Card>
-                      )})}
-                    </div>
-                  </div>
-
-                  {/* Submit Button for Non-X-ray Mode */}
-                  <div className="flex justify-center mt-8">
-                    <Button 
-                      size="lg"
-                      type="submit"
-                      disabled={isProcessing}
-                      className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Generating Report...
-                        </>
-                      ) : (
-                        <>
-                          <Brain className="mr-2 h-5 w-5" />
-                          Generate Treatment Report
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            </form>
-
-          {/* Instructions */}
-
         </div>
       </div>
-
       
       {/* Price Validation Dialog */}
       <PriceValidationDialog
