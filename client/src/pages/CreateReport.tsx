@@ -853,6 +853,8 @@ const CreateReport = () => {
 
         <!-- Stage-Based Treatment Plan -->
         ${(() => {
+
+
           // Only show stages if more than one session is needed
           if (uniqueFindings.length <= 3) {
             return ''; // Don't show stages for simple cases
