@@ -68,11 +68,7 @@ const CreateReport = () => {
     return saved === 'true' || false; // Hidden by default
   });
   
-  // Store diagnosis ID for video status checking
-  const [currentDiagnosisId, setCurrentDiagnosisId] = useState<string | null>(null);
-  
-  // Track video generation status
-  const [videoGenerationStatus, setVideoGenerationStatus] = useState<'idle' | 'generating' | 'ready' | 'failed'>('idle');
+
   
   // Report generation progress state
   const [reportProgress, setReportProgress] = useState(0);
@@ -391,13 +387,15 @@ const CreateReport = () => {
     
     setIsProcessing(true);
     setReport(null);
+    // Clear the backup since we're starting a new report
+    setOriginalReportBackup(null);
     // Don't reset videoUrl here - preserve it if it exists
     // setVideoUrl(null);
     setDetections([]);
     
     // Reset video generation status for new report
-    setVideoGenerationStatus('idle');
-    setCurrentDiagnosisId(null);
+    
+    
     
     // Start progress tracking
     simulateProgress();
@@ -466,6 +464,8 @@ const CreateReport = () => {
         const finalReport = brandedReport || reportHtml || '';
         if (finalReport && finalReport.trim().length > 0) {
           setReport(finalReport);
+          // Clear the backup since this is a new report
+          setOriginalReportBackup(null);
           console.log('🚀 REPORT GENERATION: Report state set successfully with length:', finalReport.length);
           
           // Switch to report tab to show the generated report IMMEDIATELY
@@ -489,20 +489,20 @@ const CreateReport = () => {
         if (analysisResult.video_url) {
           console.log('🚀 VIDEO GENERATION: Video URL already available:', analysisResult.video_url);
           setVideoUrl(analysisResult.video_url);
-          setVideoGenerationStatus('ready');
+
           toast({
             title: "Video Ready! 🎥",
             description: "Patient education video has been generated successfully!",
           });
         } else if (analysisResult.diagnosis_id) {
           console.log('🚀 VIDEO GENERATION: Starting video status polling for diagnosis:', analysisResult.diagnosis_id);
-          setCurrentDiagnosisId(analysisResult.diagnosis_id);
-          setVideoGenerationStatus('generating');
+          
+  
           // Start video polling in background - don't block the UI
           pollForVideoStatus(analysisResult.diagnosis_id);
         } else {
           console.log('🚀 VIDEO GENERATION: No diagnosis ID available for video polling');
-          setVideoGenerationStatus('failed');
+  
         }
       } else {
         console.log('🚀 REPORT GENERATION: Processing without X-ray mode...');
@@ -549,6 +549,8 @@ const CreateReport = () => {
         const finalReport = brandedReport || reportHtml || '';
         if (finalReport && finalReport.trim().length > 0) {
           setReport(finalReport);
+          // Clear the backup since this is a new report
+          setOriginalReportBackup(null);
           console.log('🚀 REPORT GENERATION: Report state (no xray) set successfully with length:', finalReport.length);
           
           // Switch to report tab to show the generated report IMMEDIATELY
@@ -778,7 +780,14 @@ const CreateReport = () => {
 
     // Process doctor's findings to create treatment items
     const treatmentItems: any[] = [];
-    doctorFindings.forEach((finding) => {
+    
+    // First, deduplicate findings to prevent multiple entries for the same tooth-treatment-condition combination
+    const uniqueFindings = doctorFindings.filter((finding, index, self) => {
+      const key = `${finding.tooth}-${finding.treatment}-${finding.condition}`;
+      return index === self.findIndex(f => `${f.tooth}-${f.treatment}-${f.condition}` === key);
+    });
+    
+    uniqueFindings.forEach((finding) => {
       treatmentItems.push({
         procedure: finding.treatment,
         adaCode: generateADACode(finding.treatment),
@@ -845,7 +854,7 @@ const CreateReport = () => {
         <!-- Stage-Based Treatment Plan -->
         ${(() => {
           // Only show stages if more than one session is needed
-          if (doctorFindings.length <= 3) {
+          if (uniqueFindings.length <= 3) {
             return ''; // Don't show stages for simple cases
           }
 
@@ -864,7 +873,14 @@ const CreateReport = () => {
 
           // Group findings by urgency level
           const urgencyGroups: {[key: number]: any[]} = {};
-          doctorFindings.forEach((finding: any) => {
+          
+          // First, deduplicate findings to prevent multiple entries for the same tooth-treatment-condition combination
+          const uniqueFindings = doctorFindings.filter((finding, index, self) => {
+            const key = `${finding.tooth}-${finding.treatment}-${finding.condition}`;
+            return index === self.findIndex(f => `${f.tooth}-${f.treatment}-${f.condition}` === key);
+          });
+          
+          uniqueFindings.forEach((finding: any) => {
             const urgency = urgencyLevels[finding.condition] || 2; // Default to medium priority
             if (!urgencyGroups[urgency]) {
               urgencyGroups[urgency] = [];
@@ -919,8 +935,8 @@ const CreateReport = () => {
 
                 // Generate treatment summary
                 const treatmentSummary = treatments.map(treatment => {
-                  const count = findings.filter(f => f.treatment === treatment).length;
-                  const condition = findings.find(f => f.treatment === treatment)?.condition;
+                  const count = uniqueFindings.filter(f => f.treatment === treatment).length;
+                  const condition = uniqueFindings.find(f => f.treatment === treatment)?.condition;
                   return `${count} ${treatment.replace('-', ' ')}${count > 1 ? 's' : ''} for ${condition?.replace('-', ' ')}`;
                 }).join(', ');
 
@@ -950,7 +966,7 @@ const CreateReport = () => {
                       <div style="background-color: #f5f5f5; padding: 15px; border-radius: 6px;">
                         <strong style="color: #666;">Treatments in this stage:</strong>
                         <ul style="margin: 10px 0 0 20px; color: #666;">
-                          ${findings.map(finding => `
+                          ${uniqueFindings.filter(f => urgencyGroups[urgencyLevel].includes(f)).map(finding => `
                             <li>${finding.treatment.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} on Tooth ${finding.tooth} for ${finding.condition.replace('-', ' ')}</li>
                           `).join('')}
                         </ul>
@@ -968,8 +984,8 @@ const CreateReport = () => {
           <div style="margin-bottom: 30px;">
             <h3 style="font-size: 18px; margin-bottom: 15px;">Treatment Plan Summary</h3>
             <ul style="list-style: disc; padding-left: 20px; color: #666;">
-              <li>Total treatments planned: ${doctorFindings.length}</li>
-              <li>Teeth requiring treatment: ${doctorFindings.map(f => f.tooth).join(', ')}</li>
+              <li>Total treatments planned: ${uniqueFindings.length}</li>
+              <li>Teeth requiring treatment: ${uniqueFindings.map(f => f.tooth).join(', ')}</li>
               <li>Total estimated cost: $${calculateTotal(groupedTreatments)}</li>
             </ul>
           </div>
@@ -980,7 +996,7 @@ const CreateReport = () => {
           ${(() => {
             // Group findings by treatment type
             const treatmentGroups: {[key: string]: any[]} = {};
-            doctorFindings.forEach((finding: any) => {
+            uniqueFindings.forEach((finding: any) => {
               const treatmentKey = finding.treatment;
               if (!treatmentGroups[treatmentKey]) {
                 treatmentGroups[treatmentKey] = [];
@@ -1091,7 +1107,7 @@ const CreateReport = () => {
                 return '';
               }
 
-              // Define hex colors for each condition type
+              // Define hex colors for each condition type - EXACTLY the same as AIAnalysisSection
               const conditionColors: {[key: string]: string} = {
                 'bone-level': '#6C4A35',
                 'caries': '#58eec3',
@@ -1112,12 +1128,13 @@ const CreateReport = () => {
               // Get unique detected conditions
               const uniqueConditions = [...new Set(data.detections.map((detection: any) => detection.class || detection.class_name))];
 
-              // Format condition names for display
+              // Format condition names for display - EXACTLY the same as AIAnalysisSection
               const formatConditionName = (condition: string) => {
                 return condition
                   .replace(/-/g, ' ')
-                  .replace(/\b\w/g, (l) => l.toUpperCase())
-                  .replace(/\b(tooth|teeth)\b/gi, (match) => match.toLowerCase());
+                  .split(' ')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
               };
 
               // Generate dynamic legend
@@ -1336,7 +1353,7 @@ const CreateReport = () => {
       }
       
       setReport(data.updated_html);
-      setOriginalReportBackup(null); // Clear backup since report has changed
+      // Don't clear the backup - keep it as the original state for future edits
       setAiSuggestion("");
       addVersion(data.updated_html, "AI Edit", aiSuggestion);
       
@@ -1375,6 +1392,8 @@ const CreateReport = () => {
     if (history.length > 1) {
       const prev = history[history.length - 2];
       setReport(prev.html);
+      // Update the backup to the new current state for future edits
+      setOriginalReportBackup(prev.html);
       setHistory(h => h.slice(0, -1));
       setAuditTrail(prevTrail => [
         { action: "Undo to previous version", timestamp: new Date().toLocaleString() },
@@ -1385,6 +1404,8 @@ const CreateReport = () => {
 
   const handleRestoreVersion = (idx: number) => {
     setReport(history[idx].html);
+    // Update the backup to the new current state for future edits
+    setOriginalReportBackup(history[idx].html);
     setHistory(h => h.slice(0, idx + 1));
     setShowHistory(false);
     setAuditTrail(prevTrail => [
@@ -1533,7 +1554,7 @@ const CreateReport = () => {
       if (data.has_video && data.video_url) {
         console.log('🚀 VIDEO CHECK: Video is ready! Setting video URL:', data.video_url);
         setVideoUrl(data.video_url);
-        setVideoGenerationStatus('ready');
+        
         toast({
           title: "Video Ready! 🎥",
           description: "Patient education video has been generated successfully!",
@@ -1545,7 +1566,7 @@ const CreateReport = () => {
       }
     } catch (error) {
       console.error('🚀 VIDEO CHECK: Error checking video status:', error);
-      setVideoGenerationStatus('failed');
+      
       return false;
     }
   };
@@ -2315,12 +2336,7 @@ const CreateReport = () => {
                               </TabsTrigger>
                               <TabsTrigger value="video" className="flex items-center gap-2" onClick={handleVideoTabClick}>
                                 <Video className="w-4 h-4" />
-                                Patient Video {
-                                  videoGenerationStatus === 'generating' ? '(Loading...)' :
-                                  videoGenerationStatus === 'ready' ? '(Ready)' :
-                                  videoGenerationStatus === 'failed' ? '(Failed)' :
-                                  '(Not Available)'
-                                }
+                                Patient Video (Loading...)
                               </TabsTrigger>
                             </TabsList>
 
@@ -2435,20 +2451,6 @@ const CreateReport = () => {
                                       Video generation continues even if you switch tabs or generate new reports
                                     </p>
                                   </div>
-                                </div>
-                              ) : videoGenerationStatus === 'failed' ? (
-                                <div className="text-center py-12">
-                                  <Video className="w-16 h-16 text-red-400 mx-auto mb-4" />
-                                  <p className="text-red-600 mb-2">Video generation failed</p>
-                                  <p className="text-sm text-gray-500 mb-4">There was an issue generating your video. You can try again or contact support.</p>
-                                  <Button 
-                                    variant="outline" 
-                                    onClick={handleVideoTabClick}
-                                    className="flex items-center gap-2 mx-auto"
-                                  >
-                                    <RefreshCw className="w-4 h-4" />
-                                    Try Again
-                                  </Button>
                                 </div>
                               ) : (
                                 <div className="text-center py-12">

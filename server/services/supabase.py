@@ -84,9 +84,7 @@ class SupabaseService:
     
     async def save_diagnosis(self, diagnosis_data: dict, access_token: str) -> dict:
         try:
-            print(f"DEBUG: Saving diagnosis with keys: {list(diagnosis_data.keys())}")
-            print(f"DEBUG: Report HTML length: {len(diagnosis_data.get('report_html', '')) if diagnosis_data.get('report_html') else 0}")
-            print(f"DEBUG: Report HTML preview: {diagnosis_data.get('report_html', '')[:100] if diagnosis_data.get('report_html') else 'None'}...")
+            
             
             auth_client = self._create_authenticated_client(access_token)
             response = auth_client.table('patient_diagnosis').insert({
@@ -98,11 +96,11 @@ class SupabaseService:
                 'treatment_stages': diagnosis_data['treatment_stages'],
                 'report_html': diagnosis_data.get('report_html', '')  # Add the missing report_html field
             }).execute()
-            print(f"DEBUG: Database insert successful, response: {response.data if response.data else 'No data'}")
+
             logger.info(f"Successfully saved diagnosis for patient: {diagnosis_data['patient_name']}")
             return response.data[0] if response.data else {}
         except Exception as e:
-            print(f"DEBUG: Error saving diagnosis: {str(e)}")
+
             logger.error(f"Error saving diagnosis: {str(e)}")
             raise
     

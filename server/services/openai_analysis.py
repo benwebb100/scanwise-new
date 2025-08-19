@@ -474,6 +474,12 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                 )
                 html_content = response.choices[0].message.content.strip()
                 logger.info("Regenerated HTML content with higher token limit")
+                
+                # Check again after regeneration
+                if self._has_truncated_descriptions(html_content):
+                    logger.warning(f"Still detecting truncated descriptions after regeneration, using fallback system")
+                    fallback_html = self._generate_fallback_descriptions(patient_findings)
+                    return fallback_html
             
             return html_content
             
@@ -522,9 +528,9 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
             plain_text = re.sub(r'<[^>]+>', '', box)
             plain_text = re.sub(r'&[^;]+;', '', plain_text)  # Remove HTML entities
             
-            # Check if the text is too short (likely truncated)
-            if len(plain_text.strip()) < 100:  # Less than 100 characters is suspicious
-                logger.warning(f"Found suspiciously short condition description: {plain_text.strip()[:50]}...")
+            # Check if the text is too short (likely truncated) - REDUCED THRESHOLD
+            if len(plain_text.strip()) < 150:  # Increased from 100 to catch more incomplete descriptions
+                logger.warning(f"Found suspiciously short condition description: {plain_text.strip()[:100]}...")
                 return True
             
             # Check for incomplete sentences (sentences that don't end with proper punctuation)
@@ -533,8 +539,40 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                 sentence = sentence.strip()
                 if sentence and not sentence.endswith(('.', '!', '?')) and len(sentence) > 20:
                     # Long sentence without proper ending - likely truncated
-                    logger.warning(f"Found incomplete sentence: {sentence[:50]}...")
+                    logger.warning(f"Found incomplete sentence: {sentence[:100]}...")
                     return True
+            
+            # Specific check for incomplete caries descriptions
+            if 'caries' in plain_text.lower() and len(plain_text.strip()) < 200:
+                logger.warning(f"Found incomplete caries description: {plain_text.strip()[:100]}...")
+                return True
+            
+            # Check for the specific incomplete description that appeared in the report
+            if 'caries is a dental condition that requires professional treatment' in plain_text.lower():
+                logger.warning(f"Found the exact incomplete caries description from the report")
+                return True
+            
+            # Check for generic/unhelpful descriptions
+            generic_phrases = [
+                'is a dental condition that requires professional treatment',
+                'requires professional treatment',
+                'needs to be treated by a dentist',
+                'should be addressed by a dental professional'
+            ]
+            
+            for phrase in generic_phrases:
+                if phrase in plain_text.lower():
+                    logger.warning(f"Found generic/unhelpful description: {phrase}")
+                    return True
+            
+            # Check for descriptions that lack proper explanation
+            if 'what this means' in plain_text.lower():
+                what_means_section = plain_text.lower().split('what this means')[1] if 'what this means' in plain_text.lower() else ''
+                if what_means_section:
+                    # Check if the "What This Means" section is too short or generic
+                    if len(what_means_section.strip()) < 100 or any(phrase in what_means_section for phrase in generic_phrases):
+                        logger.warning(f"Found inadequate 'What This Means' section: {what_means_section[:100]}...")
+                        return True
         
         return False
 
