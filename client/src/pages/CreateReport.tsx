@@ -1487,47 +1487,26 @@ const CreateReport = () => {
       if (report && !videoUrl) {
         console.log('🚀 COMPONENT MOUNT: Checking for existing video URL...');
         
-        // If we have a stored diagnosis ID, check for video status
-        if (currentDiagnosisId) {
-          console.log('🚀 COMPONENT MOUNT: Checking video status for stored diagnosis ID:', currentDiagnosisId);
-          const hasVideo = await checkVideoStatus(currentDiagnosisId);
-          if (hasVideo) {
-            console.log('🚀 COMPONENT MOUNT: Found existing video during mount check!');
-          }
-        } else {
-          console.log('🚀 COMPONENT MOUNT: No diagnosis ID available for video check');
-        }
+        // Note: Video status checking is now handled by the video generation endpoint
+        console.log('🚀 COMPONENT MOUNT: Video status checking handled by backend');
       }
     };
     
     checkExistingVideo();
-  }, [report, videoUrl, currentDiagnosisId]);
+  }, [report, videoUrl]);
   
   // Function to refresh video status when switching to video tab
   const handleVideoTabClick = async () => {
     if (!videoUrl && report) {
       console.log('🚀 VIDEO TAB: Video tab clicked, checking for video availability...');
       
-      if (currentDiagnosisId) {
-        console.log('🚀 VIDEO TAB: Checking video status for diagnosis:', currentDiagnosisId);
-        // Re-poll for video status
-        const hasVideo = await checkVideoStatus(currentDiagnosisId);
-        if (hasVideo) {
-          console.log('🚀 VIDEO TAB: Video found during manual check!');
-        } else {
-          toast({
-            title: "Video Status",
-            description: "Video generation is still in progress. Please wait a few more minutes.",
-            variant: "default"
-          });
-        }
-      } else {
-        toast({
-          title: "Video Status",
-          description: "Video generation is in progress. Please wait a few minutes or check back later.",
-          variant: "default"
-        });
-      }
+      // Note: Video status checking is now handled by the backend
+      console.log('🚀 VIDEO TAB: Video status checking handled by backend');
+      toast({
+        title: "Video Status",
+        description: "Video generation is in progress. Please wait a few minutes or check back later.",
+        variant: "default"
+      });
     }
   };
   
@@ -2430,26 +2409,6 @@ const CreateReport = () => {
                                     >
                                       Download Video
                                     </Button>
-                                  </div>
-                                </div>
-                              ) : videoGenerationStatus === 'generating' ? (
-                                <div className="text-center py-12">
-                                  <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                                  <p className="text-gray-600 mb-2">Video is being generated in the background...</p>
-                                  <p className="text-sm text-gray-500 mb-4">This usually takes 3-5 minutes. You can continue using the report while you wait.</p>
-                                  <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-4" />
-                                  <div className="space-y-3">
-                                    <Button 
-                                      variant="outline" 
-                                      onClick={handleVideoTabClick}
-                                      className="flex items-center gap-2 mx-auto"
-                                    >
-                                      <RefreshCw className="w-4 h-4" />
-                                      Check Video Status
-                                    </Button>
-                                    <p className="text-xs text-gray-400">
-                                      Video generation continues even if you switch tabs or generate new reports
-                                    </p>
                                   </div>
                                 </div>
                               ) : (
