@@ -853,8 +853,6 @@ const CreateReport = () => {
 
         <!-- Stage-Based Treatment Plan -->
         ${(() => {
-
-
           // Only show stages if more than one session is needed
           if (uniqueFindings.length <= 3) {
             return ''; // Don't show stages for simple cases
@@ -875,12 +873,6 @@ const CreateReport = () => {
 
           // Group findings by urgency level
           const urgencyGroups: {[key: number]: any[]} = {};
-          
-          // First, deduplicate findings to prevent multiple entries for the same tooth-treatment-condition combination
-          const uniqueFindings = doctorFindings.filter((finding, index, self) => {
-            const key = `${finding.tooth}-${finding.treatment}-${finding.condition}`;
-            return index === self.findIndex(f => `${f.tooth}-${f.treatment}-${f.condition}` === key);
-          });
           
           uniqueFindings.forEach((finding: any) => {
             const urgency = urgencyLevels[finding.condition] || 2; // Default to medium priority
