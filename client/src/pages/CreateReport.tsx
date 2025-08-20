@@ -459,7 +459,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty, using frontend generation');
-          reportHtml = generateReportHTML(analysisResult);
+          reportHtml = generateReportHTML(analysisResult, showMissingToothOptions, showExtractionReplacementOptions);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML length:', reportHtml?.length || 0);
         }
         
@@ -544,7 +544,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty (no xray), using frontend generation');
-          reportHtml = generateReportHTML(analysisResult);
+          reportHtml = generateReportHTML(analysisResult, showMissingToothOptions, showExtractionReplacementOptions);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML (no xray) length:', reportHtml?.length || 0);
         }
         
@@ -627,7 +627,15 @@ const CreateReport = () => {
 
 
   // Generate HTML report from doctor's findings (not AI extraction) - DISABLED: Now using backend GPT generation
-  const generateReportHTML = (data: any) => {
+  const generateReportHTML = (data: any, missingToothToggle: boolean, extractionToggle: boolean) => {
+    // Debug logging to show what toggle values are being passed
+    console.log('🔧 generateReportHTML called with toggle values:', {
+      missingToothToggle,
+      extractionToggle,
+      findingsCount: findings.length,
+      doctorFindingsCount: findings.filter(f => f.tooth && f.condition && f.treatment).length
+    });
+    
     // Use doctor's findings as the primary source of truth
     const doctorFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
     
@@ -1164,12 +1172,28 @@ const CreateReport = () => {
                           <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to your jawbone. The longer you wait, the more complex the procedure becomes.
                         </p>
                         
-                        ${showExtractionReplacementOptions ? generateReplacementOptionsTable({
-                          context: 'extraction-replacement',
-                          selectedTreatment: replacement,
-                          clinicPrices: clinicPrices,
-                          toothNumber: tooth
-                        }) : ''}
+                        ${(() => {
+                          // Debug logging to understand toggle behavior
+                          console.log('Extraction Replacement Toggle Debug:', {
+                            tooth,
+                            replacement,
+                            extractionToggle,
+                            willShowTable: extractionToggle
+                          });
+                          
+                          // Use the passed parameter instead of trying to access React state
+                          if (extractionToggle) {
+                            console.log('✅ Generating extraction replacement options table');
+                            return generateReplacementOptionsTable({
+                              context: 'extraction-replacement',
+                              selectedTreatment: replacement,
+                              clinicPrices: clinicPrices,
+                              toothNumber: tooth
+                            });
+                          }
+                          console.log('❌ Not showing extraction replacement table - toggle not met');
+                          return '';
+                        })()}
                       </div>
                     </div>
                   `;
@@ -1262,11 +1286,28 @@ const CreateReport = () => {
                       <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> ${getUrgencyMessage(treatmentKey, conditions)}
                     </p>
                     
-                    ${conditions.includes('missing-tooth') && showMissingToothOptions ? generateReplacementOptionsTable({
-                      context: 'missing-tooth',
-                      selectedTreatment: treatmentKey,
-                      clinicPrices: clinicPrices
-                    }) : ''}
+                    ${(() => {
+                      // Debug logging to understand toggle behavior
+                      console.log('Missing Tooth Toggle Debug:', {
+                        conditions,
+                        treatmentKey,
+                        missingToothToggle,
+                        hasMissingTooth: conditions.includes('missing-tooth'),
+                        willShowTable: conditions.includes('missing-tooth') && missingToothToggle
+                      });
+                      
+                      // Use the passed parameter instead of trying to access React state
+                      if (conditions.includes('missing-tooth') && missingToothToggle) {
+                        console.log('✅ Generating missing tooth replacement options table');
+                        return generateReplacementOptionsTable({
+                          context: 'missing-tooth',
+                          selectedTreatment: treatmentKey,
+                          clinicPrices: clinicPrices
+                        });
+                      }
+                      console.log('❌ Not showing missing tooth table - condition or toggle not met');
+                      return '';
+                    })()}
                   </div>
                 </div>
               `;
