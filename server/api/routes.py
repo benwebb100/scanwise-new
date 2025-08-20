@@ -22,6 +22,7 @@ import os
 from services.tooth_mapping import tooth_mapping_service, Detection
 from services.roboflow import roboflow_service
 from services.april_vision_mapper import map_with_segmentation
+from lib.stagingV2 import build_staged_plan_v2
 import tempfile
 import uuid
 from services.stripe_service import stripe_service
@@ -240,12 +241,38 @@ async def analyze_xray(
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
         
+        # Step 3.5: Apply Staging V2 if enabled
+        staging_v2_enabled = os.getenv('STAGING_V2', 'false').lower() == 'true'
+        if staging_v2_enabled and request.findings:
+            logger.info("Staging V2 enabled - applying intelligent treatment staging")
+            try:
+                # Convert findings to staging V2 format
+                staging_treatments = []
+                for finding in request.findings:
+                    staging_treatments.append({
+                        'tooth': finding.tooth,
+                        'treatment': finding.treatment,
+                        'condition': finding.condition,
+                        'replacement': finding.replacement,
+                        'price': finding.price or 0,
+                        'stage_category': 0  # Will be classified by staging engine
+                    })
+                
+                # Apply staging V2
+                staged_plan = build_staged_plan_v2(staging_treatments)
+                ai_analysis['treatment_stages'] = staged_plan['stages']
+                ai_analysis['staging_v2_meta'] = staged_plan['meta']
+                ai_analysis['future_tasks'] = staged_plan['future_tasks']
+                
+                logger.info(f"Staging V2 applied: {len(staged_plan['stages'])} stages, {staged_plan['meta']['total_visits']} visits")
+            except Exception as e:
+                logger.error(f"Staging V2 failed, falling back to legacy staging: {str(e)}")
+                # Continue with legacy staging from AI analysis
+        
         # Step 4: Save to database (Supabase handles user_id via RLS)
         # Generate HTML report using GPT
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
         html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
-        
-
         
         diagnosis_data = {
             'patient_name': request.patient_name,
@@ -270,7 +297,9 @@ async def analyze_xray(
             "annotated_image_url": annotated_url,
             "detections": ai_analysis.get('detections', []),
             "report_html": html_report,  # Keep as report_html for the model
-            "diagnosis_id": diagnosis_id  # Include diagnosis_id for video polling
+            "diagnosis_id": diagnosis_id,  # Include diagnosis_id for video polling
+            "staging_v2_meta": ai_analysis.get('staging_v2_meta'),
+            "future_tasks": ai_analysis.get('future_tasks', [])
         }
         
         # Start video generation in background if requested

@@ -200,6 +200,52 @@ export function getSuggestedTreatments(condition: string): SearchableSelectOptio
   return [...suggestedOptions, ...otherTreatments]
 }
 
+// Get replacement options for extracted teeth based on tooth number
+export function getReplacementOptions(tooth: string): SearchableSelectOption[] {
+  if (!tooth) return []
+  
+  try {
+    const toothNum = parseInt(tooth)
+    
+    // Front teeth (cosmetic importance) - suggest implant
+    if (toothNum >= 6 && toothNum <= 11 || toothNum >= 22 && toothNum <= 27) {
+      return [
+        { value: 'implant-placement', label: 'Implant', pinned: true },
+        { value: 'bridge', label: 'Bridge', pinned: false },
+        { value: 'partial-denture', label: 'Partial Denture', pinned: false },
+        { value: 'none', label: 'No Replacement', pinned: false }
+      ]
+    }
+    
+    // Back teeth (functional importance) - suggest bridge
+    if (toothNum >= 1 && toothNum <= 5 || toothNum >= 12 && toothNum <= 16 || 
+        toothNum >= 17 && toothNum <= 21 || toothNum >= 28 && toothNum <= 32) {
+      return [
+        { value: 'bridge', label: 'Bridge', pinned: true },
+        { value: 'implant-placement', label: 'Implant', pinned: false },
+        { value: 'partial-denture', label: 'Partial Denture', pinned: false },
+        { value: 'none', label: 'No Replacement', pinned: false }
+      ]
+    }
+    
+    // Default options for unknown tooth numbers
+    return [
+      { value: 'implant-placement', label: 'Implant', pinned: false },
+      { value: 'bridge', label: 'Bridge', pinned: false },
+      { value: 'partial-denture', label: 'Partial Denture', pinned: false },
+      { value: 'none', label: 'No Replacement', pinned: false }
+    ]
+  } catch {
+    // If tooth number parsing fails, return default options
+    return [
+      { value: 'implant-placement', label: 'Implant', pinned: false },
+      { value: 'bridge', label: 'Bridge', pinned: false },
+      { value: 'partial-denture', label: 'Partial Denture', pinned: false },
+      { value: 'none', label: 'No Replacement', pinned: false }
+    ]
+  }
+}
+
 // Default pricing for treatments (will be expanded and made configurable per clinic)
 export const DEFAULT_TREATMENT_PRICES: Record<string, number> = {
   'filling': 120,

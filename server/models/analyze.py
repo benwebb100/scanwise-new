@@ -6,6 +6,7 @@ class Finding(BaseModel):
     tooth: str
     condition: str
     treatment: str
+    replacement: Optional[str] = None
 
 class AnalyzeXrayRequest(BaseModel):
     patient_name: Optional[str] = None

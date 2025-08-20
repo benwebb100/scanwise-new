@@ -20,12 +20,14 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
+import { generateReplacementOptionsTable } from '@/lib/replacementOptionsTemplate';
 import {
   ToothNumberingSystem,
   ALL_CONDITIONS,
   ALL_TREATMENTS,
   getToothOptions,
-  getSuggestedTreatments
+  getSuggestedTreatments,
+  getReplacementOptions
 } from '@/data/dental-data';
 import './CreateReport.css';
 
@@ -39,7 +41,7 @@ const CreateReport = () => {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [findings, setFindings] = useState([
-    { tooth: "", condition: "", treatment: "", price: undefined as number | undefined },
+    { tooth: "", condition: "", treatment: "", replacement: "", price: undefined as number | undefined },
   ]);
   const [patientName, setPatientName] = useState("");
   const [report, setReport] = useState<string | null>(null);
@@ -76,6 +78,12 @@ const CreateReport = () => {
   // Global toggle: include treatment comparison for missing-tooth
   const [showMissingToothOptions, setShowMissingToothOptions] = useState<boolean>(() => {
     const saved = localStorage.getItem('showMissingToothOptions');
+    return saved === 'true';
+  });
+  
+  // Global toggle: include treatment comparison for extraction replacements
+  const [showExtractionReplacementOptions, setShowExtractionReplacementOptions] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showExtractionReplacementOptions');
     return saved === 'true';
   });
   
@@ -276,7 +284,7 @@ const CreateReport = () => {
   };
 
   const addFinding = () => {
-    setFindings((prev) => [{ tooth: "", condition: "", treatment: "", price: undefined }, ...prev]);
+    setFindings((prev) => [{ tooth: "", condition: "", treatment: "", replacement: "", price: undefined }, ...prev]);
   };
 
   const handleAcceptAIFinding = (detection: any, toothMapping?: {tooth: string, confidence: number}) => {
@@ -302,6 +310,7 @@ const CreateReport = () => {
       tooth: tooth, // Auto-filled if mapping available
       condition: normalizedCondition,
       treatment: recommendedTreatment,
+      replacement: "", // No replacement for AI-detected findings
       price: price
     };
     
@@ -853,6 +862,120 @@ const CreateReport = () => {
 
         <!-- Stage-Based Treatment Plan -->
         ${(() => {
+          // Check if we have Staging V2 data from backend
+          if (data.staging_v2_meta && data.stages && data.stages.length > 0) {
+            // Render Staging V2 with visits
+            return `
+              <div style="padding: 0 20px; margin-bottom: 40px;">
+                <h3 style="font-size: 20px; margin-bottom: 20px;">
+                  Treatment Plan Stages
+                  <span style="font-size: 14px; color: #666; font-weight: normal; margin-left: 10px;">
+                    (AI-Optimized Scheduling)
+                  </span>
+                </h3>
+                <p style="color: #666; margin-bottom: 20px; font-style: italic;">
+                  Your treatment plan has been intelligently staged for scheduling efficiency and patient comfort. 
+                  Each stage represents a treatment phase, and visits are grouped by time budget and anesthesia rules.
+                </p>
+                
+                ${data.stages.map((stage: any) => `
+                  <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="background-color: #e3f2fd; padding: 12px 16px;">
+                      <strong style="font-size: 16px;">${stage.stage_title}</strong>
+                    </div>
+                    <div style="padding: 20px;">
+                      ${stage.visits.map((visit: any) => `
+                        <div style="border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; background: #fafafa;">
+                          <div style="background-color: #f0f0f0; padding: 10px 15px; border-radius: 8px 8px 0 0;">
+                            <strong style="color: #1e88e5;">${visit.visit_label}</strong>
+                          </div>
+                          <div style="padding: 15px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                              <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                <strong style="color: #666;">Visit Duration:</strong>
+                                <div style="font-size: 16px; color: #1e88e5; margin-top: 5px;">
+                                  ${Math.round(visit.visit_duration_min / 60 * 10) / 10} hours
+                                </div>
+                              </div>
+                              <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                <strong style="color: #666;">Visit Cost:</strong>
+                                <div style="font-size: 16px; color: #1e88e5; margin-top: 5px;">
+                                  $${visit.visit_cost}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                              <strong style="color: #666;">Treatments:</strong>
+                              <ul style="margin: 8px 0; padding-left: 20px;">
+                                ${visit.treatments.map((treatment: any) => `
+                                  <li style="margin-bottom: 5px;">
+                                    <strong>Tooth ${treatment.tooth}</strong>: ${treatment.procedure.replace('-', ' ')} 
+                                    for ${treatment.condition.replace('-', ' ')}
+                                    <span style="color: #666; font-size: 12px;">
+                                      (${treatment.time_estimate_min} min)
+                                    </span>
+                                  </li>
+                                `).join('')}
+                              </ul>
+                            </div>
+                            
+                            <div style="background-color: #e8f5e8; padding: 12px; border-radius: 6px; border-left: 4px solid #4caf50;">
+                              <strong style="color: #2e7d32;">Why This Grouping:</strong>
+                              <div style="color: #2e7d32; margin-top: 5px; font-size: 14px;">
+                                ${visit.explain_note}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      `).join('')}
+                      
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
+                          <strong style="color: #666;">Stage Duration:</strong>
+                          <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
+                            ${Math.round(stage.total_duration_min / 60 * 10) / 10} hours
+                          </div>
+                        </div>
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
+                          <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
+                            $${stage.total_cost}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+                
+                ${data.future_tasks && data.future_tasks.length > 0 ? `
+                  <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-top: 20px;">
+                    <h4 style="color: #856404; margin-bottom: 15px;">
+                      📅 Planned Follow-ups
+                    </h4>
+                    ${data.future_tasks.map((task: any) => `
+                      <div style="background-color: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
+                        <strong style="color: #856404;">${task.treatment.replace('-', ' ')} on Tooth ${task.tooth}</strong>
+                        <div style="color: #856404; font-size: 14px; margin-top: 5px;">
+                          ${task.dependency_reason} - Earliest: ~${task.earliest_date_offset_weeks} weeks
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+                
+                <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 15px; margin-top: 20px; text-align: center;">
+                  <p style="color: #1976d2; margin: 0; font-size: 14px;">
+                    <strong>Note:</strong> This plan is auto-staged for scheduling efficiency and patient comfort. 
+                    It follows a typical sequence (disease control → restoration → prosthetics → aesthetics) and 
+                    respects appointment length, anesthesia side, and clinical dependencies. 
+                    <strong>Your clinician will review and adjust as needed.</strong>
+                  </p>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Legacy staging logic (existing code)
           // Only show stages if more than one session is needed
           if (uniqueFindings.length <= 3) {
             return ''; // Don't show stages for simple cases
@@ -988,18 +1111,74 @@ const CreateReport = () => {
         <!-- Active Conditions from Doctor's Findings - Grouped by Treatment -->
         <div style="padding: 20px;">
           ${(() => {
-            // Group findings by treatment type
+            // Group findings by treatment type, with special handling for extraction + replacement
             const treatmentGroups: {[key: string]: any[]} = {};
+            const extractionReplacements: any[] = [];
+            
             uniqueFindings.forEach((finding: any) => {
+              // Special case: if this is an extraction with replacement, group them together
+              if (finding.treatment === 'extraction' && finding.replacement && finding.replacement !== 'none') {
+                extractionReplacements.push(finding);
+                return;
+              }
+              
+              // Regular treatment grouping
               const treatmentKey = finding.treatment;
               if (!treatmentGroups[treatmentKey]) {
                 treatmentGroups[treatmentKey] = [];
               }
               treatmentGroups[treatmentKey].push(finding);
             });
+            
+            // Add extraction + replacement group if exists
+            if (extractionReplacements.length > 0) {
+              treatmentGroups['extraction-with-replacement'] = extractionReplacements;
+            }
 
             // Generate enhanced content for each treatment group
-            return Object.entries(treatmentGroups).map(([treatment, findings]) => {
+            return Object.entries(treatmentGroups).map(([treatmentKey, findings]) => {
+              // Special handling for extraction + replacement group
+              if (treatmentKey === 'extraction-with-replacement') {
+                return findings.map((finding: any) => {
+                  const tooth = finding.tooth;
+                  const replacement = finding.replacement;
+                  
+                  // Generate extraction + replacement description
+                  const extractionDesc = `
+                    <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                      <div style="background-color: #ffeb3b; padding: 8px 16px;">
+                        <strong style="font-size: 14px;">Extraction with Replacement</strong>
+                      </div>
+                      <div style="padding: 20px;">
+                        <h3 style="font-size: 20px; margin-bottom: 15px;">Extraction and ${replacement.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</h3>
+                        
+                        <p style="margin-bottom: 15px;"><strong>Tooth ${tooth}</strong> requires extraction followed by replacement with a ${replacement.replace('-', ' ')}.</p>
+                        
+                        <p style="margin-bottom: 15px;"><strong>What This Means:</strong> An impacted tooth is one that has not fully erupted through the gum or has grown in at an angle. This can cause pain, swelling, and can damage neighboring teeth.</p>
+                        
+                        <p style="margin-bottom: 15px;">
+                          <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> Surgical extraction involves removing the tooth through a small incision in the gum, followed by replacement with a ${replacement.replace('-', ' ')} after healing.
+                        </p>
+                        
+                        <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
+                          <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to your jawbone. The longer you wait, the more complex the procedure becomes.
+                        </p>
+                        
+                        ${showExtractionReplacementOptions ? generateReplacementOptionsTable({
+                          context: 'extraction-replacement',
+                          selectedTreatment: replacement,
+                          clinicPrices: clinicPrices,
+                          toothNumber: tooth
+                        }) : ''}
+                      </div>
+                    </div>
+                  `;
+                  
+                  return extractionDesc;
+                }).join('');
+              }
+              
+              // Regular treatment handling
               const conditions = [...new Set(findings.map(f => f.condition))];
               const teeth = findings.map(f => f.tooth).sort();
               const teethText = teeth.length === 1 ? `Tooth ${teeth[0]}` : `Teeth ${teeth.join(', ')}`;
@@ -1057,7 +1236,7 @@ const CreateReport = () => {
                   'decay': 'Visible decay can make you self-conscious about your smile and affect your confidence in social situations.'
                 };
                 
-                const aestheticRisk = conditions.some(c => aestheticRisks[c]) ? 
+                const aestheticRisk = conditions.some((c: string) => aestheticRisks[c as keyof typeof aestheticRisks]) ? 
                   ' Additionally, this condition can affect the appearance of your smile and your confidence.' : '';
                 
                 return physicalRisks + aestheticRisk;
@@ -1066,22 +1245,28 @@ const CreateReport = () => {
               return `
                 <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                   <div style="background-color: #ffeb3b; padding: 8px 16px;">
-                    <strong style="font-size: 14px;">${treatment.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</strong>
+                    <strong style="font-size: 14px;">${treatmentKey.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</strong>
                   </div>
                   <div style="padding: 20px;">
-                    <h3 style="font-size: 20px; margin-bottom: 15px;">${treatment.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} for ${conditions.map(c => c.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())).join(', ')}</h3>
+                    <h3 style="font-size: 20px; margin-bottom: 15px;">${treatmentKey.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</h3>
                     
-                    <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map(c => c.replace('-', ' ')).join(', ')} that requires ${treatment.replace('-', ' ')}.</p>
+                    <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace('-', ' ')).join(', ')} that requires ${treatmentKey.replace('-', ' ')}.</p>
                     
-                    <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map(c => getConditionDescription(c)).join(' ')}</p>
+                    <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map((c: string) => getConditionDescription(c)).join(' ')}</p>
                     
                     <p style="margin-bottom: 15px;">
-                      <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentDescription(treatment)}
+                      <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentDescription(treatmentKey)}
                     </p>
                     
                     <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
-                      <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> ${getUrgencyMessage(treatment, conditions)}
+                      <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> ${getUrgencyMessage(treatmentKey, conditions)}
                     </p>
+                    
+                    ${conditions.includes('missing-tooth') && showMissingToothOptions ? generateReplacementOptionsTable({
+                      context: 'missing-tooth',
+                      selectedTreatment: treatmentKey,
+                      clinicPrices: clinicPrices
+                    }) : ''}
                   </div>
                 </div>
               `;
@@ -1120,7 +1305,16 @@ const CreateReport = () => {
               };
 
               // Get unique detected conditions
-              const uniqueConditions = [...new Set(data.detections.map((detection: any) => detection.class || detection.class_name))];
+              const uniqueConditions = [...new Set(data.detections.map((detection: any) => detection.class || detection.class_name))] as string[];
+
+              // Normalize condition names to handle different formats - EXACTLY the same as AIAnalysisSection
+              const normalizeCondition = (condition: string) => {
+                return condition
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')
+                  .replace(/s$/, '')  // Remove plural 's'
+                  .replace(/^carie$/, 'caries'); // Special case: restore 'caries' from 'carie'
+              };
 
               // Format condition names for display - EXACTLY the same as AIAnalysisSection
               const formatConditionName = (condition: string) => {
@@ -1136,7 +1330,8 @@ const CreateReport = () => {
                 <!-- Dynamic Legend -->
                 <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
                   ${uniqueConditions.map((condition: string) => {
-                    const color = conditionColors[condition.toLowerCase()] || '#666666'; // Default gray if color not found
+                    const normalizedCondition = normalizeCondition(condition);
+                    const color = conditionColors[normalizedCondition] || '#666666'; // Default gray if color not found
                     const displayName = formatConditionName(condition);
                     
                     return `
@@ -1189,8 +1384,12 @@ const CreateReport = () => {
         const toothOk = !!(f.tooth && f.tooth.trim() !== '');
         const condOk = !!(f.condition && f.condition.trim() !== '');
         const treatOk = !!(f.treatment && f.treatment.trim() !== '');
+        
+        // Special validation for extraction: must have replacement selected
+        const replacementOk = f.treatment === 'extraction' ? !!(f.replacement && f.replacement.trim() !== '') : true;
+        
         const allEmpty = !toothOk && !condOk && !treatOk;
-        const allFilled = toothOk && condOk && treatOk;
+        const allFilled = toothOk && condOk && treatOk && replacementOk;
         return !(allEmpty || allFilled);
       });
       if (invalidIndex !== -1) {
@@ -1202,7 +1401,15 @@ const CreateReport = () => {
           target.classList.add('ring-2', 'ring-red-400');
           setTimeout(() => target.classList.remove('ring-2', 'ring-red-400'), 2000);
         }
-        toast({ title: 'Incomplete finding', description: 'Please complete tooth, condition, and treatment (or clear the row).'});
+        
+        const problematicFinding = findings[invalidIndex];
+        let errorMessage = 'Please complete tooth, condition, and treatment (or clear the row).';
+        
+        if (problematicFinding.treatment === 'extraction' && !problematicFinding.replacement) {
+          errorMessage = 'Please select a replacement option for the extraction (or choose "No Replacement").';
+        }
+        
+        toast({ title: 'Incomplete finding', description: errorMessage });
         return;
       }
 
@@ -1822,6 +2029,51 @@ const CreateReport = () => {
                           </div>
                         </div>
                         
+                        {/* Global Settings for Report Options */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                          <h4 className="font-medium text-gray-900 mb-3">Report Options</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label htmlFor="missing-tooth-options" className="text-sm font-medium text-gray-700">
+                                  Missing Tooth Treatment Options
+                                </Label>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Include comparison table for missing tooth replacements
+                                </p>
+                              </div>
+                              <Switch
+                                id="missing-tooth-options"
+                                checked={showMissingToothOptions}
+                                onCheckedChange={(checked) => {
+                                  setShowMissingToothOptions(checked);
+                                  localStorage.setItem('showMissingToothOptions', checked.toString());
+                                }}
+                                className="data-[state=checked]:bg-blue-600"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label htmlFor="extraction-replacement-options" className="text-sm font-medium text-gray-700">
+                                  Extraction Replacement Options
+                                </Label>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Include comparison table for extraction replacements
+                                </p>
+                              </div>
+                              <Switch
+                                id="extraction-replacement-options"
+                                checked={showExtractionReplacementOptions}
+                                onCheckedChange={(checked) => {
+                                  setShowExtractionReplacementOptions(checked);
+                                  localStorage.setItem('showExtractionReplacementOptions', checked.toString());
+                                }}
+                                className="data-[state=checked]:bg-blue-600"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
                         <div id="findings-list" className="space-y-4">
                         {findings.map((f, idx) => {
                           const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
@@ -1887,6 +2139,21 @@ const CreateReport = () => {
                                 />
                               </div>
 
+                              {/* Replacement Field - Only show when extraction is selected */}
+                              {f.treatment === 'extraction' && (
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium">Replacement</Label>
+                                  <SearchableSelect
+                                    options={getReplacementOptions(f.tooth)}
+                                    value={f.replacement || ''}
+                                    onValueChange={(value) => handleFindingChange(idx, "replacement", value)}
+                                    placeholder="Select replacement..."
+                                    searchPlaceholder="Search replacements..."
+                                    disabled={isProcessing}
+                                  />
+                                </div>
+                              )}
+
                                 {/* Remove Button / Toggle Column */}
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium opacity-0">Actions</Label>
@@ -1900,43 +2167,10 @@ const CreateReport = () => {
                                   >
                                     {t.common.remove}
                                   </Button>
-                                  {isMissingTooth && (
-                                    <div className="absolute top-2 right-2">
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const newValue = !showMissingToothOptions;
-                                              setShowMissingToothOptions(newValue);
-                                              localStorage.setItem('showMissingToothOptions', String(newValue));
-                                            }}
-                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                                              showMissingToothOptions
-                                                ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
-                                                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                                            }`}
-                                          >
-                                            <Settings className="h-3 w-3" />
-                                            Treatment Options
-                                            {showMissingToothOptions ? (
-                                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                            ) : (
-                                              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                            )}
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs text-xs leading-snug">
-                                          {showMissingToothOptions 
-                                            ? "Treatment comparison will be included in the report. Click to disable."
-                                            : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
-                                          }
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  )}
-                                </div>
+
+
                               </div>
+                            </div>
 
                               {/* Pricing Input */}
                               {f.treatment && showTreatmentPricing && (
