@@ -75,15 +75,9 @@ const CreateReport = () => {
   // Report generation progress state
   const [reportProgress, setReportProgress] = useState(0);
   const [reportProgressText, setReportProgressText] = useState('');
-  // Global toggle: include treatment comparison for missing-tooth
-  const [showMissingToothOptions, setShowMissingToothOptions] = useState<boolean>(() => {
-    const saved = localStorage.getItem('showMissingToothOptions');
-    return saved === 'true';
-  });
-  
-  // Global toggle: include treatment comparison for extraction replacements
-  const [showExtractionReplacementOptions, setShowExtractionReplacementOptions] = useState<boolean>(() => {
-    const saved = localStorage.getItem('showExtractionReplacementOptions');
+  // Global toggle: include replacement options comparison table
+  const [showReplacementOptionsTable, setShowReplacementOptionsTable] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showReplacementOptionsTable');
     return saved === 'true';
   });
   
@@ -459,7 +453,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty, using frontend generation');
-          reportHtml = generateReportHTML(analysisResult, showMissingToothOptions, showExtractionReplacementOptions);
+          reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML length:', reportHtml?.length || 0);
         }
         
@@ -544,7 +538,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty (no xray), using frontend generation');
-          reportHtml = generateReportHTML(analysisResult, showMissingToothOptions, showExtractionReplacementOptions);
+          reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML (no xray) length:', reportHtml?.length || 0);
         }
         
@@ -627,11 +621,10 @@ const CreateReport = () => {
 
 
   // Generate HTML report from doctor's findings (not AI extraction) - DISABLED: Now using backend GPT generation
-  const generateReportHTML = (data: any, missingToothToggle: boolean, extractionToggle: boolean) => {
+  const generateReportHTML = (data: any, showReplacementTable: boolean) => {
     // Debug logging to show what toggle values are being passed
     console.log('🔧 generateReportHTML called with toggle values:', {
-      missingToothToggle,
-      extractionToggle,
+      showReplacementTable,
       findingsCount: findings.length,
       doctorFindingsCount: findings.filter(f => f.tooth && f.condition && f.treatment).length
     });
@@ -1172,28 +1165,7 @@ const CreateReport = () => {
                           <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to your jawbone. The longer you wait, the more complex the procedure becomes.
                         </p>
                         
-                        ${(() => {
-                          // Debug logging to understand toggle behavior
-                          console.log('Extraction Replacement Toggle Debug:', {
-                            tooth,
-                            replacement,
-                            extractionToggle,
-                            willShowTable: extractionToggle
-                          });
-                          
-                          // Use the passed parameter instead of trying to access React state
-                          if (extractionToggle) {
-                            console.log('✅ Generating extraction replacement options table');
-                            return generateReplacementOptionsTable({
-                              context: 'extraction-replacement',
-                              selectedTreatment: replacement,
-                              clinicPrices: clinicPrices,
-                              toothNumber: tooth
-                            });
-                          }
-                          console.log('❌ Not showing extraction replacement table - toggle not met');
-                          return '';
-                        })()}
+
                       </div>
                     </div>
                   `;
@@ -1286,28 +1258,7 @@ const CreateReport = () => {
                       <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> ${getUrgencyMessage(treatmentKey, conditions)}
                     </p>
                     
-                    ${(() => {
-                      // Debug logging to understand toggle behavior
-                      console.log('Missing Tooth Toggle Debug:', {
-                        conditions,
-                        treatmentKey,
-                        missingToothToggle,
-                        hasMissingTooth: conditions.includes('missing-tooth'),
-                        willShowTable: conditions.includes('missing-tooth') && missingToothToggle
-                      });
-                      
-                      // Use the passed parameter instead of trying to access React state
-                      if (conditions.includes('missing-tooth') && missingToothToggle) {
-                        console.log('✅ Generating missing tooth replacement options table');
-                        return generateReplacementOptionsTable({
-                          context: 'missing-tooth',
-                          selectedTreatment: treatmentKey,
-                          clinicPrices: clinicPrices
-                        });
-                      }
-                      console.log('❌ Not showing missing tooth table - condition or toggle not met');
-                      return '';
-                    })()}
+
                   </div>
                 </div>
               `;
@@ -1396,6 +1347,27 @@ const CreateReport = () => {
             <p style="color: #888; font-size: 14px;">For a more comprehensive analysis, please upload an X-ray image.</p>
           </div>
         `}
+        
+        ${(() => {
+          // Only show the table if the toggle is on
+          if (!showReplacementTable) return '';
+          
+          // Check if there are any relevant replacement treatments
+          const relevantTreatments = findings.filter(f => 
+            f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
+          );
+          
+          if (relevantTreatments.length === 0) return '';
+          
+          console.log('✅ Generating unified replacement options table for treatments:', relevantTreatments.map(f => f.treatment));
+          
+          // Generate the table with all relevant treatments
+          return generateReplacementOptionsTable({
+            context: 'missing-tooth',
+            selectedTreatment: relevantTreatments[0].treatment, // Use first treatment as primary
+            clinicPrices: clinicPrices
+          });
+        })()}
       </div>
       </div>
     `;
@@ -2073,45 +2045,24 @@ const CreateReport = () => {
                         {/* Global Settings for Report Options */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
                           <h4 className="font-medium text-gray-900 mb-3">Report Options</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <Label htmlFor="missing-tooth-options" className="text-sm font-medium text-gray-700">
-                                  Missing Tooth Treatment Options
-                                </Label>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Include comparison table for missing tooth replacements
-                                </p>
-                              </div>
-                              <Switch
-                                id="missing-tooth-options"
-                                checked={showMissingToothOptions}
-                                onCheckedChange={(checked) => {
-                                  setShowMissingToothOptions(checked);
-                                  localStorage.setItem('showMissingToothOptions', checked.toString());
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                              />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label htmlFor="replacement-options-table" className="text-sm font-medium text-gray-700">
+                                Replacement Options Comparison Table
+                              </Label>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Include comparison table for all replacement treatments (implants, bridges, partial dentures)
+                              </p>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <Label htmlFor="extraction-replacement-options" className="text-sm font-medium text-gray-700">
-                                  Extraction Replacement Options
-                                </Label>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Include comparison table for extraction replacements
-                                </p>
-                              </div>
-                              <Switch
-                                id="extraction-replacement-options"
-                                checked={showExtractionReplacementOptions}
-                                onCheckedChange={(checked) => {
-                                  setShowExtractionReplacementOptions(checked);
-                                  localStorage.setItem('showExtractionReplacementOptions', checked.toString());
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                              />
-                            </div>
+                            <Switch
+                              id="replacement-options-table"
+                              checked={showReplacementOptionsTable}
+                              onCheckedChange={(checked) => {
+                                setShowReplacementOptionsTable(checked);
+                                localStorage.setItem('showReplacementOptionsTable', checked.toString());
+                              }}
+                              className="data-[state=checked]:bg-blue-600"
+                            />
                           </div>
                         </div>
                         
@@ -2423,41 +2374,7 @@ const CreateReport = () => {
                               >
                                 Remove
                               </Button>
-                              {isMissingTooth && (
-                                <div className="absolute top-2 right-2">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newValue = !showMissingToothOptions;
-                                          setShowMissingToothOptions(newValue);
-                                          localStorage.setItem('showMissingToothOptions', String(newValue));
-                                        }}
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                                          showMissingToothOptions
-                                            ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
-                                            : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        <Settings className="h-3 w-3" />
-                                        Treatment Options
-                                        {showMissingToothOptions ? (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                        ) : (
-                                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                        )}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs text-xs leading-snug">
-                                      {showMissingToothOptions 
-                                        ? "Treatment comparison will be included in the report. Click to disable."
-                                        : "Click to include a side-by-side comparison (implant, bridge, partial denture) with benefits, trade-offs, typical recovery, and your clinic's pricing in the report."
-                                      }
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              )}
+
                             </div>
                           </div>
 
@@ -2479,6 +2396,40 @@ const CreateReport = () => {
                       )})}
                     </div>
                   </div>
+
+                  {/* Unified Replacement Options Toggle - Only show when relevant treatments exist */}
+                  {(() => {
+                    // Check if any findings have relevant replacement treatments
+                    const hasReplacementTreatments = findings.some(f => 
+                      f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
+                    );
+                    
+                    if (!hasReplacementTreatments) return null;
+                    
+                    return (
+                      <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label htmlFor="replacement-options-toggle" className="text-sm font-medium text-blue-900">
+                              🦷 Replacement Options Comparison
+                            </Label>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Include a comprehensive comparison table for all replacement treatments in your report
+                            </p>
+                          </div>
+                          <Switch
+                            id="replacement-options-toggle"
+                            checked={showReplacementOptionsTable}
+                            onCheckedChange={(checked) => {
+                              setShowReplacementOptionsTable(checked);
+                              localStorage.setItem('showReplacementOptionsTable', checked.toString());
+                            }}
+                            className="data-[state=checked]:bg-blue-600"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Submit Button for Non-X-ray Mode */}
                   <div className="flex justify-center mt-8">
