@@ -22,6 +22,7 @@ import os
 from services.tooth_mapping import tooth_mapping_service, Detection
 from services.roboflow import roboflow_service
 from services.april_vision_mapper import map_with_segmentation
+from services.image_overlay import image_overlay_service
 from lib.stagingV2 import build_staged_plan_v2
 import tempfile
 import uuid
@@ -97,6 +98,11 @@ class InsuranceVerificationResponse(BaseModel):
     verification_date: str
     next_verification_due: Optional[str] = None
     notes: Optional[str] = None
+
+class ToothNumberOverlayRequest(BaseModel):
+    image_url: str
+    numbering_system: str = "FDI"
+    show_numbers: bool = True
 
 class TreatmentCostEstimate(BaseModel):
     treatment_code: str
@@ -1439,6 +1445,49 @@ async def map_teeth(
     except Exception as e:
         logger.error(f"Tooth mapping error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Tooth mapping failed: {str(e)}")
+
+
+@router.post("/image/overlay")
+async def add_tooth_number_overlay(
+    request: ToothNumberOverlayRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Add tooth number overlays to an X-ray image.
+    
+    Args:
+        image_url: URL of the annotated X-ray image
+        numbering_system: "FDI" or "Universal"
+        show_numbers: Whether to show tooth numbers
+        token: Authentication token
+        
+    Returns:
+        Base64 encoded image with tooth numbers, or original image URL if no overlay
+    """
+    try:
+        if not request.show_numbers:
+            return {"image_url": request.image_url, "has_overlay": False}
+        
+        # Get teeth segmentation data
+        seg_json = await roboflow_service.segment_teeth(request.image_url)
+        if not seg_json:
+            logger.warning("No segmentation data available for overlay")
+            return {"image_url": request.image_url, "has_overlay": False}
+        
+        # Add tooth number overlay
+        overlay_image = await image_overlay_service.add_tooth_number_overlay(
+            request.image_url, seg_json, request.numbering_system, request.show_numbers
+        )
+        
+        if overlay_image:
+            return {"image_url": overlay_image, "has_overlay": True}
+        else:
+            logger.warning("Failed to create overlay image")
+            return {"image_url": image_url, "has_overlay": False}
+            
+    except Exception as e:
+        logger.error(f"Tooth number overlay error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tooth number overlay failed: {str(e)}")
 
 
 @router.post("/billing/checkout")

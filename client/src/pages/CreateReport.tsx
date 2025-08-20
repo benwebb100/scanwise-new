@@ -81,6 +81,35 @@ const CreateReport = () => {
     return saved === 'true';
   });
   
+  // Global toggle: show tooth numbers on X-ray
+  const [showToothNumberOverlay, setShowToothNumberOverlay] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showToothNumberOverlay');
+    return saved === 'true';
+  });
+  
+  // Function to refresh image with tooth number overlay
+  const refreshImageWithOverlay = async (imageUrl: string) => {
+    if (!showToothNumberOverlay) {
+      return imageUrl; // Return original if toggle is off
+    }
+    
+    try {
+      const overlayResult = await api.addToothNumberOverlay(
+        imageUrl,
+        toothNumberingSystem, // Use user's preferred numbering system
+        true
+      );
+      
+      if (overlayResult.has_overlay) {
+        return overlayResult.image_url;
+      }
+    } catch (error) {
+      console.error('Failed to add tooth number overlay:', error);
+    }
+    
+    return imageUrl; // Return original if overlay fails
+  };
+  
   // Progress steps for report generation
   const progressSteps = [
     { progress: 10, text: "Analyzing dental findings..." },
@@ -145,6 +174,24 @@ const CreateReport = () => {
   const [showAISummary, setShowAISummary] = useState(true);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Effect to refresh image when tooth number overlay toggle changes
+  useEffect(() => {
+    if (immediateAnalysisData?.annotated_image_url && showToothNumberOverlay) {
+      const currentImageUrl = immediateAnalysisData.annotated_image_url;
+      refreshImageWithOverlay(currentImageUrl).then(newImageUrl => {
+        // Only update if we still have the same image and the toggle is still on
+        if (newImageUrl !== currentImageUrl && 
+            immediateAnalysisData?.annotated_image_url === currentImageUrl &&
+            showToothNumberOverlay) {
+          setImmediateAnalysisData((prev: any) => ({
+            ...prev,
+            annotated_image_url: newImageUrl
+          }));
+        }
+      });
+    }
+  }, [showToothNumberOverlay]); // Only depend on the toggle, not the image URL
   
   let recognition: any = null;
 
@@ -441,6 +488,36 @@ const CreateReport = () => {
             toast({
               title: "Analysis Complete",
               description: "AI analysis completed successfully. Video generation in progress...",
+            });
+          }
+        }
+        
+        // Handle tooth number overlay if toggle is on
+        if (showToothNumberOverlay && analysisResult.annotated_image_url) {
+          try {
+            console.log('🔢 TOOTH OVERLAY: Adding tooth numbers to X-ray...');
+            console.log('🔢 TOOTH OVERLAY: Using numbering system:', toothNumberingSystem);
+            
+            const overlayResult = await api.addToothNumberOverlay(
+              analysisResult.annotated_image_url,
+              toothNumberingSystem, // Use user's preferred numbering system
+              true
+            );
+            
+            if (overlayResult && overlayResult.has_overlay) {
+              console.log('🔢 TOOTH OVERLAY: Successfully created numbered image');
+              // Replace the annotated image URL with the numbered version
+              analysisResult.annotated_image_url = overlayResult.image_url;
+            } else {
+              console.log('🔢 TOOTH OVERLAY: No overlay applied, using original image');
+            }
+          } catch (overlayError) {
+            console.error('🔢 TOOTH OVERLAY: Failed to add tooth numbers:', overlayError);
+            // Continue with original image if overlay fails
+            toast({
+              title: "Tooth Number Overlay Failed",
+              description: "Could not add tooth numbers to X-ray, using original image.",
+              variant: "destructive",
             });
           }
         }
@@ -2215,6 +2292,36 @@ const CreateReport = () => {
                                 localStorage.setItem('showReplacementOptionsTable', checked.toString());
                               }}
                               className="data-[state=checked]:bg-blue-600"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Tooth Number Overlay Toggle - Only show if there are findings */}
+                    {(() => {
+                      const hasFindings = findings.length > 0;
+                      if (!hasFindings) return null;
+                      
+                      return (
+                        <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label htmlFor="tooth-number-overlay-toggle" className="text-sm font-medium text-green-900">
+                                🔢 Tooth Number Overlay
+                              </Label>
+                              <p className="text-xs text-green-700 mt-1">
+                                Show tooth numbers on the annotated X-ray for easier reference
+                              </p>
+                            </div>
+                            <Switch
+                              id="tooth-number-overlay-toggle"
+                              checked={showToothNumberOverlay}
+                              onCheckedChange={(checked) => {
+                                setShowToothNumberOverlay(checked);
+                                localStorage.setItem('showToothNumberOverlay', checked.toString());
+                              }}
+                              className="data-[state=checked]:bg-green-600"
                             />
                           </div>
                         </div>

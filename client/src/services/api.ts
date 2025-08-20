@@ -485,5 +485,40 @@ export const api = {
     });
     if (!response.ok) throw new Error('Failed to create billing portal session');
     return response.json() as Promise<{ url: string }>
+  },
+
+  // Tooth Number Overlay
+  async addToothNumberOverlay(imageUrl: string, numberingSystem: string = 'FDI', showNumbers: boolean = true) {
+    try {
+      const token = await this.getAuthToken();
+      
+      console.log('🔢 API: Adding tooth number overlay:', { imageUrl, numberingSystem, showNumbers });
+      
+      const response = await fetch(`${API_BASE_URL}/image/overlay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_url: imageUrl,
+          numbering_system: numberingSystem,
+          show_numbers: showNumbers
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🔢 API: Overlay request failed:', response.status, errorText);
+        throw new Error(`Failed to add tooth number overlay: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('🔢 API: Overlay result:', result);
+      return result;
+    } catch (error) {
+      console.error('🔢 API: Overlay error:', error);
+      throw error;
+    }
   }
 };
