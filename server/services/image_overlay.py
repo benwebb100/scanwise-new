@@ -10,17 +10,22 @@ logger = logging.getLogger(__name__)
 class ImageOverlayService:
     def __init__(self):
         # Default font size and color for tooth numbers
-        self.font_size = 24
+        self.base_font_size = 32  # Increased from 24 for better visibility
         self.text_color = (255, 255, 255)  # White text
         self.outline_color = (0, 0, 0)     # Black outline
         self.outline_width = 2
+        
+        # Condition-based styling
+        self.condition_font_size_multiplier = 1.5  # Teeth with conditions get 1.5x larger text
         
     async def add_tooth_number_overlay(
         self, 
         image_url: str, 
         segmentation_data: Dict, 
         numbering_system: str = "FDI",
-        show_numbers: bool = True
+        show_numbers: bool = True,
+        text_size_multiplier: float = 1.0,
+        condition_data: Optional[Dict] = None
     ) -> Optional[str]:
         """
         Add tooth number overlays to an X-ray image using segmentation data.
@@ -76,6 +81,9 @@ class ImageOverlayService:
             overlay_image = image.copy()
             draw = ImageDraw.Draw(overlay_image)
             
+            # Calculate font size based on multiplier
+            font_size = int(self.base_font_size * text_size_multiplier)
+            
             # Try to load a font, fallback to default if not available
             font = None
             font_paths = [
@@ -88,8 +96,8 @@ class ImageOverlayService:
             
             for font_path in font_paths:
                 try:
-                    font = ImageFont.truetype(font_path, self.font_size)
-                    logger.info(f"Loaded font from: {font_path}")
+                    font = ImageFont.truetype(font_path, font_size)
+                    logger.info(f"Loaded font from: {font_path} with size {font_size}")
                     break
                 except Exception as e:
                     logger.debug(f"Failed to load font from {font_path}: {e}")
@@ -102,11 +110,11 @@ class ImageOverlayService:
             # Process segmentation data
             teeth = self._extract_teeth_from_segmentation(segmentation_data, numbering_system)
             
-            # Draw tooth numbers
+            # Draw tooth numbers with condition-based styling
             if teeth:
                 logger.info(f"Drawing {len(teeth)} tooth numbers on image")
                 for tooth in teeth:
-                    self._draw_tooth_number(draw, font, tooth)
+                    self._draw_tooth_number(draw, font, tooth, condition_data, text_size_multiplier)
             else:
                 logger.warning("No valid teeth found for overlay")
             
@@ -193,15 +201,34 @@ class ImageOverlayService:
         logger.info(f"Successfully extracted {len(teeth)} valid teeth")
         return teeth
     
-    def _draw_tooth_number(self, draw: ImageDraw.Draw, font: ImageFont.FreeTypeFont, tooth: Dict):
+    def _draw_tooth_number(self, draw: ImageDraw.Draw, font: ImageFont.FreeTypeFont, tooth: Dict, 
+                          condition_data: Optional[Dict] = None, text_size_multiplier: float = 1.0):
         """
-        Draw a tooth number on the image with outline for visibility.
+        Draw a tooth number on the image with condition-based styling.
         """
         tooth_number = tooth["tooth_number"]
         x, y = tooth["x"], tooth["y"]
         
+        # Determine if this tooth has conditions and get styling
+        has_condition, condition_color, is_condition_tooth = self._get_tooth_condition_info(
+            tooth_number, condition_data
+        )
+        
+        # Use condition-based font size if applicable
+        if is_condition_tooth:
+            condition_font_size = int(self.base_font_size * self.condition_font_size_multiplier * text_size_multiplier)
+            try:
+                condition_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", condition_font_size)
+            except:
+                condition_font = font  # Fallback to original font
+        else:
+            condition_font = font
+        
+        # Use condition-based font for this tooth
+        current_font = condition_font if is_condition_tooth else font
+        
         # Calculate text position (center of tooth bounding box)
-        bbox = draw.textbbox((0, 0), tooth_number, font=font)
+        bbox = draw.textbbox((0, 0), tooth_number, font=current_font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
@@ -209,14 +236,133 @@ class ImageOverlayService:
         text_x = x - (text_width / 2)
         text_y = y - (text_height / 2)
         
-        # Draw outline (black background for visibility)
-        for dx in range(-self.outline_width, self.outline_width + 1):
-            for dy in range(-self.outline_width, self.outline_width + 1):
+        # Determine text color based on conditions
+        if is_condition_tooth and condition_color:
+            text_color = condition_color
+            # Use a darker outline for better contrast with colored text
+            outline_color = (0, 0, 0)  # Black outline
+        else:
+            text_color = self.text_color
+            outline_color = self.outline_color
+        
+        # Draw outline for visibility
+        outline_width = max(2, int(3 * text_size_multiplier))  # Thicker outline for larger text
+        for dx in range(-outline_width, outline_width + 1):
+            for dy in range(-outline_width, outline_width + 1):
                 if dx != 0 or dy != 0:  # Skip center pixel
-                    draw.text((text_x + dx, text_y + dy), tooth_number, font=font, fill=self.outline_color)
+                    draw.text((text_x + dx, text_y + dy), tooth_number, font=current_font, fill=outline_color)
         
         # Draw main text
-        draw.text((text_x, text_y), tooth_number, font=font, fill=self.text_color)
+        draw.text((text_x, text_y), tooth_number, font=current_font, fill=text_color)
+    
+    def _get_tooth_condition_info(self, tooth_number: str, condition_data: Optional[Dict]) -> tuple[bool, Optional[tuple], bool]:
+        """
+        Determine if a tooth has conditions and get styling information.
+        Returns: (has_condition, condition_color, is_condition_tooth)
+        """
+        if not condition_data or not condition_data.get("predictions"):
+            return False, None, False
+        
+        # Convert tooth number to match condition data format
+        # Condition data might use different numbering systems
+        tooth_int = int(tooth_number) if tooth_number.isdigit() else None
+        if tooth_int is None:
+            return False, None, False
+        
+        # Check if this tooth has any conditions
+        has_condition = False
+        condition_color = None
+        
+        for detection in condition_data["predictions"]:
+            # Try to match tooth by position or explicit tooth number
+            detection_tooth = detection.get("tooth_number") or detection.get("tooth")
+            
+            if detection_tooth and str(detection_tooth) == tooth_number:
+                has_condition = True
+                # Get condition type to determine color
+                condition_type = detection.get("class", "").lower()
+                condition_color = self._get_condition_color(condition_type)
+                break
+        
+        # Also check if this tooth is in the area of any detection
+        # This helps catch teeth that might not have explicit tooth numbers but are in problem areas
+        for detection in condition_data["predictions"]:
+            if self._tooth_in_detection_area(tooth_number, detection):
+                has_condition = True
+                condition_type = detection.get("class", "").lower()
+                if not condition_color:  # Only set if not already set
+                    condition_color = self._get_condition_color(condition_type)
+                break
+        
+        return has_condition, condition_color, has_condition
+    
+    def _get_condition_color(self, condition_type: str) -> Optional[tuple]:
+        """
+        Get the color for a specific condition type.
+        """
+        condition_colors = {
+            'bone-level': (108, 74, 53),      # #6C4A35
+            'caries': (88, 238, 195),         # #58eec3
+            'crown': (255, 0, 212),           # #FF00D4
+            'filling': (255, 0, 77),          # #FF004D
+            'fracture': (255, 105, 248),      # #FF69F8
+            'impacted-tooth': (255, 215, 0),  # #FFD700
+            'implant': (0, 255, 90),          # #00FF5A
+            'missing-teeth-no-distal': (79, 226, 226),  # #4FE2E2
+            'missing-tooth-between': (140, 40, 254),    # #8c28fe
+            'periapical-lesion': (0, 123, 255),         # #007BFF
+            'post': (0, 255, 213),            # #00FFD5
+            'root-piece': (254, 78, 237),     # #fe4eed
+            'root-canal-treatment': (255, 0, 77),  # #FF004D
+            'tissue-level': (162, 146, 93),   # #A2925D
+        }
+        
+        # Normalize condition type
+        normalized_condition = condition_type.lower().replace(' ', '-').replace('_', '-')
+        return condition_colors.get(normalized_condition)
+    
+    def _tooth_in_detection_area(self, tooth_number: str, detection: Dict) -> bool:
+        """
+        Check if a tooth is in the area of a detection.
+        This helps catch teeth that might be affected by nearby conditions.
+        """
+        try:
+            tooth_int = int(tooth_number)
+            detection_x = float(detection.get("x", 0))
+            detection_y = float(detection.get("y", 0))
+            detection_w = float(detection.get("width", 0))
+            detection_h = float(detection.get("height", 0))
+            
+            # Get tooth position from segmentation data
+            # This is a simplified check - in practice, you'd want to use the actual tooth positions
+            # For now, we'll use a heuristic based on tooth numbering
+            
+            # Check if tooth is in the same quadrant as the detection
+            if 11 <= tooth_int <= 18:  # Upper right
+                expected_x_range = (0.5, 1.0)
+                expected_y_range = (0.0, 0.5)
+            elif 21 <= tooth_int <= 28:  # Upper left
+                expected_x_range = (0.0, 0.5)
+                expected_y_range = (0.0, 0.5)
+            elif 31 <= tooth_int <= 38:  # Lower left
+                expected_x_range = (0.0, 0.5)
+                expected_y_range = (0.5, 1.0)
+            elif 41 <= tooth_int <= 48:  # Lower right
+                expected_x_range = (0.5, 1.0)
+                expected_y_range = (0.5, 1.0)
+            else:
+                return False
+            
+            # Check if detection overlaps with expected tooth area
+            # This is a simplified overlap check
+            detection_center_x = detection_x / 1000.0  # Normalize to 0-1 range
+            detection_center_y = detection_y / 1000.0  # Normalize to 0-1 range
+            
+            return (expected_x_range[0] <= detection_center_x <= expected_x_range[1] and
+                    expected_y_range[0] <= detection_center_y <= expected_y_range[1])
+                    
+        except (ValueError, TypeError):
+            return False
     
     def _fdi_to_universal(self, fdi_number: str) -> str:
         """

@@ -103,6 +103,8 @@ class ToothNumberOverlayRequest(BaseModel):
     image_url: str
     numbering_system: str = "FDI"
     show_numbers: bool = True
+    text_size_multiplier: float = 1.0
+    condition_data: Optional[Dict] = None
 
 class TreatmentCostEstimate(BaseModel):
     treatment_code: str
@@ -1476,7 +1478,8 @@ async def add_tooth_number_overlay(
         
         # Add tooth number overlay
         overlay_image = await image_overlay_service.add_tooth_number_overlay(
-            request.image_url, seg_json, request.numbering_system, request.show_numbers
+            request.image_url, seg_json, request.numbering_system, request.show_numbers,
+            request.text_size_multiplier, request.condition_data
         )
         
         if overlay_image:

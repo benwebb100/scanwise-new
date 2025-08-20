@@ -25,14 +25,14 @@ export function generateReplacementOptionsTable(data: ReplacementOptionsData): s
   // Context-specific content
   const contextInfo = {
     'missing-tooth': {
-      title: '🦷 Missing Tooth Replacement Options',
+      title: 'Missing Tooth Replacement Options',
       subtitle: 'A side-by-side comparison to help you understand the pros, cons, costs, and recovery time for each option.',
       implantDesc: 'A titanium post surgically placed into the jawbone to support a crown.',
       bridgeDesc: 'A false tooth anchored to the adjacent natural teeth.',
       dentureDesc: 'A removable plate with one or more replacement teeth.'
     },
     'extraction-replacement': {
-      title: '🦷 Extraction Replacement Options',
+      title: 'Extraction Replacement Options',
       subtitle: `After extracting tooth ${toothNumber}, here are your replacement options with pros, cons, costs, and recovery time.`,
       implantDesc: 'A titanium post surgically placed into the jawbone after extraction healing to support a crown.',
       bridgeDesc: 'A false tooth anchored to the adjacent natural teeth, can be done after extraction.',
@@ -67,7 +67,7 @@ export function generateReplacementOptionsTable(data: ReplacementOptionsData): s
         
         <!-- Dental Implant Card -->
         <div style="background:white;border-radius:8px;border:1px solid #e9ecef;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-          <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:16px;color:white;">
+          <div style="background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);padding:16px;color:white;">
             <h3 style="margin:0;font-size:18px;font-weight:600;">Dental Implant</h3>
             ${getRecommendationBadge('implant-placement')}
           </div>
@@ -116,7 +116,7 @@ export function generateReplacementOptionsTable(data: ReplacementOptionsData): s
 
         <!-- Dental Bridge Card -->
         <div style="background:white;border-radius:8px;border:1px solid #e9ecef;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-          <div style="background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%);padding:16px;color:white;">
+          <div style="background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);padding:16px;color:white;">
             <h3 style="margin:0;font-size:18px;font-weight:600;">Dental Bridge</h3>
             ${getRecommendationBadge('bridge')}
           </div>

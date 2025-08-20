@@ -84,7 +84,17 @@ const CreateReport = () => {
   // Global toggle: show tooth numbers on X-ray
   const [showToothNumberOverlay, setShowToothNumberOverlay] = useState<boolean>(() => {
     const saved = localStorage.getItem('showToothNumberOverlay');
+    // Default to false to ensure consistent behavior
     return saved === 'true';
+  });
+  
+  // Store the original image URL to restore when toggle is turned off
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  
+  // Text size multiplier for tooth numbers
+  const [textSizeMultiplier, setTextSizeMultiplier] = useState<number>(() => {
+    const saved = localStorage.getItem('toothNumberTextSize');
+    return saved ? parseFloat(saved) : 1.0;
   });
   
   // Function to refresh image with tooth number overlay
@@ -97,10 +107,12 @@ const CreateReport = () => {
       const overlayResult = await api.addToothNumberOverlay(
         imageUrl,
         toothNumberingSystem, // Use user's preferred numbering system
-        true
+        true,
+        textSizeMultiplier, // Include text size multiplier
+        immediateAnalysisData?.original_predictions // Include condition data for styling
       );
       
-      if (overlayResult.has_overlay) {
+      if (overlayResult && overlayResult.has_overlay) {
         return overlayResult.image_url;
       }
     } catch (error) {
@@ -108,6 +120,16 @@ const CreateReport = () => {
     }
     
     return imageUrl; // Return original if overlay fails
+  };
+  
+  // Function to restore original image when toggle is turned off
+  const restoreOriginalImage = () => {
+    if (originalImageUrl && immediateAnalysisData?.annotated_image_url !== originalImageUrl) {
+      setImmediateAnalysisData((prev: any) => ({
+        ...prev,
+        annotated_image_url: originalImageUrl
+      }));
+    }
   };
   
   // Progress steps for report generation
@@ -177,10 +199,14 @@ const CreateReport = () => {
   
   // Effect to refresh image when tooth number overlay toggle changes
   useEffect(() => {
-    if (immediateAnalysisData?.annotated_image_url && showToothNumberOverlay) {
-      const currentImageUrl = immediateAnalysisData.annotated_image_url;
+    if (!immediateAnalysisData?.annotated_image_url) return;
+    
+    const currentImageUrl = immediateAnalysisData.annotated_image_url;
+    
+    if (showToothNumberOverlay) {
+      // Toggle is ON - add overlay
+      console.log('🔢 TOOTH OVERLAY: Toggle turned ON, adding overlay...');
       refreshImageWithOverlay(currentImageUrl).then(newImageUrl => {
-        // Only update if we still have the same image and the toggle is still on
         if (newImageUrl !== currentImageUrl && 
             immediateAnalysisData?.annotated_image_url === currentImageUrl &&
             showToothNumberOverlay) {
@@ -190,8 +216,12 @@ const CreateReport = () => {
           }));
         }
       });
+    } else {
+      // Toggle is OFF - restore original image
+      console.log('🔢 TOOTH OVERLAY: Toggle turned OFF, restoring original image...');
+      restoreOriginalImage();
     }
-  }, [showToothNumberOverlay]); // Only depend on the toggle, not the image URL
+  }, [showToothNumberOverlay, textSizeMultiplier]); // Depend on toggle and text size
   
   let recognition: any = null;
 
@@ -265,6 +295,11 @@ const CreateReport = () => {
       
       setImmediateAnalysisData(analysisResult);
       setDetections(analysisResult.detections || []);
+      
+      // Store the original image URL for tooth number overlay toggle
+      if (analysisResult.annotated_image_url) {
+        setOriginalImageUrl(analysisResult.annotated_image_url);
+      }
       
       toast({
         title: "AI Analysis Complete",
@@ -492,6 +527,11 @@ const CreateReport = () => {
           }
         }
         
+        // Store original image URL for tooth number overlay toggle
+        if (analysisResult.annotated_image_url) {
+          setOriginalImageUrl(analysisResult.annotated_image_url);
+        }
+        
         // Handle tooth number overlay if toggle is on
         if (showToothNumberOverlay && analysisResult.annotated_image_url) {
           try {
@@ -501,7 +541,9 @@ const CreateReport = () => {
             const overlayResult = await api.addToothNumberOverlay(
               analysisResult.annotated_image_url,
               toothNumberingSystem, // Use user's preferred numbering system
-              true
+              true,
+              textSizeMultiplier, // Include text size multiplier
+              analysisResult.original_predictions // Include condition data for styling
             );
             
             if (overlayResult && overlayResult.has_overlay) {
@@ -707,6 +749,11 @@ const CreateReport = () => {
       findingsCount: findings.length,
       doctorFindingsCount: findings.filter(f => f.tooth && f.condition && f.treatment).length
     });
+    
+    // CRITICAL FIX: Always use the original annotated image for reports, never the numbered version
+    // This ensures reports always show clean X-rays without tooth numbers
+    const reportImageUrl = originalImageUrl || data.annotated_image_url;
+    console.log('🔧 REPORT IMAGE: Using original image for report:', !!originalImageUrl, 'URL:', reportImageUrl);
     
     // Use doctor's findings as the primary source of truth
     const doctorFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
@@ -1391,9 +1438,10 @@ const CreateReport = () => {
           });
         })()}
 
-        ${data.annotated_image_url ? `
+        ${reportImageUrl ? `
           <!-- Annotated X-Ray Section -->
           <div style="padding: 40px 20px; text-align: center;">
+
             <h3 style="font-size: 24px; margin-bottom: 10px;">Annotated X-Ray Image</h3>
             <p style="color: #666; margin-bottom: 30px;">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
             
@@ -1462,7 +1510,7 @@ const CreateReport = () => {
               `;
             })()}
             
-            <img src="${data.annotated_image_url}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
+            <img src="${reportImageUrl}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
           </div>
         ` : `
           <!-- No X-Ray Section -->
@@ -2086,6 +2134,80 @@ const CreateReport = () => {
                       )}
                     </div>
 
+
+
+                    {/* Tooth Number Overlay Toggle - Positioned above the image */}
+                    {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
+                      <div className="mt-6 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <Label htmlFor="tooth-number-overlay-toggle" className="text-sm font-medium text-green-900">
+                              🔢 Tooth Number Overlay
+                            </Label>
+                            <p className="text-xs text-green-700 mt-1">
+                              Show tooth numbers on the annotated X-ray for easier reference
+                            </p>
+                          </div>
+                          <Switch
+                            id="tooth-number-overlay-toggle"
+                            checked={showToothNumberOverlay}
+                            onCheckedChange={(checked) => {
+                              setShowToothNumberOverlay(checked);
+                              localStorage.setItem('showToothNumberOverlay', checked.toString());
+                              
+                              // Immediately handle the toggle change
+                              if (!checked && originalImageUrl) {
+                                // Toggle turned OFF - immediately restore original image
+                                setImmediateAnalysisData((prev: any) => ({
+                                  ...prev,
+                                  annotated_image_url: originalImageUrl
+                                }));
+                              }
+                            }}
+                            className="data-[state=checked]:bg-green-600"
+                          />
+                        </div>
+                        
+                        {/* Text Size Slider - Only show when toggle is ON */}
+                        {showToothNumberOverlay && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="text-size-slider" className="text-xs font-medium text-green-800">
+                                Text Size: {textSizeMultiplier.toFixed(1)}x
+                              </Label>
+                              <span className="text-xs text-green-600">
+                                {Math.round(32 * textSizeMultiplier)}px
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-green-600">Small</span>
+                              <input
+                                id="text-size-slider"
+                                type="range"
+                                min="0.5"
+                                max="2.5"
+                                step="0.1"
+                                value={textSizeMultiplier}
+                                onChange={(e) => {
+                                  const newValue = parseFloat(e.target.value);
+                                  setTextSizeMultiplier(newValue);
+                                  localStorage.setItem('toothNumberTextSize', newValue.toString());
+                                }}
+                                className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer slider"
+                                style={{
+                                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(textSizeMultiplier - 0.5) / 2 * 100}%, #d1fae5 ${(textSizeMultiplier - 0.5) / 2 * 100}%, #d1fae5 100%)`
+                                }}
+                              />
+                              <span className="text-xs text-green-600">Large</span>
+                            </div>
+                            <p className="text-xs text-green-600">
+                              Teeth with conditions will appear {Math.round(1.5 * textSizeMultiplier * 100)}% larger
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* UNIFIED AI Analysis Section - Single source of truth */}
                     {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
                       <AIAnalysisSection
@@ -2298,35 +2420,7 @@ const CreateReport = () => {
                       );
                     })()}
 
-                    {/* Tooth Number Overlay Toggle - Only show if there are findings */}
-                    {(() => {
-                      const hasFindings = findings.length > 0;
-                      if (!hasFindings) return null;
-                      
-                      return (
-                        <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label htmlFor="tooth-number-overlay-toggle" className="text-sm font-medium text-green-900">
-                                🔢 Tooth Number Overlay
-                              </Label>
-                              <p className="text-xs text-green-700 mt-1">
-                                Show tooth numbers on the annotated X-ray for easier reference
-                              </p>
-                            </div>
-                            <Switch
-                              id="tooth-number-overlay-toggle"
-                              checked={showToothNumberOverlay}
-                              onCheckedChange={(checked) => {
-                                setShowToothNumberOverlay(checked);
-                                localStorage.setItem('showToothNumberOverlay', checked.toString());
-                              }}
-                              className="data-[state=checked]:bg-green-600"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })()}
+
 
                     {/* Submit Button - Only show if no report */}
                     {!report && (
