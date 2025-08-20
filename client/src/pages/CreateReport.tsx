@@ -453,6 +453,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty, using frontend generation');
+          console.log('🚀 REPORT GENERATION: Calling generateReportHTML with toggle state:', showReplacementOptionsTable);
           reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML length:', reportHtml?.length || 0);
         }
@@ -538,6 +539,7 @@ const CreateReport = () => {
         let reportHtml = analysisResult.report_html;
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty (no xray), using frontend generation');
+          console.log('🚀 REPORT GENERATION: Calling generateReportHTML with toggle state (no xray):', showReplacementOptionsTable);
           reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML (no xray) length:', reportHtml?.length || 0);
         }
@@ -631,6 +633,11 @@ const CreateReport = () => {
     
     // Use doctor's findings as the primary source of truth
     const doctorFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+    
+    // CRITICAL FIX: Use the current findings state, not stale data
+    // The data parameter might contain stale findings, so we use the current findings state
+    console.log('🔧 Current findings state:', findings);
+    console.log('🔧 Data parameter:', data);
     
     // Helper functions first
     const generateADACode = (treatment: string) => {
@@ -1266,6 +1273,47 @@ const CreateReport = () => {
           })()}
         </div>
 
+        ${(() => {
+          // Debug logging to understand why table might not be showing
+          console.log('🔍 Table Generation Debug:', {
+            showReplacementTable,
+            findingsCount: findings.length,
+            allFindings: findings.map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment })),
+            relevantTreatments: findings.filter(f => 
+              f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
+            ).map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment })),
+            clinicPrices: clinicPrices,
+            toggleState: showReplacementOptionsTable // Add this to see the actual toggle state
+          });
+          
+          // Only show the table if the toggle is on
+          if (!showReplacementTable) {
+            console.log('❌ Table not shown: toggle is OFF');
+            console.log('❌ Toggle state details:', { showReplacementTable, showReplacementOptionsTable });
+            return '';
+          }
+          
+          // Check if there are any relevant replacement treatments
+          const relevantTreatments = findings.filter(f => 
+            f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
+          );
+          
+          if (relevantTreatments.length === 0) {
+            console.log('❌ Table not shown: no relevant treatments found');
+            console.log('❌ All treatments found:', findings.map(f => f.treatment).filter(Boolean));
+            return '';
+          }
+          
+          console.log('✅ Generating unified replacement options table for treatments:', relevantTreatments.map(f => f.treatment));
+          
+          // Generate the table with all relevant treatments
+          return generateReplacementOptionsTable({
+            context: 'missing-tooth',
+            selectedTreatment: relevantTreatments[0].treatment, // Use first treatment as primary
+            clinicPrices: clinicPrices
+          });
+        })()}
+
         ${data.annotated_image_url ? `
           <!-- Annotated X-Ray Section -->
           <div style="padding: 40px 20px; text-align: center;">
@@ -1337,7 +1385,7 @@ const CreateReport = () => {
               `;
             })()}
             
-            <img src="${data.annotated_image_url}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
+            <img src="${data.annotated_image_url}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
           </div>
         ` : `
           <!-- No X-Ray Section -->
@@ -1347,27 +1395,6 @@ const CreateReport = () => {
             <p style="color: #888; font-size: 14px;">For a more comprehensive analysis, please upload an X-ray image.</p>
           </div>
         `}
-        
-        ${(() => {
-          // Only show the table if the toggle is on
-          if (!showReplacementTable) return '';
-          
-          // Check if there are any relevant replacement treatments
-          const relevantTreatments = findings.filter(f => 
-            f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
-          );
-          
-          if (relevantTreatments.length === 0) return '';
-          
-          console.log('✅ Generating unified replacement options table for treatments:', relevantTreatments.map(f => f.treatment));
-          
-          // Generate the table with all relevant treatments
-          return generateReplacementOptionsTable({
-            context: 'missing-tooth',
-            selectedTreatment: relevantTreatments[0].treatment, // Use first treatment as primary
-            clinicPrices: clinicPrices
-          });
-        })()}
       </div>
       </div>
     `;
@@ -2042,30 +2069,6 @@ const CreateReport = () => {
                           </div>
                         </div>
                         
-                        {/* Global Settings for Report Options */}
-                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-                          <h4 className="font-medium text-gray-900 mb-3">Report Options</h4>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label htmlFor="replacement-options-table" className="text-sm font-medium text-gray-700">
-                                Replacement Options Comparison Table
-                              </Label>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Include comparison table for all replacement treatments (implants, bridges, partial dentures)
-                              </p>
-                            </div>
-                            <Switch
-                              id="replacement-options-table"
-                              checked={showReplacementOptionsTable}
-                              onCheckedChange={(checked) => {
-                                setShowReplacementOptionsTable(checked);
-                                localStorage.setItem('showReplacementOptionsTable', checked.toString());
-                              }}
-                              className="data-[state=checked]:bg-blue-600"
-                            />
-                          </div>
-                        </div>
-                        
                         <div id="findings-list" className="space-y-4">
                         {findings.map((f, idx) => {
                           const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
@@ -2183,6 +2186,40 @@ const CreateReport = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Unified Replacement Options Toggle - Only show when relevant treatments exist */}
+                    {(() => {
+                      // Check if any findings have relevant replacement treatments
+                      const hasReplacementTreatments = findings.some(f => 
+                        f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
+                      );
+                      
+                      if (!hasReplacementTreatments) return null;
+                      
+                      return (
+                        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label htmlFor="replacement-options-toggle" className="text-sm font-medium text-blue-900">
+                                🦷 Replacement Options Comparison
+                              </Label>
+                              <p className="text-xs text-blue-700 mt-1">
+                                Include a comprehensive comparison table for all replacement treatments in your report
+                              </p>
+                            </div>
+                            <Switch
+                              id="replacement-options-toggle"
+                              checked={showReplacementOptionsTable}
+                              onCheckedChange={(checked) => {
+                                setShowReplacementOptionsTable(checked);
+                                localStorage.setItem('showReplacementOptionsTable', checked.toString());
+                              }}
+                              className="data-[state=checked]:bg-blue-600"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Submit Button - Only show if no report */}
                     {!report && (
@@ -2397,39 +2434,7 @@ const CreateReport = () => {
                     </div>
                   </div>
 
-                  {/* Unified Replacement Options Toggle - Only show when relevant treatments exist */}
-                  {(() => {
-                    // Check if any findings have relevant replacement treatments
-                    const hasReplacementTreatments = findings.some(f => 
-                      f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
-                    );
-                    
-                    if (!hasReplacementTreatments) return null;
-                    
-                    return (
-                      <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <Label htmlFor="replacement-options-toggle" className="text-sm font-medium text-blue-900">
-                              🦷 Replacement Options Comparison
-                            </Label>
-                            <p className="text-xs text-blue-700 mt-1">
-                              Include a comprehensive comparison table for all replacement treatments in your report
-                            </p>
-                          </div>
-                          <Switch
-                            id="replacement-options-toggle"
-                            checked={showReplacementOptionsTable}
-                            onCheckedChange={(checked) => {
-                              setShowReplacementOptionsTable(checked);
-                              localStorage.setItem('showReplacementOptionsTable', checked.toString());
-                            }}
-                            className="data-[state=checked]:bg-blue-600"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
+
 
                   {/* Submit Button for Non-X-ray Mode */}
                   <div className="flex justify-center mt-8">
