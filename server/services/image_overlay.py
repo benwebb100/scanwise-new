@@ -107,13 +107,16 @@ class ImageOverlayService:
                 logger.warning("No system fonts found, using default font")
                 font = ImageFont.load_default()
             
-            # Process segmentation data
-            teeth = self._extract_teeth_from_segmentation(segmentation_data, numbering_system)
+            # Process segmentation data to get segmented teeth
+            segmented_teeth = self._extract_teeth_from_segmentation(segmentation_data, numbering_system)
+            
+            # Add virtual teeth for conditions that don't have segmented teeth
+            all_teeth = self._add_virtual_teeth_for_conditions(segmented_teeth, condition_data, numbering_system)
             
             # Draw tooth numbers with condition-based styling
-            if teeth:
-                logger.info(f"Drawing {len(teeth)} tooth numbers on image")
-                for tooth in teeth:
+            if all_teeth:
+                logger.info(f"Drawing {len(all_teeth)} tooth numbers on image ({len(segmented_teeth)} segmented + {len(all_teeth) - len(segmented_teeth)} virtual)")
+                for tooth in all_teeth:
                     self._draw_tooth_number(draw, font, tooth, condition_data, text_size_multiplier)
             else:
                 logger.warning("No valid teeth found for overlay")
@@ -201,6 +204,58 @@ class ImageOverlayService:
         logger.info(f"Successfully extracted {len(teeth)} valid teeth")
         return teeth
     
+    def _add_virtual_teeth_for_conditions(
+        self, 
+        segmented_teeth: List[Dict], 
+        condition_data: Optional[Dict], 
+        numbering_system: str
+    ) -> List[Dict]:
+        """
+        Add virtual tooth positions for conditions that don't have segmented teeth.
+        This ensures conditions like impacted teeth, root pieces, etc. get numbered.
+        """
+        if not condition_data:
+            return segmented_teeth
+        
+        # Handle both array format and dict format
+        if isinstance(condition_data, list):
+            detections = condition_data
+        else:
+            detections = condition_data.get("detections", [])
+            
+        if not detections:
+            return segmented_teeth
+        
+        all_teeth = segmented_teeth.copy()
+        segmented_tooth_numbers = {tooth["tooth_number"] for tooth in segmented_teeth}
+        
+        # Process each condition detection
+        for detection in detections:
+            tooth_number = detection.get("tooth_number")
+            if not tooth_number or str(tooth_number) in segmented_tooth_numbers:
+                continue  # Skip if no tooth number or already segmented
+            
+            # Get detection coordinates to place virtual tooth
+            detection_x = detection.get("x", 0)
+            detection_y = detection.get("y", 0)
+            detection_w = detection.get("width", 50)  # Default width
+            detection_h = detection.get("height", 50)  # Default height
+            
+            # Create virtual tooth at detection position
+            virtual_tooth = {
+                "tooth_number": str(tooth_number),
+                "x": float(detection_x),
+                "y": float(detection_y), 
+                "width": float(detection_w),
+                "height": float(detection_h),
+                "is_virtual": True  # Mark as virtual for debugging
+            }
+            
+            all_teeth.append(virtual_tooth)
+            logger.info(f"Added virtual tooth {tooth_number} at condition position ({detection_x}, {detection_y})")
+        
+        return all_teeth
+    
     def _draw_tooth_number(self, draw: ImageDraw.Draw, font: ImageFont.FreeTypeFont, tooth: Dict, 
                           condition_data: Optional[Dict] = None, text_size_multiplier: float = 1.0):
         """
@@ -260,41 +315,29 @@ class ImageOverlayService:
         Determine if a tooth has conditions and get styling information.
         Returns: (has_condition, condition_color, is_condition_tooth)
         """
-        if not condition_data or not condition_data.get("predictions"):
+        if not condition_data:
             return False, None, False
         
-        # Convert tooth number to match condition data format
-        # Condition data might use different numbering systems
-        tooth_int = int(tooth_number) if tooth_number.isdigit() else None
-        if tooth_int is None:
-            return False, None, False
+        # Check if this tooth appears in the detections data
+        # The condition_data should be the mapped detections that include tooth_number assignments
+        # Handle both array format and dict format
+        if isinstance(condition_data, list):
+            detections = condition_data
+        else:
+            detections = condition_data.get("detections", [])
         
-        # Check if this tooth has any conditions
-        has_condition = False
-        condition_color = None
-        
-        for detection in condition_data["predictions"]:
-            # Try to match tooth by position or explicit tooth number
-            detection_tooth = detection.get("tooth_number") or detection.get("tooth")
-            
+        for detection in detections:
+            # Check if this detection has been mapped to this tooth number
+            detection_tooth = detection.get("tooth_number")
             if detection_tooth and str(detection_tooth) == tooth_number:
-                has_condition = True
-                # Get condition type to determine color
+                # Found a condition mapped to this tooth
                 condition_type = detection.get("class", "").lower()
                 condition_color = self._get_condition_color(condition_type)
-                break
+                logger.debug(f"Found condition '{condition_type}' for tooth {tooth_number}")
+                return True, condition_color, True
         
-        # Also check if this tooth is in the area of any detection
-        # This helps catch teeth that might not have explicit tooth numbers but are in problem areas
-        for detection in condition_data["predictions"]:
-            if self._tooth_in_detection_area(tooth_number, detection):
-                has_condition = True
-                condition_type = detection.get("class", "").lower()
-                if not condition_color:  # Only set if not already set
-                    condition_color = self._get_condition_color(condition_type)
-                break
-        
-        return has_condition, condition_color, has_condition
+        # No condition found for this tooth
+        return False, None, False
     
     def _get_condition_color(self, condition_type: str) -> Optional[tuple]:
         """
@@ -386,3 +429,4 @@ class ImageOverlayService:
 
 # Create singleton instance
 image_overlay_service = ImageOverlayService()
+

@@ -84,8 +84,8 @@ const CreateReport = () => {
   // Global toggle: show tooth numbers on X-ray
   const [showToothNumberOverlay, setShowToothNumberOverlay] = useState<boolean>(() => {
     const saved = localStorage.getItem('showToothNumberOverlay');
-    // Default to false to ensure consistent behavior
-    return saved === 'true';
+    // Default to false - toggle should be OFF by default when AI analysis first appears
+    return false;
   });
   
   // Store the original image URL to restore when toggle is turned off
@@ -94,8 +94,12 @@ const CreateReport = () => {
   // Text size multiplier for tooth numbers
   const [textSizeMultiplier, setTextSizeMultiplier] = useState<number>(() => {
     const saved = localStorage.getItem('toothNumberTextSize');
-    return saved ? parseFloat(saved) : 1.0;
+    // Default to 1.2x (38px) when first turned on, otherwise use saved value
+    return saved ? parseFloat(saved) : 1.2;
   });
+  
+  // State to track when text size is being updated
+  const [isUpdatingTextSize, setIsUpdatingTextSize] = useState<boolean>(false);
   
   // Function to refresh image with tooth number overlay
   const refreshImageWithOverlay = async (imageUrl: string) => {
@@ -109,7 +113,7 @@ const CreateReport = () => {
         toothNumberingSystem, // Use user's preferred numbering system
         true,
         textSizeMultiplier, // Include text size multiplier
-        immediateAnalysisData?.original_predictions // Include condition data for styling
+        immediateAnalysisData?.detections // Use mapped detections with tooth number assignments
       );
       
       if (overlayResult && overlayResult.has_overlay) {
@@ -221,7 +225,35 @@ const CreateReport = () => {
       console.log('🔢 TOOTH OVERLAY: Toggle turned OFF, restoring original image...');
       restoreOriginalImage();
     }
-  }, [showToothNumberOverlay, textSizeMultiplier]); // Depend on toggle and text size
+  }, [showToothNumberOverlay]); // Only depend on toggle, not text size
+
+  // Separate effect for real-time text size updates with debouncing
+  useEffect(() => {
+    if (!showToothNumberOverlay || !immediateAnalysisData?.annotated_image_url) return;
+    
+    // Debounce the text size changes to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      console.log('🔢 TOOTH OVERLAY: Text size changed to', textSizeMultiplier, 'x, refreshing overlay...');
+      setIsUpdatingTextSize(true);
+      
+      const currentImageUrl = immediateAnalysisData.annotated_image_url;
+      refreshImageWithOverlay(currentImageUrl).then(newImageUrl => {
+        if (newImageUrl !== currentImageUrl && 
+            immediateAnalysisData?.annotated_image_url === currentImageUrl &&
+            showToothNumberOverlay) {
+          setImmediateAnalysisData((prev: any) => ({
+            ...prev,
+            annotated_image_url: newImageUrl
+          }));
+        }
+        setIsUpdatingTextSize(false);
+      }).catch(() => {
+        setIsUpdatingTextSize(false);
+      });
+    }, 300); // 300ms debounce delay
+    
+    return () => clearTimeout(timeoutId);
+  }, [textSizeMultiplier, showToothNumberOverlay]); // Depend on text size and toggle state
   
   let recognition: any = null;
 
@@ -543,7 +575,7 @@ const CreateReport = () => {
               toothNumberingSystem, // Use user's preferred numbering system
               true,
               textSizeMultiplier, // Include text size multiplier
-              analysisResult.original_predictions // Include condition data for styling
+              analysisResult.detections // Use mapped detections with tooth number assignments
             );
             
             if (overlayResult && overlayResult.has_overlay) {
@@ -1277,28 +1309,28 @@ const CreateReport = () => {
                   
                   // Generate extraction + replacement description
                   const extractionDesc = `
-                    <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                      <div style="background-color: #ffeb3b; padding: 8px 16px;">
+            <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <div style="background-color: #ffeb3b; padding: 8px 16px;">
                         <strong style="font-size: 14px;">Extraction with Replacement</strong>
-                      </div>
-                      <div style="padding: 20px;">
+              </div>
+              <div style="padding: 20px;">
                         <h3 style="font-size: 20px; margin-bottom: 15px;">Extraction and ${replacement.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</h3>
                         
                         <p style="margin-bottom: 15px;"><strong>Tooth ${tooth}</strong> requires extraction followed by replacement with a ${replacement.replace('-', ' ')}.</p>
                         
                         <p style="margin-bottom: 15px;"><strong>What This Means:</strong> An impacted tooth is one that has not fully erupted through the gum or has grown in at an angle. This can cause pain, swelling, and can damage neighboring teeth.</p>
-                        
-                        <p style="margin-bottom: 15px;">
+                
+                <p style="margin-bottom: 15px;">
                           <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> Surgical extraction involves removing the tooth through a small incision in the gum, followed by replacement with a ${replacement.replace('-', ' ')} after healing.
-                        </p>
-                        
-                        <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
+                </p>
+                
+                <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
                           <span style="color: #f44336;">⚠️</span> <strong>Urgency:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to your jawbone. The longer you wait, the more complex the procedure becomes.
-                        </p>
+                </p>
                         
 
-                      </div>
-                    </div>
+              </div>
+            </div>
                   `;
                   
                   return extractionDesc;
@@ -1390,12 +1422,12 @@ const CreateReport = () => {
                     </p>
                     
 
-                  </div>
+                </div>
                 </div>
               `;
             }).join('');
           })()}
-        </div>
+          </div>
 
         ${(() => {
           // Debug logging to understand why table might not be showing
@@ -1493,20 +1525,20 @@ const CreateReport = () => {
               // Generate dynamic legend
               return `
                 <!-- Dynamic Legend -->
-                <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+            <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
                   ${uniqueConditions.map((condition: string) => {
                     const normalizedCondition = normalizeCondition(condition);
                     const color = conditionColors[normalizedCondition] || '#666666'; // Default gray if color not found
                     const displayName = formatConditionName(condition);
                     
                     return `
-                      <div style="display: flex; align-items: center; gap: 5px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
                         <div style="width: 15px; height: 15px; background-color: ${color}; border-radius: 2px;"></div>
                         <span style="font-size: 14px;">${displayName}</span>
-                      </div>
+              </div>
                     `;
                   }).join('')}
-                </div>
+              </div>
               `;
             })()}
             
@@ -1683,15 +1715,45 @@ const CreateReport = () => {
     }
     // @ts-ignore
     recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;  // Keep listening continuously
+    recognition.interimResults = true;  // Get real-time results
     recognition.lang = 'en-US';
     recognition.onresult = (event: any) => {
-      setAiSuggestion(event.results[0][0].transcript);
+      let finalTranscript = '';
+      
+      // Process all results for continuous speech
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        }
+      }
+      
+      // Update with accumulated speech (don't stop listening)
+      if (finalTranscript) {
+        setAiSuggestion(prev => prev + finalTranscript);
+      }
+      // Keep listening - don't set isListening to false
+    };
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        // Don't stop on no-speech errors, just keep listening
+        return;
+      }
       setIsListening(false);
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      // Only stop if user explicitly stopped listening
+      if (isListening) {
+        // Restart if it ended unexpectedly
+        try {
+          recognition.start();
+        } catch (e) {
+          console.log('Restarting speech recognition...');
+        }
+      }
+    };
     recognition.start();
     setIsListening(true);
   };
@@ -2136,13 +2198,26 @@ const CreateReport = () => {
 
 
 
-                    {/* Tooth Number Overlay Toggle - Positioned above the image */}
+
+
+                    {/* UNIFIED AI Analysis Section - Single source of truth */}
                     {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
-                      <div className="mt-6 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                      <AIAnalysisSection
+                        findingsSummary={immediateAnalysisData.findings_summary}
+                        detections={immediateAnalysisData.detections}
+                        annotatedImageUrl={immediateAnalysisData.annotated_image_url}
+                        onAcceptFinding={handleAcceptAIFinding}
+                        onRejectFinding={handleRejectAIFinding}
+                      />
+                    )}
+
+                    {/* Tooth Number Overlay Toggle - Positioned below the image, above the legend */}
+                    {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
+                      <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
                         <div className="flex items-center justify-between mb-3">
                           <div>
                             <Label htmlFor="tooth-number-overlay-toggle" className="text-sm font-medium text-green-900">
-                              🔢 Tooth Number Overlay
+                              Tooth Number Overlay
                             </Label>
                             <p className="text-xs text-green-700 mt-1">
                               Show tooth numbers on the annotated X-ray for easier reference
@@ -2174,6 +2249,11 @@ const CreateReport = () => {
                             <div className="flex items-center justify-between">
                               <Label htmlFor="text-size-slider" className="text-xs font-medium text-green-800">
                                 Text Size: {textSizeMultiplier.toFixed(1)}x
+                                {isUpdatingTextSize && (
+                                  <span className="ml-2 text-xs text-orange-600 animate-pulse">
+                                    Updating...
+                                  </span>
+                                )}
                               </Label>
                               <span className="text-xs text-green-600">
                                 {Math.round(32 * textSizeMultiplier)}px
@@ -2185,7 +2265,7 @@ const CreateReport = () => {
                                 id="text-size-slider"
                                 type="range"
                                 min="0.5"
-                                max="2.5"
+                                max="1.5"
                                 step="0.1"
                                 value={textSizeMultiplier}
                                 onChange={(e) => {
@@ -2195,28 +2275,15 @@ const CreateReport = () => {
                                 }}
                                 className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer slider"
                                 style={{
-                                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(textSizeMultiplier - 0.5) / 2 * 100}%, #d1fae5 ${(textSizeMultiplier - 0.5) / 2 * 100}%, #d1fae5 100%)`
+                                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(textSizeMultiplier - 0.5) / 100 * 100}%, #d1fae5 ${(textSizeMultiplier - 0.5) / 100 * 100}%, #d1fae5 100%)`
                                 }}
                               />
                               <span className="text-xs text-green-600">Large</span>
                             </div>
-                            <p className="text-xs text-green-600">
-                              Teeth with conditions will appear {Math.round(1.5 * textSizeMultiplier * 100)}% larger
-                            </p>
+
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* UNIFIED AI Analysis Section - Single source of truth */}
-                    {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
-                      <AIAnalysisSection
-                        findingsSummary={immediateAnalysisData.findings_summary}
-                        detections={immediateAnalysisData.detections}
-                        annotatedImageUrl={immediateAnalysisData.annotated_image_url}
-                        onAcceptFinding={handleAcceptAIFinding}
-                        onRejectFinding={handleRejectAIFinding}
-                      />
                     )}
 
                     {/* Patient Name Input - Only show if no report and not analyzing */}
@@ -2363,8 +2430,8 @@ const CreateReport = () => {
                                   </Button>
 
 
+                                </div>
                               </div>
-                            </div>
 
                               {/* Pricing Input */}
                               {f.treatment && showTreatmentPricing && (
@@ -2781,8 +2848,8 @@ const CreateReport = () => {
                                 ) : (
                                   <div className="flex gap-3 mt-3">
                                     <Button type="button" onClick={handleSaveEdit}>
-                                      Save Changes
-                                    </Button>
+                                    Save Changes
+                                  </Button>
                                     <Button variant="outline" type="button" onClick={handleCancelEdit}>
                                       <RefreshCw className="w-4 h-4 mr-2" />
                                       Cancel Changes
