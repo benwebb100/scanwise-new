@@ -80,7 +80,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   // Tooth numbering overlay props
   showToothNumberOverlay = false,
   setShowToothNumberOverlay,
-  textSizeMultiplier = 1.0,
+  textSizeMultiplier = 1.2,
   setTextSizeMultiplier,
   isUpdatingTextSize = false,
   originalImageUrl,
@@ -368,7 +368,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                   {setShowToothNumberOverlay && setTextSizeMultiplier && setImmediateAnalysisData && (
                     <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
                       <div className="flex items-center justify-between mb-3">
-                        <div>
+                        <div className="flex-1">
                           <label className="text-sm font-medium text-green-900">
                             Tooth Number Overlay
                           </label>
@@ -376,19 +376,18 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                             Show tooth numbers on the annotated X-ray for easier reference
                           </p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
+                        <div className="flex items-center">
+                          <Switch
                             id="tooth-number-overlay-toggle"
                             checked={showToothNumberOverlay || false}
-                            onChange={(e) => {
+                            onCheckedChange={(checked) => {
                               if (setShowToothNumberOverlay) {
-                                setShowToothNumberOverlay(e.target.checked);
+                                setShowToothNumberOverlay(checked);
                               }
-                              localStorage.setItem('showToothNumberOverlay', e.target.checked.toString());
+                              localStorage.setItem('showToothNumberOverlay', checked.toString());
                               
                               // Immediately handle the toggle change
-                              if (!e.target.checked && originalImageUrl && setImmediateAnalysisData) {
+                              if (!checked && originalImageUrl && setImmediateAnalysisData) {
                                 // Toggle turned OFF - immediately restore original image
                                 setImmediateAnalysisData((prev: any) => ({
                                   ...prev,
@@ -396,11 +395,8 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                                 }));
                               }
                             }}
-                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            className="data-[state=checked]:bg-green-600"
                           />
-                          <label htmlFor="tooth-number-overlay-toggle" className="text-sm text-green-700">
-                            Enable
-                          </label>
                         </div>
                       </div>
                       
