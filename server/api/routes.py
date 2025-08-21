@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
 import logging
 import os
@@ -104,7 +104,7 @@ class ToothNumberOverlayRequest(BaseModel):
     numbering_system: str = "FDI"
     show_numbers: bool = True
     text_size_multiplier: float = 1.0
-    condition_data: Optional[Dict] = None
+    condition_data: Optional[Union[Dict, List]] = None
 
 class TreatmentCostEstimate(BaseModel):
     treatment_code: str
@@ -1478,7 +1478,7 @@ async def add_tooth_number_overlay(
         
         # Add tooth number overlay
         overlay_image = await image_overlay_service.add_tooth_number_overlay(
-            request.image_url, seg_json, request.numbering_system, request.show_numbers,
+            request.image_url, seg_json, request.numbering_system, True,  # show_numbers is always True when we reach this point
             request.text_size_multiplier, request.condition_data
         )
         
@@ -1486,7 +1486,7 @@ async def add_tooth_number_overlay(
             return {"image_url": overlay_image, "has_overlay": True}
         else:
             logger.warning("Failed to create overlay image")
-            return {"image_url": image_url, "has_overlay": False}
+            return {"image_url": request.image_url, "has_overlay": False}
             
     except Exception as e:
         logger.error(f"Tooth number overlay error: {str(e)}")

@@ -2,7 +2,7 @@ import logging
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import base64
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class ImageOverlayService:
         numbering_system: str = "FDI",
         show_numbers: bool = True,
         text_size_multiplier: float = 1.0,
-        condition_data: Optional[Dict] = None
+        condition_data: Optional[Union[Dict, List]] = None
     ) -> Optional[str]:
         """
         Add tooth number overlays to an X-ray image using segmentation data.

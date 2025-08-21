@@ -45,6 +45,14 @@ interface AIAnalysisSectionProps {
   annotatedImageUrl: string;
   onAcceptFinding?: (detection: Detection, toothMapping?: {tooth: string, confidence: number, reasoning: string}) => void;
   onRejectFinding?: (detection: Detection) => void;
+  // Tooth numbering overlay props
+  showToothNumberOverlay?: boolean;
+  setShowToothNumberOverlay?: (show: boolean) => void;
+  textSizeMultiplier?: number;
+  setTextSizeMultiplier?: (size: number) => void;
+  isUpdatingTextSize?: boolean;
+  originalImageUrl?: string | null;
+  setImmediateAnalysisData?: (data: any) => void;
 }
 
 // Define active conditions vs existing dental work
@@ -68,7 +76,15 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   detections,
   annotatedImageUrl,
   onAcceptFinding,
-  onRejectFinding
+  onRejectFinding,
+  // Tooth numbering overlay props
+  showToothNumberOverlay = false,
+  setShowToothNumberOverlay,
+  textSizeMultiplier = 1.0,
+  setTextSizeMultiplier,
+  isUpdatingTextSize = false,
+  originalImageUrl,
+  setImmediateAnalysisData
 }) => {
   const { toast } = useToast();
   const { t, translateCondition } = useTranslation();
@@ -347,6 +363,86 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     }
                     return null;
                   })()}
+
+                  {/* Tooth Number Overlay Toggle - Positioned below legend, above active conditions */}
+                  {setShowToothNumberOverlay && setTextSizeMultiplier && setImmediateAnalysisData && (
+                    <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <label className="text-sm font-medium text-green-900">
+                            Tooth Number Overlay
+                          </label>
+                          <p className="text-xs text-green-700 mt-1">
+                            Show tooth numbers on the annotated X-ray for easier reference
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="tooth-number-overlay-toggle"
+                            checked={showToothNumberOverlay || false}
+                            onChange={(e) => {
+                              if (setShowToothNumberOverlay) {
+                                setShowToothNumberOverlay(e.target.checked);
+                              }
+                              localStorage.setItem('showToothNumberOverlay', e.target.checked.toString());
+                              
+                              // Immediately handle the toggle change
+                              if (!e.target.checked && originalImageUrl && setImmediateAnalysisData) {
+                                // Toggle turned OFF - immediately restore original image
+                                setImmediateAnalysisData((prev: any) => ({
+                                  ...prev,
+                                  annotated_image_url: originalImageUrl
+                                }));
+                              }
+                            }}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="tooth-number-overlay-toggle" className="text-sm text-green-700">
+                            Enable
+                          </label>
+                        </div>
+                      </div>
+                      
+                      {/* Text Size Slider - Only show when toggle is ON */}
+                      {showToothNumberOverlay && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-green-800">
+                              Text Size: {(textSizeMultiplier || 1.0).toFixed(1)}x
+                              {isUpdatingTextSize && (
+                                <span className="ml-2 text-xs text-orange-600 animate-pulse">
+                                  Updating...
+                                </span>
+                              )}
+                            </label>
+                            <span className="text-xs text-green-600">
+                              {Math.round(32 * (textSizeMultiplier || 1.0))}px
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-green-600">Small</span>
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="1.5"
+                              step="0.1"
+                              value={textSizeMultiplier || 1.0}
+                              onChange={(e) => {
+                                const newValue = parseFloat(e.target.value);
+                                if (setTextSizeMultiplier) {
+                                  setTextSizeMultiplier(newValue);
+                                }
+                                localStorage.setItem('toothNumberTextSize', newValue.toString());
+                              }}
+                              className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <span className="text-xs text-green-600">Large</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

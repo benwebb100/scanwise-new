@@ -254,6 +254,15 @@ const CreateReport = () => {
     
     return () => clearTimeout(timeoutId);
   }, [textSizeMultiplier, showToothNumberOverlay]); // Depend on text size and toggle state
+
+  // Auto-resize textarea when aiSuggestion changes (especially for speech dictation)
+  useEffect(() => {
+    const textarea = document.querySelector('textarea[placeholder="Type or speak your change request..."]') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+  }, [aiSuggestion]);
   
   let recognition: any = null;
 
@@ -1816,6 +1825,15 @@ const CreateReport = () => {
     }
   }, [report]);
 
+  // Auto-resize textarea when aiSuggestion changes (especially for speech dictation)
+  useEffect(() => {
+    const textarea = document.querySelector('textarea[placeholder="Type or speak your change request..."]') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+  }, [aiSuggestion]);
+
   const handleUndo = () => {
     if (history.length > 1) {
       const prev = history[history.length - 2];
@@ -2208,83 +2226,18 @@ const CreateReport = () => {
                         annotatedImageUrl={immediateAnalysisData.annotated_image_url}
                         onAcceptFinding={handleAcceptAIFinding}
                         onRejectFinding={handleRejectAIFinding}
+                        // Tooth numbering overlay props
+                        showToothNumberOverlay={showToothNumberOverlay}
+                        setShowToothNumberOverlay={setShowToothNumberOverlay}
+                        textSizeMultiplier={textSizeMultiplier}
+                        setTextSizeMultiplier={setTextSizeMultiplier}
+                        isUpdatingTextSize={isUpdatingTextSize}
+                        originalImageUrl={originalImageUrl}
+                        setImmediateAnalysisData={setImmediateAnalysisData}
                       />
                     )}
 
-                    {/* Tooth Number Overlay Toggle - Positioned below the image, above the legend */}
-                    {immediateAnalysisData && !isAnalyzingImage && !isProcessing && !report && (
-                      <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <Label htmlFor="tooth-number-overlay-toggle" className="text-sm font-medium text-green-900">
-                              Tooth Number Overlay
-                            </Label>
-                            <p className="text-xs text-green-700 mt-1">
-                              Show tooth numbers on the annotated X-ray for easier reference
-                            </p>
-                          </div>
-                          <Switch
-                            id="tooth-number-overlay-toggle"
-                            checked={showToothNumberOverlay}
-                            onCheckedChange={(checked) => {
-                              setShowToothNumberOverlay(checked);
-                              localStorage.setItem('showToothNumberOverlay', checked.toString());
-                              
-                              // Immediately handle the toggle change
-                              if (!checked && originalImageUrl) {
-                                // Toggle turned OFF - immediately restore original image
-                                setImmediateAnalysisData((prev: any) => ({
-                                  ...prev,
-                                  annotated_image_url: originalImageUrl
-                                }));
-                              }
-                            }}
-                            className="data-[state=checked]:bg-green-600"
-                          />
-                        </div>
-                        
-                        {/* Text Size Slider - Only show when toggle is ON */}
-                        {showToothNumberOverlay && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="text-size-slider" className="text-xs font-medium text-green-800">
-                                Text Size: {textSizeMultiplier.toFixed(1)}x
-                                {isUpdatingTextSize && (
-                                  <span className="ml-2 text-xs text-orange-600 animate-pulse">
-                                    Updating...
-                                  </span>
-                                )}
-                              </Label>
-                              <span className="text-xs text-green-600">
-                                {Math.round(32 * textSizeMultiplier)}px
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-green-600">Small</span>
-                              <input
-                                id="text-size-slider"
-                                type="range"
-                                min="0.5"
-                                max="1.5"
-                                step="0.1"
-                                value={textSizeMultiplier}
-                                onChange={(e) => {
-                                  const newValue = parseFloat(e.target.value);
-                                  setTextSizeMultiplier(newValue);
-                                  localStorage.setItem('toothNumberTextSize', newValue.toString());
-                                }}
-                                className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer slider"
-                                style={{
-                                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(textSizeMultiplier - 0.5) / 100 * 100}%, #d1fae5 ${(textSizeMultiplier - 0.5) / 100 * 100}%, #d1fae5 100%)`
-                                }}
-                              />
-                              <span className="text-xs text-green-600">Large</span>
-                            </div>
 
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     {/* Patient Name Input - Only show if no report and not analyzing */}
                     {!report && !isAnalyzingImage && (
@@ -2921,12 +2874,24 @@ const CreateReport = () => {
                                 <label className="font-medium text-blue-900">AI-Powered Report Editing</label>
                               </div>
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <Input
+                                <textarea
                                   value={aiSuggestion}
-                                  onChange={e => setAiSuggestion(e.target.value)}
+                                  onChange={e => {
+                                    setAiSuggestion(e.target.value);
+                                    // Auto-resize the textarea
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                  }}
                                   placeholder="Type or speak your change request..."
                                   disabled={isAiLoading}
-                                  className="flex-1"
+                                  className="flex-1 min-h-[40px] px-3 py-2 border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-hidden"
+                                  style={{ height: '40px' }}
+                                  onInput={e => {
+                                    // Ensure height adjusts on input (for speech dictation)
+                                    const target = e.target as HTMLTextAreaElement;
+                                    target.style.height = 'auto';
+                                    target.style.height = target.scrollHeight + 'px';
+                                  }}
                                 />
                                 <Button type="button" variant={isListening ? "secondary" : "outline"} onClick={handleMicClick} disabled={isAiLoading}>
                                   <Mic className={isListening ? "animate-pulse text-red-500" : ""} />
