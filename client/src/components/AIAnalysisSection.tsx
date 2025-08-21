@@ -368,11 +368,11 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                   {setShowToothNumberOverlay && setTextSizeMultiplier && setImmediateAnalysisData && (
                     <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex-1">
-                          <label className="text-sm font-medium text-green-900">
+                        <div className="flex-1 text-left">
+                          <label className="text-sm font-medium text-green-900 block">
                             Tooth Number Overlay
                           </label>
-                          <p className="text-xs text-green-700 mt-1">
+                          <p className="text-xs text-green-700 mt-1 block">
                             Show tooth numbers on the annotated X-ray for easier reference
                           </p>
                         </div>
