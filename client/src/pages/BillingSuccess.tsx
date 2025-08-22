@@ -27,20 +27,39 @@ const BillingSuccess = () => {
       }
 
       try {
-        // Verify the payment session with your backend
-        const response = await api.verifyPayment(sessionId);
+        // Try public verification first (for new registrations)
+        let response = await api.verifyPaymentPublic(sessionId);
+        
+        // If public verification fails, try authenticated verification
+        if (!response.success) {
+          console.log('Public verification failed, trying authenticated verification...');
+          response = await api.verifyPayment(sessionId);
+        }
         
         if (response.success) {
           setVerified(true);
-          toast({
-            title: "Payment Successful!",
-            description: "Your subscription is now active. Welcome to Scanwise!",
-          });
           
-          // Redirect to dashboard after short delay
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 3000);
+          if (response.is_new_registration) {
+            toast({
+              title: "Payment Successful!",
+              description: "Your account has been created! You can now log in with your email and password.",
+            });
+            
+            // Redirect to login for new registrations
+            setTimeout(() => {
+              navigate('/login');
+            }, 3000);
+          } else {
+            toast({
+              title: "Payment Successful!",
+              description: "Your subscription is now active. Welcome to Scanwise!",
+            });
+            
+            // Redirect to dashboard for existing users
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 3000);
+          }
         } else {
           throw new Error('Payment verification failed');
         }

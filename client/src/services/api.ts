@@ -473,6 +473,24 @@ export const api = {
     }
   },
 
+  // Verify payment session for new registrations (no auth required)
+  async verifyPaymentPublic(sessionId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/billing/verify-public`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      if (!response.ok) throw new Error('Failed to verify payment');
+      return response.json() as Promise<{ success: boolean; is_new_registration?: boolean; message?: string }>;
+    } catch (error) {
+      console.error('Public payment verification failed:', error);
+      return { success: false };
+    }
+  },
+
   async createBillingPortal(customerId: string) {
     const token = await this.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/billing/portal`, {

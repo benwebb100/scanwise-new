@@ -56,11 +56,24 @@ app = FastAPI(
 )
 
 # Configure CORS
-origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+origins = [
+    "http://localhost:5173",  # Local development
+    "http://localhost:3000",  # Alternative local port
+    "https://frontend-scanwise.onrender.com",  # Your frontend domain
+    "https://scan-wise.com",  # Your custom domain
+    "https://www.scan-wise.com"  # Your custom domain with www
+]
+
+# Add any additional origins from environment variable
+env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+if env_origins and env_origins[0]:  # Only add if not empty
+    origins.extend(env_origins)
+
+logger.info(f"CORS origins configured: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Configure based on your frontend URL in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,6 +87,14 @@ async def log_requests(request: Request, call_next):
     
     # Log request
     logger.info(f" {request.method} {request.url.path}")
+    
+    # Handle preflight OPTIONS requests
+    if request.method == "OPTIONS":
+        response = JSONResponse(content={}, status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
     
     # Process request
     response = await call_next(request)

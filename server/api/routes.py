@@ -1560,6 +1560,73 @@ async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_
         logger.error(f"Stripe portal error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/billing/verify")
+async def verify_payment(session_id: str, token: str = Depends(get_auth_token)):
+    """Verify payment session for existing users"""
+    try:
+        # Verify the payment session
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
+        
+        result = stripe_service.verify_payment_session(session_id, token)
+        return result
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/billing/verify-public")
+async def verify_payment_public(session_id: str):
+    """Verify payment session for new registrations (no auth required)"""
+    try:
+        logger.info(f"🔍 Verifying payment session: {session_id}")
+        
+        # Verify the payment session directly with Stripe
+        import stripe
+        stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+        
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            logger.info(f"📊 Session status: {session.status}")
+            
+            if session.status == 'complete':
+                # Check if this was a new registration
+                if session.metadata.get('registration_pending') == 'true':
+                    logger.info("🆕 New registration payment verified")
+                    return {
+                        "success": True,
+                        "is_new_registration": True,
+                        "message": "Payment verified for new registration"
+                    }
+                else:
+                    logger.info("👤 Existing user payment verified")
+                    return {
+                        "success": True,
+                        "is_new_registration": False,
+                        "message": "Payment verified for existing user"
+                    }
+            else:
+                logger.warning(f"⚠️ Payment session not complete: {session.status}")
+                return {
+                    "success": False,
+                    "message": f"Payment session status: {session.status}"
+                }
+                
+        except stripe.error.StripeError as e:
+            logger.error(f"❌ Stripe error: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Stripe error: {str(e)}"
+            }
+            
+    except Exception as e:
+        logger.error(f"💥 Payment verification error: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Verification failed: {str(e)}"
+        }
+
 
 from fastapi import Request
 import json
