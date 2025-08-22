@@ -23,6 +23,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
 
+// Get API base URL from environment or use default
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-scanwise.onrender.com/api/v1';
+
 interface Clinic {
   clinic_name: string;
   clinic_id: string;
@@ -67,7 +70,7 @@ const Admin = () => {
       setLoading(true);
       
       // Fetch dashboard data
-      const dashboardResponse = await fetch('/api/v1/admin/dashboard', {
+      const dashboardResponse = await fetch(`${API_BASE_URL}/admin/dashboard`, {
         headers: {
           'username': ADMIN_USERNAME,
           'password': ADMIN_PASSWORD,
@@ -91,7 +94,7 @@ const Admin = () => {
       }
 
       // Fetch clinics list
-      const clinicsResponse = await fetch('/api/v1/admin/clinics', {
+      const clinicsResponse = await fetch(`${API_BASE_URL}/admin/clinics`, {
         headers: {
           'username': ADMIN_USERNAME,
           'password': ADMIN_PASSWORD,
@@ -115,7 +118,7 @@ const Admin = () => {
       }
 
       // Fetch S3 status
-      const s3Response = await fetch('/api/v1/admin/s3/status', {
+      const s3Response = await fetch(`${API_BASE_URL}/admin/s3/status`, {
         headers: {
           'username': ADMIN_USERNAME,
           'password': ADMIN_PASSWORD,
@@ -152,7 +155,7 @@ const Admin = () => {
 
   const handleSetupComplete = async (clinicId: string) => {
     try {
-      const response = await fetch(`/api/v1/admin/clinics/${clinicId}/setup-complete`, {
+      const response = await fetch(`${API_BASE_URL}/admin/clinics/${clinicId}/setup-complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -140,6 +140,28 @@ class SupabaseService:
             logger.error(f"Error getting user by ID {user_id}: {str(e)}")
             return None
 
+    async def save_clinic_branding(self, branding_data: dict) -> bool:
+        """Save clinic branding information to the clinic_branding table"""
+        try:
+            client = self.get_service_client()
+            if not client:
+                logger.error("No service client available for clinic branding")
+                return False
+            
+            # Insert into clinic_branding table
+            response = client.table('clinic_branding').insert(branding_data).execute()
+            
+            if response.data:
+                logger.info(f"Clinic branding saved successfully for user: {branding_data.get('user_id')}")
+                return True
+            else:
+                logger.error("Failed to save clinic branding - no data returned")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error saving clinic branding: {str(e)}")
+            return False
+
     async def create_user_account(self, user_data: dict, password: str) -> Optional[dict]:
         """Create a new user account in Supabase auth"""
         try:

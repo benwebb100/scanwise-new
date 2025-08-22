@@ -1749,6 +1749,28 @@ async def stripe_webhook(request: Request):
                     if created_user:
                         logger.info(f"✅ Supabase account created: {created_user['email']}")
                         
+                        # Create clinic branding record
+                        logger.info("🎨 Creating clinic branding record...")
+                        try:
+                            branding_data = {
+                                'user_id': created_user['id'],
+                                'clinic_name': user_data.get('clinic_name', 'Unknown Clinic'),
+                                'email': user_data.get('email'),
+                                'website': user_data.get('clinic_website'),
+                                'country': user_data.get('country'),
+                                'created_at': datetime.utcnow().isoformat(),
+                                'updated_at': datetime.utcnow().isoformat()
+                            }
+                            
+                            # Insert into clinic_branding table
+                            branding_result = await supabase_service.save_clinic_branding(branding_data)
+                            if branding_result:
+                                logger.info(f"✅ Clinic branding created: {branding_data['clinic_name']}")
+                            else:
+                                logger.warning("⚠️ Failed to create clinic branding record")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Clinic branding creation failed: {str(e)}")
+                        
                         # Create S3 folder for the clinic using the new user ID
                         clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
                         user_id = created_user['id']
