@@ -27,6 +27,7 @@ from lib.stagingV2 import build_staged_plan_v2
 import tempfile
 import uuid
 from services.stripe_service import stripe_service
+from api.admin_routes import admin_router
 
 # Enhanced models for new functionality
 class EnhancedFinding(BaseModel):

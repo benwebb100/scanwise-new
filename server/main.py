@@ -10,6 +10,7 @@ from datetime import datetime
 
 # Import routers
 from api.routes import router
+from api.admin_routes import admin_router
 
 # Load environment variables
 load_dotenv()
@@ -107,6 +108,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(router, prefix="/api/v1", tags=["X-Ray Analysis"])
+app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 
 # Root endpoint
 @app.get("/", tags=["Root"])
