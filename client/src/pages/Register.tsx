@@ -42,39 +42,15 @@ const Register = () => {
 
     setIsSubmitting(true);
     try {
-      // 1) Sign up
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            clinic_name: formData.clinicName,
-            clinic_website: formData.clinicWebsite,
-            country: formData.country,
-          }
-        }
+      // 1) Create Stripe checkout session with user data in metadata
+      const checkout = await api.createRegistrationCheckout({
+        userData: formData,
+        interval: 'monthly'
       });
-      if (signUpError) throw signUpError;
-
-      // If email confirmation is required, there will be no session
-      if (!signUpData.session) {
-        toast({
-          title: "Confirm your email",
-          description: "We've sent a verification link. After confirming, sign in to continue to payment.",
-        });
-        navigate("/login");
-        return;
-      }
-
-      // 2) Optionally save branding basics (non-blocking)
-      try {
-        await api.saveClinicBranding({ clinic_name: formData.clinicName, website: formData.clinicWebsite });
-      } catch {}
-
-      // 3) Create Stripe checkout and redirect
-      const checkout = await api.createCheckout('monthly');
+      
       if (checkout && checkout.url) {
+        // Store registration data temporarily (will be processed after payment)
+        localStorage.setItem('pendingRegistration', JSON.stringify(formData));
         window.location.assign(checkout.url);
       } else {
         throw new Error('Failed to create checkout session');

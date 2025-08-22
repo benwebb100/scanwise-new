@@ -1497,16 +1497,63 @@ async def add_tooth_number_overlay(
 @router.post("/billing/checkout")
 async def create_checkout_session(interval: str = "monthly", token: str = Depends(get_auth_token)):
     try:
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
         url = stripe_service.create_checkout_session(token, interval)
         return {"url": url}
     except Exception as e:
         logger.error(f"Stripe checkout error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/billing/registration-checkout")
+async def create_registration_checkout(request: Request):
+    """Create Stripe checkout for new user registration (before account creation)"""
+    try:
+        data = await request.json()
+        user_data = data.get('userData', {})
+        interval = data.get('interval', 'monthly')
+        
+        # Store user data temporarily (including password) for webhook processing
+        # We'll use a simple in-memory store for now, but in production you'd want Redis or similar
+        import uuid
+        registration_id = str(uuid.uuid4())
+        
+        # Store the registration data temporarily
+        # In production, use Redis or database instead of global variable
+        if not hasattr(create_registration_checkout, 'pending_registrations'):
+            create_registration_checkout.pending_registrations = {}
+        
+        create_registration_checkout.pending_registrations[registration_id] = {
+            'user_data': user_data,
+            'created_at': datetime.utcnow(),
+            'expires_at': datetime.utcnow() + timedelta(hours=1)  # Expire after 1 hour
+        }
+        
+        # Add registration ID to user data for webhook processing
+        user_data['registration_id'] = registration_id
+        
+        # Create checkout session with user data in metadata
+        # This will be processed by the webhook after successful payment
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
+        url = stripe_service.create_registration_checkout(user_data, interval)
+        return {"url": url}
+    except Exception as e:
+        logger.error(f"Registration checkout error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/billing/portal")
 async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_token)):
     try:
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
         url = stripe_service.create_billing_portal(customer_id)
         return {"url": url}
     except Exception as e:
@@ -1517,7 +1564,7 @@ async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_
 from fastapi import Request
 import json
 import stripe
-from datetime import datetime
+from datetime import datetime, timedelta
 
 @router.get("/stripe/webhook/test")
 async def test_webhook():
@@ -1558,14 +1605,43 @@ async def stripe_webhook(request: Request):
         # Handle the event
         if event_type == 'checkout.session.completed':
             session = event.get('data', {}).get('object', {})
-            user_id = session.get('metadata', {}).get('user_id')
+            metadata = session.get('metadata', {})
             
-            logger.info(f"💳 Checkout completed for user: {user_id}")
-            
-            if user_id:
-                # Try to create S3 folder
+            # Check if this is a new registration
+            if metadata.get('registration_pending') == 'true':
+                logger.info("🆕 Processing new user registration after payment")
+                
+                # Get registration ID from metadata
+                registration_id = metadata.get('registration_id')
+                
+                if not registration_id:
+                    logger.error("❌ No registration ID found in webhook metadata")
+                    return {"status": "error", "message": "Registration ID missing"}
+                
+                # Retrieve stored registration data
+                from api.routes import create_registration_checkout
+                if not hasattr(create_registration_checkout, 'pending_registrations'):
+                    logger.error("❌ No pending registrations found")
+                    return {"status": "error", "message": "No pending registrations"}
+                
+                stored_registration = create_registration_checkout.pending_registrations.get(registration_id)
+                if not stored_registration:
+                    logger.error(f"❌ Registration {registration_id} not found or expired")
+                    return {"status": "error", "message": "Registration not found or expired"}
+                
+                # Check if registration has expired
+                if datetime.utcnow() > stored_registration['expires_at']:
+                    logger.error(f"❌ Registration {registration_id} has expired")
+                    del create_registration_checkout.pending_registrations[registration_id]
+                    return {"status": "error", "message": "Registration expired"}
+                
+                # Extract user data from stored registration
+                user_data = stored_registration['user_data']
+                logger.info(f"👤 Registration data retrieved: {user_data.get('email')}")
+                
                 try:
-                    logger.info("🔍 Getting user details from Supabase...")
+                    # Create Supabase account
+                    logger.info("🔐 Creating Supabase account...")
                     from services.supabase import get_supabase_service
                     supabase_service = get_supabase_service()
                     
@@ -1573,13 +1649,23 @@ async def stripe_webhook(request: Request):
                         logger.error("❌ Supabase service not available")
                         return {"status": "error", "message": "Supabase service unavailable"}
                     
-                    user_data = await supabase_service.get_user_by_id(user_id)
+                    # Get the password from the stored registration data
+                    password = user_data.get('password')
                     
-                    if user_data:
-                        clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
-                        logger.info(f"👥 Found user: {user_data.get('email')} - Clinic: {clinic_name}")
+                    if not password:
+                        logger.error("❌ No password found in stored registration data")
+                        return {"status": "error", "message": "Password missing from registration data"}
+                    
+                    # Create the user account
+                    created_user = await supabase_service.create_user_account(user_data, password)
+                    
+                    if created_user:
+                        logger.info(f"✅ Supabase account created: {created_user['email']}")
                         
-                        # Create S3 folder for the clinic
+                        # Create S3 folder for the clinic using the new user ID
+                        clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
+                        user_id = created_user['id']
+                        
                         logger.info("☁️ Creating S3 folder...")
                         from services.s3_service import get_s3_service
                         s3_service = get_s3_service()
@@ -1592,17 +1678,67 @@ async def stripe_webhook(request: Request):
                         
                         if s3_result and s3_result.get('success'):
                             logger.info(f"✅ Successfully created S3 folder for clinic: {clinic_name}")
+                            logger.info(f"✅ User registration completed: {user_data.get('email')}")
+                            logger.info(f"🔑 User password: {password}")
+                            
+                            # Clean up stored registration data
+                            del create_registration_checkout.pending_registrations[registration_id]
                         else:
                             logger.error(f"❌ Failed to create S3 folder: {s3_result.get('error') if s3_result else 'Unknown error'}")
                     else:
-                        logger.error(f"❌ User data not found for ID: {user_id}")
+                        logger.error("❌ Failed to create Supabase account")
                         
                 except Exception as e:
-                    logger.error(f"💥 Error processing webhook for user {user_id}: {str(e)}")
+                    logger.error(f"💥 Error processing registration webhook: {str(e)}")
                     import traceback
                     logger.error(f"📍 Traceback: {traceback.format_exc()}")
+                    
             else:
-                logger.warning("⚠️ No user_id found in checkout session metadata")
+                # Existing user payment - create S3 folder
+                user_id = metadata.get('user_id')
+                logger.info(f"💳 Checkout completed for existing user: {user_id}")
+                
+                if user_id:
+                    # Try to create S3 folder
+                    try:
+                        logger.info("🔍 Getting user details from Supabase...")
+                        from services.supabase import get_supabase_service
+                        supabase_service = get_supabase_service()
+                        
+                        if not supabase_service:
+                            logger.error("❌ Supabase service not available")
+                            return {"status": "error", "message": "Supabase service unavailable"}
+                        
+                        user_data = await supabase_service.get_user_by_id(user_id)
+                        
+                        if user_data:
+                            clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
+                            logger.info(f"👥 Found user: {user_data.get('email')} - Clinic: {clinic_name}")
+                            
+                            # Create S3 folder for the clinic
+                            logger.info("☁️ Creating S3 folder...")
+                            from services.s3_service import get_s3_service
+                            s3_service = get_s3_service()
+                            
+                            if not s3_service:
+                                logger.error("❌ S3 service not available")
+                                return {"status": "error", "message": "S3 service unavailable"}
+                            
+                            s3_result = s3_service.create_clinic_folder(clinic_name, user_id)
+                            
+                            if s3_result and s3_result.get('success'):
+                                logger.info(f"✅ Successfully created S3 folder for clinic: {clinic_name}")
+                            else:
+                                logger.error(f"❌ Failed to create S3 folder: {s3_result.get('error') if s3_result else 'Unknown error'}")
+                        else:
+                            logger.error(f"❌ User data not found for ID: {user_id}")
+                            
+                    except Exception as e:
+                        logger.error(f"💥 Error processing webhook for user {user_id}: {str(e)}")
+                        import traceback
+                        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+                else:
+                    logger.warning("⚠️ No user_id found in checkout session metadata")
         else:
             logger.info(f"ℹ️ Ignoring event type: {event_type}")
         

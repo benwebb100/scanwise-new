@@ -70,7 +70,8 @@ const Admin = () => {
       const dashboardResponse = await fetch('/api/v1/admin/dashboard', {
         headers: {
           'username': ADMIN_USERNAME,
-          'password': ADMIN_PASSWORD
+          'password': ADMIN_PASSWORD,
+          'Accept': 'application/json'
         }
       });
       
@@ -93,7 +94,8 @@ const Admin = () => {
       const clinicsResponse = await fetch('/api/v1/admin/clinics', {
         headers: {
           'username': ADMIN_USERNAME,
-          'password': ADMIN_PASSWORD
+          'password': ADMIN_PASSWORD,
+          'Accept': 'application/json'
         }
       });
       
@@ -116,7 +118,8 @@ const Admin = () => {
       const s3Response = await fetch('/api/v1/admin/s3/status', {
         headers: {
           'username': ADMIN_USERNAME,
-          'password': ADMIN_PASSWORD
+          'password': ADMIN_PASSWORD,
+          'Accept': 'application/json'
         }
       });
       
@@ -154,7 +157,8 @@ const Admin = () => {
         headers: {
           'Content-Type': 'application/json',
           'username': ADMIN_USERNAME,
-          'password': ADMIN_PASSWORD
+          'password': ADMIN_PASSWORD,
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           imaging_provider: imagingProvider,

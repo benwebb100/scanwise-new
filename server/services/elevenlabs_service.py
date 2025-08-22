@@ -43,4 +43,18 @@ class ElevenLabsService:
             raise
 
 # Create singleton instance
-elevenlabs_service = ElevenLabsService()
+# Initialize service lazily to avoid import-time errors
+_elevenlabs_service = None
+
+def get_elevenlabs_service():
+    global _elevenlabs_service
+    if _elevenlabs_service is None:
+        try:
+            _elevenlabs_service = ElevenLabsService()
+        except Exception as e:
+            logger.error(f"Failed to initialize ElevenLabs service: {e}")
+            return None
+    return _elevenlabs_service
+
+# For backward compatibility
+elevenlabs_service = get_elevenlabs_service()

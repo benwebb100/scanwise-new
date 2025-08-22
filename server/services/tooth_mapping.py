@@ -711,4 +711,18 @@ Provide detailed reasoning for each final decision based on the reference image.
             return ""
 
 # Global instance
-tooth_mapping_service = ToothMappingService()
+# Initialize service lazily to avoid import-time errors
+_tooth_mapping_service = None
+
+def get_tooth_mapping_service():
+    global _tooth_mapping_service
+    if _tooth_mapping_service is None:
+        try:
+            _tooth_mapping_service = ToothMappingService()
+        except Exception as e:
+            logger.error(f"Failed to initialize ToothMapping service: {e}")
+            return None
+    return _tooth_mapping_service
+
+# For backward compatibility
+tooth_mapping_service = get_tooth_mapping_service()

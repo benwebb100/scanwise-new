@@ -139,6 +139,43 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error getting user by ID {user_id}: {str(e)}")
             return None
+
+    async def create_user_account(self, user_data: dict, password: str) -> Optional[dict]:
+        """Create a new user account in Supabase auth"""
+        try:
+            client = self.get_service_client()
+            if not client:
+                logger.error("No service client available for user creation")
+                return None
+            
+            # Create user with admin privileges
+            response = client.auth.admin.create_user({
+                'email': user_data['email'],
+                'password': password,
+                'email_confirm': True,  # Auto-confirm email
+                'user_metadata': {
+                    'name': user_data.get('name'),
+                    'clinic_name': user_data.get('clinic_name'),
+                    'clinic_website': user_data.get('clinic_website'),
+                    'country': user_data.get('country')
+                }
+            })
+            
+            if response.user:
+                logger.info(f"Successfully created user account: {user_data['email']}")
+                return {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'clinic_name': user_data.get('clinic_name'),
+                    'name': user_data.get('name')
+                }
+            else:
+                logger.error("Failed to create user account")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating user account: {str(e)}")
+            return None
     
     async def upload_video(self, file_data: bytes, file_path: str, access_token: str, bucket: str = "patient-videos") -> Optional[str]:
         try:

@@ -137,4 +137,18 @@ class VideoGeneratorService:
             logger.error(f"Error cleaning up temp directory: {str(e)}")
 
 # Create singleton instance
-video_generator_service = VideoGeneratorService()
+# Initialize service lazily to avoid import-time errors
+_video_generator_service = None
+
+def get_video_generator_service():
+    global _video_generator_service
+    if _video_generator_service is None:
+        try:
+            _video_generator_service = VideoGeneratorService()
+        except Exception as e:
+            logger.error(f"Failed to initialize VideoGenerator service: {e}")
+            return None
+    return _video_generator_service
+
+# For backward compatibility
+video_generator_service = get_video_generator_service()

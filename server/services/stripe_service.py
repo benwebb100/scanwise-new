@@ -71,6 +71,40 @@ class StripeService:
         )
         return session.url
 
+    def create_registration_checkout(self, user_data: dict, interval: str = "monthly") -> str:
+        """Create checkout session for new user registration (before account creation)"""
+        price_id = self._resolve_price_id(interval)
+        if not price_id:
+            raise ValueError("Stripe price id not configured. Provide STRIPE_PRICE_ID_MONTHLY/STRIPE_PRICE_ID_YEARLY or STRIPE_PRODUCT_ID with active recurring prices.")
+
+        # Store user data in metadata to be processed after payment
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            success_url=f"{self.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{self.frontend_url}/billing/canceled",
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={
+                "registration_pending": "true",
+                "registration_id": user_data.get('registration_id', ''),
+                "user_email": user_data.get('email', ''),
+                "user_name": user_data.get('name', ''),
+                "clinic_name": user_data.get('clinicName', ''),
+                "clinic_website": user_data.get('clinicWebsite', ''),
+                "country": user_data.get('country', '')
+            },
+            subscription_data={"metadata": {
+                "registration_pending": "true",
+                "registration_id": user_data.get('registration_id', ''),
+                "user_email": user_data.get('email', ''),
+                "user_name": user_data.get('name', ''),
+                "clinic_name": user_data.get('clinicName', ''),
+                "clinic_website": user_data.get('clinicWebsite', ''),
+                "country": user_data.get('country', '')
+            }},
+            allow_promotion_codes=True,
+        )
+        return session.url
+
     def create_billing_portal(self, customer_id: str) -> str:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
@@ -258,5 +292,19 @@ class StripeService:
 
         return "ok"
 
-stripe_service = StripeService()
+# Initialize service lazily to avoid import-time errors
+_stripe_service = None
+
+def get_stripe_service():
+    global _stripe_service
+    if _stripe_service is None:
+        try:
+            _stripe_service = StripeService()
+        except Exception as e:
+            logger.error(f"Failed to initialize Stripe service: {e}")
+            return None
+    return _stripe_service
+
+# For backward compatibility
+stripe_service = get_stripe_service()
 

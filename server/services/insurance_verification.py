@@ -283,4 +283,18 @@ class InsuranceVerificationService:
         }
 
 # Global instance
-insurance_service = InsuranceVerificationService()
+# Initialize service lazily to avoid import-time errors
+_insurance_service = None
+
+def get_insurance_service():
+    global _insurance_service
+    if _insurance_service is None:
+        try:
+            _insurance_service = InsuranceVerificationService()
+        except Exception as e:
+            logger.error(f"Failed to initialize InsuranceVerification service: {e}")
+            return None
+    return _insurance_service
+
+# For backward compatibility
+insurance_service = get_insurance_service()

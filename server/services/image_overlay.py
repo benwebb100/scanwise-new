@@ -428,5 +428,19 @@ class ImageOverlayService:
             return fdi_number
 
 # Create singleton instance
-image_overlay_service = ImageOverlayService()
+# Initialize service lazily to avoid import-time errors
+_image_overlay_service = None
+
+def get_image_overlay_service():
+    global _image_overlay_service
+    if _image_overlay_service is None:
+        try:
+            _image_overlay_service = ImageOverlayService()
+        except Exception as e:
+            logger.error(f"Failed to initialize ImageOverlay service: {e}")
+            return None
+    return _image_overlay_service
+
+# For backward compatibility
+image_overlay_service = get_image_overlay_service()
 
