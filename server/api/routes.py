@@ -1577,14 +1577,34 @@ async def verify_payment(session_id: str, token: str = Depends(get_auth_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/billing/verify-public")
-async def verify_payment_public(session_id: str):
+async def verify_payment_public(request: Request):
     """Verify payment session for new registrations (no auth required)"""
     try:
+        # Parse request body to get session_id
+        body = await request.json()
+        session_id = body.get('session_id')
+        
+        if not session_id:
+            logger.error("❌ No session_id provided in request body")
+            return {
+                "success": False,
+                "message": "Session ID is required"
+            }
+        
         logger.info(f"🔍 Verifying payment session: {session_id}")
+        
+        # Check if Stripe API key is available
+        stripe_api_key = os.getenv('STRIPE_SECRET_KEY')
+        if not stripe_api_key:
+            logger.error("❌ STRIPE_SECRET_KEY not set")
+            return {
+                "success": False,
+                "message": "Stripe configuration error"
+            }
         
         # Verify the payment session directly with Stripe
         import stripe
-        stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+        stripe.api_key = stripe_api_key
         
         try:
             session = stripe.checkout.Session.retrieve(session_id)
