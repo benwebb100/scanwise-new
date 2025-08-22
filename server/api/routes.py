@@ -1694,8 +1694,12 @@ async def stripe_webhook(request: Request):
             session = event.get('data', {}).get('object', {})
             metadata = session.get('metadata', {})
             
+            logger.info(f"🎯 Processing checkout.session.completed event")
+            logger.info(f"🔍 Session metadata: {metadata}")
+            
             # Check if this is a new registration
             if metadata.get('registration_pending') == 'true':
+                logger.info("🆕 This is a NEW USER REGISTRATION - processing...")
                 logger.info("🆕 Processing new user registration after payment")
                 
                 # Get registration ID from metadata
@@ -1725,6 +1729,10 @@ async def stripe_webhook(request: Request):
                 # Extract user data from stored registration
                 user_data = stored_registration['user_data']
                 logger.info(f"👤 Registration data retrieved: {user_data.get('email')}")
+                logger.info(f"🔍 Full user data fields: {list(user_data.keys())}")
+                logger.info(f"🏥 Clinic name from form: {user_data.get('clinicName')}")
+                logger.info(f"🌐 Website from form: {user_data.get('clinicWebsite')}")
+                logger.info(f"🌍 Country from form: {user_data.get('country')}")
                 
                 try:
                     # Create Supabase account
@@ -1751,16 +1759,24 @@ async def stripe_webhook(request: Request):
                         
                         # Create clinic branding record
                         logger.info("🎨 Creating clinic branding record...")
+                        logger.info(f"🔍 User data keys available: {list(user_data.keys())}")
+                        logger.info(f"🏥 Clinic name value: {user_data.get('clinicName')}")
+                        logger.info(f"📧 Email value: {user_data.get('email')}")
+                        logger.info(f"🌐 Website value: {user_data.get('clinicWebsite')}")
+                        logger.info(f"🌍 Country value: {user_data.get('country')}")
+                        
                         try:
                             branding_data = {
                                 'user_id': created_user['id'],
-                                'clinic_name': user_data.get('clinic_name', 'Unknown Clinic'),
+                                'clinic_name': user_data.get('clinicName', 'Unknown Clinic'),  # Frontend sends 'clinicName'
                                 'email': user_data.get('email'),
-                                'website': user_data.get('clinic_website'),
+                                'website': user_data.get('clinicWebsite'),  # Frontend sends 'clinicWebsite'
                                 'country': user_data.get('country'),
                                 'created_at': datetime.utcnow().isoformat(),
                                 'updated_at': datetime.utcnow().isoformat()
                             }
+                            
+                            logger.info(f"🎯 Branding data to insert: {branding_data}")
                             
                             # Insert into clinic_branding table
                             branding_result = await supabase_service.save_clinic_branding(branding_data)
@@ -1770,9 +1786,11 @@ async def stripe_webhook(request: Request):
                                 logger.warning("⚠️ Failed to create clinic branding record")
                         except Exception as e:
                             logger.warning(f"⚠️ Clinic branding creation failed: {str(e)}")
+                            import traceback
+                            logger.warning(f"📍 Clinic branding traceback: {traceback.format_exc()}")
                         
                         # Create S3 folder for the clinic using the new user ID
-                        clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
+                        clinic_name = user_data.get('clinicName', 'Unknown Clinic')  # Frontend sends 'clinicName'
                         user_id = created_user['id']
                         
                         logger.info("☁️ Creating S3 folder...")

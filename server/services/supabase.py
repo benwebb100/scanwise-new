@@ -143,23 +143,33 @@ class SupabaseService:
     async def save_clinic_branding(self, branding_data: dict) -> bool:
         """Save clinic branding information to the clinic_branding table"""
         try:
+            logger.info(f"🔍 Attempting to save clinic branding: {branding_data}")
+            
             client = self.get_service_client()
             if not client:
-                logger.error("No service client available for clinic branding")
+                logger.error("❌ No service client available for clinic branding")
                 return False
+            
+            logger.info("✅ Service client obtained, inserting into clinic_branding table...")
             
             # Insert into clinic_branding table
             response = client.table('clinic_branding').insert(branding_data).execute()
             
+            logger.info(f"📊 Insert response: {response}")
+            logger.info(f"📊 Response data: {response.data}")
+            logger.info(f"📊 Response error: {getattr(response, 'error', None)}")
+            
             if response.data:
-                logger.info(f"Clinic branding saved successfully for user: {branding_data.get('user_id')}")
+                logger.info(f"✅ Clinic branding saved successfully for user: {branding_data.get('user_id')}")
                 return True
             else:
-                logger.error("Failed to save clinic branding - no data returned")
+                logger.error("❌ Failed to save clinic branding - no data returned")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error saving clinic branding: {str(e)}")
+            logger.error(f"💥 Error saving clinic branding: {str(e)}")
+            import traceback
+            logger.error(f"📍 Traceback: {traceback.format_exc()}")
             return False
 
     async def create_user_account(self, user_data: dict, password: str) -> Optional[dict]:
@@ -177,8 +187,8 @@ class SupabaseService:
                 'email_confirm': True,  # Auto-confirm email
                 'user_metadata': {
                     'name': user_data.get('name'),
-                    'clinic_name': user_data.get('clinic_name'),
-                    'clinic_website': user_data.get('clinic_website'),
+                    'clinic_name': user_data.get('clinicName'),  # Frontend sends 'clinicName'
+                    'clinic_website': user_data.get('clinicWebsite'),  # Frontend sends 'clinicWebsite'
                     'country': user_data.get('country')
                 }
             })
