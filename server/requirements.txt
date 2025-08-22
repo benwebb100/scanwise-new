@@ -82,3 +82,5 @@ uvicorn==0.34.3
 websockets==15.0.1
 stripe==10.11.0
 shapely==2.0.6
+boto3==1.40.15
+pydicom==2.4.4
