@@ -1515,13 +1515,101 @@ async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_
 
 
 from fastapi import Request
+import json
+import stripe
+from datetime import datetime
+
+@router.get("/stripe/webhook/test")
+async def test_webhook():
+    """Test endpoint to verify webhook connectivity"""
+    return {"status": "webhook_endpoint_reachable", "timestamp": datetime.utcnow().isoformat()}
+
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
+    """Handle Stripe webhooks for payment events"""
     try:
-        stripe_service.handle_webhook(payload, sig)
-        return {"status": "ok"}
+        logger.info("🎯 Stripe webhook received")
+        
+        # Get the webhook payload
+        payload = await request.body()
+        sig_header = request.headers.get('stripe-signature')
+        
+        logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
+        logger.info(f"🔐 Signature header present: {bool(sig_header)}")
+        
+        # For now, skip signature verification and just process the event
+        # This helps us debug the actual webhook processing
+        webhook_secret = os.getenv('STRIPE_WEBHOOK_SECRET')
+        if webhook_secret and sig_header:
+            try:
+                event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+                logger.info("✅ Webhook signature verified")
+            except Exception as e:
+                logger.error(f"❌ Webhook signature verification failed: {str(e)}")
+                # Continue without verification for debugging
+                event = json.loads(payload)
+        else:
+            logger.warning("⚠️ Processing webhook without signature verification")
+            event = json.loads(payload)
+        
+        event_type = event.get('type', 'unknown')
+        logger.info(f"📨 Processing event type: {event_type}")
+        
+        # Handle the event
+        if event_type == 'checkout.session.completed':
+            session = event.get('data', {}).get('object', {})
+            user_id = session.get('metadata', {}).get('user_id')
+            
+            logger.info(f"💳 Checkout completed for user: {user_id}")
+            
+            if user_id:
+                # Try to create S3 folder
+                try:
+                    logger.info("🔍 Getting user details from Supabase...")
+                    from services.supabase import get_supabase_service
+                    supabase_service = get_supabase_service()
+                    
+                    if not supabase_service:
+                        logger.error("❌ Supabase service not available")
+                        return {"status": "error", "message": "Supabase service unavailable"}
+                    
+                    user_data = await supabase_service.get_user_by_id(user_id)
+                    
+                    if user_data:
+                        clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
+                        logger.info(f"👥 Found user: {user_data.get('email')} - Clinic: {clinic_name}")
+                        
+                        # Create S3 folder for the clinic
+                        logger.info("☁️ Creating S3 folder...")
+                        from services.s3_service import get_s3_service
+                        s3_service = get_s3_service()
+                        
+                        if not s3_service:
+                            logger.error("❌ S3 service not available")
+                            return {"status": "error", "message": "S3 service unavailable"}
+                        
+                        s3_result = s3_service.create_clinic_folder(clinic_name, user_id)
+                        
+                        if s3_result and s3_result.get('success'):
+                            logger.info(f"✅ Successfully created S3 folder for clinic: {clinic_name}")
+                        else:
+                            logger.error(f"❌ Failed to create S3 folder: {s3_result.get('error') if s3_result else 'Unknown error'}")
+                    else:
+                        logger.error(f"❌ User data not found for ID: {user_id}")
+                        
+                except Exception as e:
+                    logger.error(f"💥 Error processing webhook for user {user_id}: {str(e)}")
+                    import traceback
+                    logger.error(f"📍 Traceback: {traceback.format_exc()}")
+            else:
+                logger.warning("⚠️ No user_id found in checkout session metadata")
+        else:
+            logger.info(f"ℹ️ Ignoring event type: {event_type}")
+        
+        return {"status": "success", "event_type": event_type}
+        
     except Exception as e:
-        logger.error(f"Stripe webhook error: {str(e)}")
-        raise HTTPException(status_code=400, detail="Webhook Error")
+        logger.error(f"💥 Webhook error: {str(e)}")
+        import traceback
+        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}, 400

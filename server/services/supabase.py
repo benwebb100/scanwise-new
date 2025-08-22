@@ -98,11 +98,47 @@ class SupabaseService:
             }).execute()
 
             logger.info(f"Successfully saved diagnosis for patient: {diagnosis_data['patient_name']}")
-            return response.data[0] if response.data else {}
+            
+            return {
+                'success': True,
+                'diagnosis_id': response.data[0]['id'] if response.data else None
+            }
         except Exception as e:
-
             logger.error(f"Error saving diagnosis: {str(e)}")
-            raise
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    async def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        """Get user data by user ID from Supabase auth"""
+        try:
+            # Use service client for admin operations
+            client = self.get_service_client()
+            if not client:
+                logger.error("No service client available for user lookup")
+                return None
+            
+            # Get user from auth.users table
+            response = client.auth.admin.get_user_by_id(user_id)
+            
+            if response.user:
+                # Extract relevant user data
+                user_data = {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'clinic_name': response.user.user_metadata.get('clinic_name') if response.user.user_metadata else None,
+                    'name': response.user.user_metadata.get('name') if response.user.user_metadata else None,
+                    'country': response.user.user_metadata.get('country') if response.user.user_metadata else None
+                }
+                return user_data
+            else:
+                logger.warning(f"User not found: {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting user by ID {user_id}: {str(e)}")
+            return None
     
     async def upload_video(self, file_data: bytes, file_path: str, access_token: str, bucket: str = "patient-videos") -> Optional[str]:
         try:
@@ -142,4 +178,18 @@ class SupabaseService:
             logger.error(f"Error uploading PDF report: {str(e)}")
             return None
 
-supabase_service = SupabaseService()
+# Initialize service lazily to avoid import-time errors
+_supabase_service = None
+
+def get_supabase_service():
+    global _supabase_service
+    if _supabase_service is None:
+        try:
+            _supabase_service = SupabaseService()
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase service: {e}")
+            return None
+    return _supabase_service
+
+# For backward compatibility
+supabase_service = get_supabase_service()

@@ -680,4 +680,18 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
         return fallback_html
 
 # Create singleton instance
-openai_service = OpenAIService()
+# Initialize service lazily to avoid import-time errors
+_openai_service = None
+
+def get_openai_service():
+    global _openai_service
+    if _openai_service is None:
+        try:
+            _openai_service = OpenAIService()
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI service: {e}")
+            return None
+    return _openai_service
+
+# For backward compatibility
+openai_service = get_openai_service()

@@ -75,8 +75,18 @@ const Admin = () => {
       });
       
       if (dashboardResponse.ok) {
-        const dashboardData = await dashboardResponse.json();
-        setDashboard(dashboardData.dashboard);
+        try {
+          const dashboardData = await dashboardResponse.json();
+          setDashboard(dashboardData.dashboard);
+        } catch (parseError) {
+          console.error('Failed to parse dashboard response:', parseError);
+          const responseText = await dashboardResponse.text();
+          console.error('Response text:', responseText);
+        }
+      } else {
+        console.error('Dashboard response not ok:', dashboardResponse.status, dashboardResponse.statusText);
+        const responseText = await dashboardResponse.text();
+        console.error('Response text:', responseText);
       }
 
       // Fetch clinics list
@@ -88,8 +98,18 @@ const Admin = () => {
       });
       
       if (clinicsResponse.ok) {
-        const clinicsData = await clinicsResponse.json();
-        setClinics(clinicsData.clinics);
+        try {
+          const clinicsData = await clinicsResponse.json();
+          setClinics(clinicsData.clinics);
+        } catch (parseError) {
+          console.error('Failed to parse clinics response:', parseError);
+          const responseText = await clinicsResponse.text();
+          console.error('Response text:', responseText);
+        }
+      } else {
+        console.error('Clinics response not ok:', clinicsResponse.status, clinicsResponse.statusText);
+        const responseText = await clinicsResponse.text();
+        console.error('Response text:', responseText);
       }
 
       // Fetch S3 status
@@ -101,15 +121,25 @@ const Admin = () => {
       });
       
       if (s3Response.ok) {
-        const s3Data = await s3Response.json();
-        setS3Status(s3Data);
+        try {
+          const s3Data = await s3Response.json();
+          setS3Status(s3Data);
+        } catch (parseError) {
+          console.error('Failed to parse S3 status response:', parseError);
+          const responseText = await s3Response.text();
+          console.error('Response text:', responseText);
+        }
+      } else {
+        console.error('S3 status response not ok:', s3Response.status, s3Response.statusText);
+        const responseText = await s3Response.text();
+        console.error('Response text:', responseText);
       }
 
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch admin data",
+        description: "Failed to fetch admin data. Check console for details.",
         variant: "destructive"
       });
     } finally {

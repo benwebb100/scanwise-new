@@ -74,7 +74,11 @@ const Register = () => {
 
       // 3) Create Stripe checkout and redirect
       const checkout = await api.createCheckout('monthly');
-      window.location.assign(checkout.url);
+      if (checkout && checkout.url) {
+        window.location.assign(checkout.url);
+      } else {
+        throw new Error('Failed to create checkout session');
+      }
     } catch (error: any) {
       toast({ title: "Registration failed", description: error.message || String(error), variant: "destructive" });
     } finally {

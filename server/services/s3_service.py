@@ -298,5 +298,18 @@ class S3Service:
             logger.error(f"S3 connection test failed: {str(e)}")
             return False
 
-# Create global instance
-s3_service = S3Service()
+# Initialize service lazily to avoid import-time errors
+_s3_service = None
+
+def get_s3_service():
+    global _s3_service
+    if _s3_service is None:
+        try:
+            _s3_service = S3Service()
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 service: {e}")
+            return None
+    return _s3_service
+
+# For backward compatibility
+s3_service = get_s3_service()

@@ -105,4 +105,18 @@ class RoboflowService:
             return None
 
 # Create singleton instance
-roboflow_service = RoboflowService()
+# Initialize service lazily to avoid import-time errors
+_roboflow_service = None
+
+def get_roboflow_service():
+    global _roboflow_service
+    if _roboflow_service is None:
+        try:
+            _roboflow_service = RoboflowService()
+        except Exception as e:
+            logger.error(f"Failed to initialize Roboflow service: {e}")
+            return None
+    return _roboflow_service
+
+# For backward compatibility
+roboflow_service = get_roboflow_service()
