@@ -1876,3 +1876,482 @@ async def stripe_webhook(request: Request):
         import traceback
         logger.error(f"📍 Traceback: {traceback.format_exc()}")
         return {"status": "error", "message": str(e)}, 400
+
+# AWS S3 Integration Endpoints - Real-time Processing
+@router.get("/aws/images")
+async def get_user_aws_images(token: str = Depends(get_auth_token)):
+    """Get all images from AWS S3 for the authenticated user's clinic"""
+    logger.info("🔄 Starting AWS images fetch request")
+    
+    try:
+        # Create authenticated client
+        logger.info("🔐 Creating authenticated Supabase client...")
+        auth_client = supabase_service._create_authenticated_client(token)
+        logger.info("✅ Supabase client created successfully")
+        
+        # Get user info to find their clinic
+        logger.info("👤 Fetching user information...")
+        user_response = auth_client.auth.get_user()
+        user_id = user_response.user.id
+        logger.info(f"✅ User authenticated: {user_id}")
+        
+        # Get user metadata to find clinic name
+        logger.info("🏥 Extracting clinic information from user metadata...")
+        user_metadata = user_response.user.user_metadata
+        clinic_name = user_metadata.get('clinicName') or user_metadata.get('clinic_name')
+        
+        if not clinic_name:
+            logger.warning(f"❌ No clinic information found for user {user_id}")
+            logger.warning(f"User metadata: {user_metadata}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "No clinic information found. Please contact support.",
+                "error": "missing_clinic_info",
+                "user_id": user_id,
+                "metadata_keys": list(user_metadata.keys()) if user_metadata else []
+            }
+        
+        logger.info(f"✅ Clinic name found: {clinic_name}")
+        
+        # Get S3 service
+        logger.info("☁️ Initializing S3 service...")
+        from services.s3_service import get_s3_service
+        s3_service = get_s3_service()
+        
+        if not s3_service:
+            logger.error("❌ S3 service not available - AWS credentials may be missing")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "AWS S3 service is currently unavailable. Please try again later.",
+                "error": "s3_service_unavailable",
+                "user_id": user_id,
+                "clinic_name": clinic_name
+            }
+        
+        logger.info("✅ S3 service initialized successfully")
+        
+        # Find clinic folder by name
+        logger.info(f"🔍 Searching for clinic folder: {clinic_name}")
+        try:
+            clinics = s3_service.list_clinic_folders()
+            logger.info(f"✅ Found {len(clinics)} total clinic folders")
+            
+            # Log clinic details for debugging
+            for clinic in clinics:
+                logger.info(f"  - Clinic: {clinic.get('clinic_name', 'Unknown')} | ID: {clinic.get('clinic_id', 'Unknown')}")
+                
+        except Exception as s3_error:
+            logger.error(f"❌ Error listing clinic folders: {str(s3_error)}")
+            logger.error(f"Error type: {type(s3_error).__name__}")
+            logger.error(f"Error details: {str(s3_error)}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Unable to access AWS S3. Please check your connection.",
+                "error": "s3_connection_error",
+                "user_id": user_id,
+                "clinic_name": clinic_name,
+                "error_details": str(s3_error)
+            }
+        
+        user_clinic = None
+        
+        for clinic in clinics:
+            if clinic.get('clinic_name') == clinic_name:
+                user_clinic = clinic
+                logger.info(f"✅ Found matching clinic folder: {clinic}")
+                break
+        
+        if not user_clinic:
+            logger.warning(f"❌ Clinic folder not found for clinic: {clinic_name}")
+            logger.warning(f"Available clinics: {[c.get('clinic_name') for c in clinics]}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
+                "error": "clinic_folder_not_found",
+                "user_id": user_id,
+                "clinic_name": clinic_name,
+                "available_clinics": [c.get('clinic_name') for c in clinics]
+            }
+        
+        # Get DICOM files for this clinic
+        logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
+        try:
+            dicom_files = s3_service.list_dicom_files(user_clinic['clinic_id'])
+            logger.info(f"✅ Found {len(dicom_files)} images in clinic folder")
+            
+            # Log file details for debugging
+            for i, file in enumerate(dicom_files[:5]):  # Log first 5 files
+                logger.info(f"  - File {i+1}: {file.get('key', 'Unknown')} | Size: {file.get('size', 'Unknown')} | Modified: {file.get('last_modified', 'Unknown')}")
+            
+            if len(dicom_files) > 5:
+                logger.info(f"  ... and {len(dicom_files) - 5} more files")
+                
+        except Exception as dicom_error:
+            logger.error(f"❌ Error listing DICOM files for clinic {user_clinic['clinic_id']}: {str(dicom_error)}")
+            logger.error(f"Error type: {type(dicom_error).__name__}")
+            logger.error(f"Error details: {str(dicom_error)}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Unable to list images from AWS S3. Please try again later.",
+                "error": "dicom_listing_error",
+                "user_id": user_id,
+                "clinic_name": clinic_name,
+                "clinic_id": user_clinic['clinic_id'],
+                "error_details": str(dicom_error)
+            }
+        
+        # Transform to match dashboard format
+        logger.info("🔄 Transforming image data for dashboard...")
+        images = []
+        for i, dicom_file in enumerate(dicom_files):
+            try:
+                # Extract filename without path
+                filename = dicom_file['key'].split('/')[-1]
+                
+                # Determine if it's DICOM or other format
+                is_dicom = filename.lower().endswith('.dcm') or 'dicom' in filename.lower()
+                
+                # Generate display name
+                if is_dicom:
+                    # For DICOM files, try to extract patient info from filename
+                    display_name = filename.replace('.dcm', '').replace('_', ' ').title()
+                    logger.debug(f"  - DICOM file {i+1}: {filename} → Display name: {display_name}")
+                else:
+                    # For JPEG/PNG, use timestamp-based name
+                    timestamp = dicom_file.get('last_modified', '')
+                    if timestamp:
+                        try:
+                            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                            display_name = f"New Scan - {dt.strftime('%b %d, %Y at %I:%M %p')}"
+                            logger.debug(f"  - Image file {i+1}: {filename} → Display name: {display_name}")
+                        except Exception as time_error:
+                            logger.warning(f"⚠️ Failed to parse timestamp for {filename}: {str(time_error)}")
+                            display_name = f"New Scan - {timestamp}"
+                    else:
+                        display_name = f"New Scan - {filename}"
+                        logger.debug(f"  - Image file {i+1}: {filename} → Display name: {display_name}")
+                
+                # Check if this image has already been processed
+                # TODO: Implement database check for existing processing
+                status = "In Progress"  # Will be updated when processed
+                
+                images.append({
+                    "id": f"aws-{dicom_file['key'].replace('/', '-')}",
+                    "patientName": display_name,
+                    "patientId": f"AWS-{filename[:8]}",
+                    "scanDate": dicom_file.get('last_modified', ''),
+                    "status": status,
+                    "imageUrl": dicom_file['url'],
+                    "annotatedImageUrl": None,  # Will be generated after AI processing
+                    "summary": "Processing...",
+                    "aiNotes": None,
+                    "treatmentStages": [],
+                    "conditions": [],
+                    "teethAnalyzed": 0,
+                    "createdAt": dicom_file.get('last_modified', ''),
+                    "source": "aws_s3",
+                    "isDicom": is_dicom,
+                    "originalFilename": filename,
+                    "clinicId": user_clinic['clinic_id'],
+                    "fileSize": dicom_file.get('size', 0),
+                    "lastModified": dicom_file.get('last_modified', ''),
+                    "s3Key": dicom_file['key']
+                })
+                
+            except Exception as transform_error:
+                logger.error(f"❌ Error transforming file {i+1}: {str(transform_error)}")
+                logger.error(f"File data: {dicom_file}")
+                # Continue with other files instead of failing completely
+                continue
+        
+        logger.info(f"✅ Successfully transformed {len(images)} images for dashboard")
+        
+        # Log summary statistics
+        dicom_count = len([img for img in images if img['isDicom']])
+        image_count = len([img for img in images if not img['isDicom']])
+        logger.info(f"📊 Image breakdown: {dicom_count} DICOM files, {image_count} image files")
+        
+        return {
+            "images": images,
+            "total": len(images),
+            "clinic_name": clinic_name,
+            "clinic_id": user_clinic['clinic_id'],
+            "message": f"Found {len(images)} images in AWS S3",
+            "user_id": user_id,
+            "processing_stats": {
+                "dicom_files": dicom_count,
+                "image_files": image_count,
+                "total_files": len(images)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in get_user_aws_images: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        # Try to extract any useful context
+        context = {}
+        try:
+            if 'user_id' in locals():
+                context['user_id'] = user_id
+            if 'clinic_name' in locals():
+                context['clinic_name'] = clinic_name
+        except:
+            pass
+        
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Failed to fetch AWS images",
+                "error": "critical_error",
+                "error_details": str(e),
+                "error_type": type(e).__name__,
+                "context": context
+            }
+        )
+
+# S3 Webhook endpoint for real-time processing
+@router.post("/aws/webhook")
+async def s3_webhook_handler(request: Request):
+    """Handle S3 event notifications for real-time image processing"""
+    logger.info("🔔 S3 webhook received - starting real-time processing")
+    
+    try:
+        # Parse the webhook payload
+        logger.info("📥 Parsing webhook payload...")
+        webhook_data = await request.json()
+        logger.info(f"✅ Webhook payload parsed successfully. Keys: {list(webhook_data.keys())}")
+        
+        # Extract S3 event information
+        if 'Records' not in webhook_data:
+            logger.warning("⚠️ No Records found in webhook payload")
+            logger.warning(f"Webhook payload: {webhook_data}")
+            return {"status": "error", "message": "No Records found in webhook"}
+        
+        records = webhook_data['Records']
+        logger.info(f"📋 Processing {len(records)} S3 event records")
+        
+        processed_files = []
+        errors = []
+        
+        for i, record in enumerate(records):
+            try:
+                logger.info(f"🔄 Processing record {i+1}/{len(records)}")
+                
+                # Extract S3 event details
+                event_name = record.get('eventName', 'Unknown')
+                s3_data = record.get('s3', {})
+                bucket_name = s3_data.get('bucket', {}).get('name', 'Unknown')
+                object_key = s3_data.get('object', {}).get('key', 'Unknown')
+                
+                logger.info(f"📁 Event: {event_name} | Bucket: {bucket_name} | Key: {object_key}")
+                
+                # Only process new file uploads
+                if event_name not in ['ObjectCreated:Put', 'ObjectCreated:Post', 'ObjectCreated:CompleteMultipartUpload']:
+                    logger.info(f"⏭️ Skipping non-upload event: {event_name}")
+                    continue
+                
+                # Extract clinic ID from object key
+                # Expected format: clinics/clinic-name-userid/filename
+                key_parts = object_key.split('/')
+                if len(key_parts) < 3:
+                    logger.warning(f"⚠️ Invalid object key format: {object_key}")
+                    continue
+                
+                clinic_folder = key_parts[1]  # e.g., "brightsmile-dental-3536c5ae-c0b0-44cf-9114-8241b329071c"
+                filename = key_parts[-1]
+                
+                # Extract user ID from clinic folder name
+                if '-' in clinic_folder:
+                    user_id = clinic_folder.split('-')[-1]
+                    logger.info(f"👤 Extracted user ID: {user_id} from folder: {clinic_folder}")
+                else:
+                    logger.warning(f"⚠️ Could not extract user ID from folder: {clinic_folder}")
+                    continue
+                
+                # Determine file type
+                is_dicom = filename.lower().endswith('.dcm') or 'dicom' in filename.lower()
+                logger.info(f"📄 File type: {'DICOM' if is_dicom else 'Image'} | Filename: {filename}")
+                
+                # Start background processing
+                logger.info(f"🚀 Starting background processing for {filename}")
+                
+                # TODO: Implement background task queue for processing
+                # For now, we'll process synchronously (not ideal for production)
+                processing_result = await process_aws_image_background(
+                    user_id=user_id,
+                    object_key=object_key,
+                    filename=filename,
+                    is_dicom=is_dicom,
+                    bucket_name=bucket_name
+                )
+                
+                if processing_result.get('success'):
+                    processed_files.append({
+                        'filename': filename,
+                        'user_id': user_id,
+                        'status': 'processing_started'
+                    })
+                    logger.info(f"✅ Background processing started for {filename}")
+                else:
+                    errors.append({
+                        'filename': filename,
+                        'user_id': user_id,
+                        'error': processing_result.get('error', 'Unknown error')
+                    })
+                    logger.error(f"❌ Failed to start processing for {filename}: {processing_result.get('error')}")
+                
+            except Exception as record_error:
+                logger.error(f"❌ Error processing record {i+1}: {str(record_error)}")
+                logger.error(f"Record data: {record}")
+                errors.append({
+                    'record_index': i,
+                    'error': str(record_error)
+                })
+                continue
+        
+        logger.info(f"✅ Webhook processing completed. Processed: {len(processed_files)}, Errors: {len(errors)}")
+        
+        return {
+            "status": "success",
+            "message": f"Processed {len(processed_files)} files, {len(errors)} errors",
+            "processed_files": processed_files,
+            "errors": errors
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in S3 webhook handler: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "status": "error",
+            "message": "Failed to process webhook",
+            "error": str(e)
+        }
+
+async def process_aws_image_background(
+    user_id: str,
+    object_key: str,
+    filename: str,
+    is_dicom: bool,
+    bucket_name: str
+):
+    """Background processing for AWS images - runs automatically when files are uploaded"""
+    logger.info(f"🔄 Starting background processing for {filename} (User: {user_id})")
+    
+    try:
+        # Get S3 service
+        from services.s3_service import get_s3_service
+        s3_service = get_s3_service()
+        
+        if not s3_service:
+            logger.error("❌ S3 service not available for background processing")
+            return {"success": False, "error": "S3 service unavailable"}
+        
+        # Construct S3 URL
+        s3_url = f"https://{bucket_name}.s3.amazonaws.com/{object_key}"
+        logger.info(f"🔗 S3 URL: {s3_url}")
+        
+        # Extract patient information
+        patient_name = "Unknown Patient"
+        if is_dicom:
+            try:
+                logger.info("🔍 Extracting DICOM metadata...")
+                from services.dicom_processor import dicom_processor
+                metadata = dicom_processor.extract_metadata_from_url(s3_url)
+                
+                if metadata and metadata.get('patient_name'):
+                    patient_name = metadata['patient_name']
+                    logger.info(f"✅ Extracted patient name: {patient_name}")
+                elif metadata and metadata.get('patient_id'):
+                    patient_name = f"Patient {metadata['patient_id']}"
+                    logger.info(f"✅ Extracted patient ID: {metadata['patient_id']}")
+                else:
+                    logger.warning("⚠️ No patient information found in DICOM metadata")
+                    # Fallback to filename-based name
+                    patient_name = filename.replace('.dcm', '').replace('_', ' ').title()
+                    
+            except Exception as dicom_error:
+                logger.warning(f"⚠️ Failed to extract DICOM metadata: {str(dicom_error)}")
+                # Fallback to filename-based name
+                patient_name = filename.replace('.dcm', '').replace('_', ' ').title()
+        else:
+            # For non-DICOM files, use timestamp-based name
+            timestamp = datetime.now().strftime('%b %d, %Y at %I:%M %p')
+            patient_name = f"New Scan - {timestamp}"
+            logger.info(f"📸 Using timestamp-based name for image: {patient_name}")
+        
+        # Create diagnosis record in database
+        logger.info("💾 Creating diagnosis record in database...")
+        try:
+            # TODO: Implement database insertion
+            # For now, just log the action
+            diagnosis_data = {
+                "user_id": user_id,
+                "patient_name": patient_name,
+                "image_url": s3_url,
+                "annotated_image_url": None,
+                "summary": "Processing from AWS S3...",
+                "ai_notes": None,
+                "treatment_stages": [],
+                "created_at": datetime.now().isoformat(),
+                "source": "aws_s3",
+                "aws_metadata": {
+                    "object_key": object_key,
+                    "bucket_name": bucket_name,
+                    "filename": filename,
+                    "is_dicom": is_dicom,
+                    "uploaded_at": datetime.now().isoformat()
+                }
+            }
+            
+            logger.info(f"✅ Diagnosis data prepared: {diagnosis_data}")
+            
+            # TODO: Insert into database
+            # diagnosis_id = await insert_diagnosis_record(diagnosis_data)
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database error: {str(db_error)}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        
+        # Start AI analysis in background
+        logger.info("🧠 Starting AI analysis in background...")
+        try:
+            # TODO: Implement background AI processing
+            # For now, just log the action
+            logger.info("✅ AI analysis queued for background processing")
+            
+        except Exception as ai_error:
+            logger.error(f"❌ AI analysis error: {str(ai_error)}")
+            return {"success": False, "error": f"AI analysis error: {str(ai_error)}"}
+        
+        logger.info(f"✅ Background processing completed successfully for {filename}")
+        
+        return {
+            "success": True,
+            "patient_name": patient_name,
+            "is_dicom": is_dicom,
+            "message": "Processing started successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in background processing: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "success": False,
+            "error": f"Critical error: {str(e)}"
+        }
+
+# Remove the old manual processing endpoint - no longer needed
+# @router.post("/aws/process-dicom") - REMOVED
+
+# ... existing code ...

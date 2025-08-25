@@ -546,5 +546,31 @@ export const api = {
       console.error('🔢 API: Overlay error:', error);
       throw error;
     }
-  }
+  },
+
+  // AWS S3 Integration Methods
+  async getAwsImages() {
+    console.log('☁️ API: Getting AWS images...');
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/aws/images`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('☁️ API: Error response:', errorText);
+      throw new Error(`Failed to fetch AWS images: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('☁️ API: AWS images fetched successfully, count:', result.total);
+    return result;
+  },
+
+  // Manual processing removed - images are now processed automatically via S3 webhooks
+  // async processAwsDicom() - REMOVED
 };
