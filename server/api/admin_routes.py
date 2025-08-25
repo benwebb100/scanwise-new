@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from typing import Optional, Dict, Any, List
 import logging
-from services.s3_service import s3_service
+from services.s3_service import get_s3_service
 from services.dicom_processor import dicom_processor
 import uuid
 from datetime import datetime
@@ -33,6 +33,10 @@ async def list_clinics(auth: bool = Depends(verify_admin_auth)):
         List of clinic information from S3
     """
     try:
+        s3_service = get_s3_service()
+        if not s3_service:
+            raise HTTPException(status_code=500, detail="S3 service not available")
+        
         clinics = s3_service.list_clinic_folders()
         return {
             "success": True,
@@ -55,6 +59,10 @@ async def get_clinic_details(clinic_id: str, auth: bool = Depends(verify_admin_a
         Clinic details and status
     """
     try:
+        s3_service = get_s3_service()
+        if not s3_service:
+            raise HTTPException(status_code=500, detail="S3 service not available")
+        
         clinic = s3_service.get_clinic_status(clinic_id)
         if not clinic:
             raise HTTPException(status_code=404, detail="Clinic not found")
@@ -91,6 +99,10 @@ async def update_clinic_status(
         Success status
     """
     try:
+        s3_service = get_s3_service()
+        if not s3_service:
+            raise HTTPException(status_code=500, detail="S3 service not available")
+        
         success = s3_service.update_clinic_status(clinic_id, updates)
         if not success:
             raise HTTPException(status_code=404, detail="Clinic not found or update failed")
@@ -109,8 +121,7 @@ async def update_clinic_status(
 @admin_router.post("/clinics/{clinic_id}/setup-complete")
 async def mark_setup_complete(
     clinic_id: str,
-    imaging_provider: str,
-    notes: Optional[str] = None,
+    request: Request,
     auth: bool = Depends(verify_admin_auth)
 ):
     """
@@ -118,13 +129,20 @@ async def mark_setup_complete(
     
     Args:
         clinic_id: Unique clinic identifier
-        imaging_provider: Name of the imaging software provider
-        notes: Additional setup notes
+        request: Request body containing imaging_provider and optional notes
         
     Returns:
         Success status
     """
     try:
+        # Parse request body
+        body = await request.json()
+        imaging_provider = body.get('imaging_provider')
+        notes = body.get('notes')
+        
+        if not imaging_provider:
+            raise HTTPException(status_code=422, detail="imaging_provider is required")
+        
         updates = {
             'status': 'setup_completed',
             'setup_completed': True,
@@ -132,6 +150,10 @@ async def mark_setup_complete(
             'setup_notes': notes,
             'setup_completed_at': datetime.utcnow().isoformat()
         }
+        
+        s3_service = get_s3_service()
+        if not s3_service:
+            raise HTTPException(status_code=500, detail="S3 service not available")
         
         success = s3_service.update_clinic_status(clinic_id, updates)
         if not success:
@@ -158,6 +180,14 @@ async def get_s3_status(auth: bool = Depends(verify_admin_auth)):
         S3 connection status and bucket details
     """
     try:
+        s3_service = get_s3_service()
+        if not s3_service:
+            return {
+                "success": False,
+                "s3_connection": "error",
+                "error": "S3 service not available"
+            }
+        
         connection_ok = s3_service.test_connection()
         
         return {
@@ -184,6 +214,10 @@ async def get_admin_dashboard(auth: bool = Depends(verify_admin_auth)):
         Dashboard statistics and summary
     """
     try:
+        s3_service = get_s3_service()
+        if not s3_service:
+            raise HTTPException(status_code=500, detail="S3 service not available")
+        
         # Get all clinics
         clinics = s3_service.list_clinic_folders()
         

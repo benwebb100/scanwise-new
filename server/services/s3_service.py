@@ -311,5 +311,5 @@ def get_s3_service():
             return None
     return _s3_service
 
-# For backward compatibility
-s3_service = get_s3_service()
+# For backward compatibility - don't initialize at import time
+s3_service = None
