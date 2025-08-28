@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
 
@@ -244,13 +244,21 @@ const ViewReport = () => {
                         </p>
                       </div>
                       
-                      <div className="flex justify-center">
+                      <div className="flex justify-center gap-3">
                         <Button
                           onClick={handleDownloadPDF}
                           className="flex items-center gap-2"
                         >
                           <Download className="w-4 h-4" />
                           Generate & Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/consultation/${reportId}`)}
+                          className="flex items-center gap-2"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          Ask Questions
                         </Button>
                       </div>
                     </div>
@@ -299,6 +307,14 @@ const ViewReport = () => {
                         >
                           <Download className="mr-2 w-4 h-4" />
                           Download Video
+                        </Button>
+                        <Button 
+                          variant="default"
+                          onClick={() => navigate(`/consultation/${reportId}`)}
+                          className="bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700"
+                        >
+                          <MessageCircle className="mr-2 w-4 h-4" />
+                          Ask Questions
                         </Button>
                       </div>
                     </div>
