@@ -60,6 +60,7 @@ origins = [
     "http://localhost:5173",  # Local development
     "http://localhost:3000",  # Alternative local port
     "https://frontend-scanwise.onrender.com",  # Your frontend domain
+    "https://scanwise-new-1.onrender.com",  # Your new frontend domain
     "https://scan-wise.com",  # Your custom domain
     "https://www.scan-wise.com"  # Your custom domain with www
 ]
