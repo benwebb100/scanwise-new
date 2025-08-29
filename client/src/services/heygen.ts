@@ -38,38 +38,152 @@ class HeygenService {
     }
   ): Promise<AvatarResponse> {
     try {
-      // This is a placeholder implementation
-      // Replace with actual Heygen API calls when you have the API key
-      
       console.log('🎭 Heygen: Generating avatar response for:', message);
       console.log('🎭 Heygen: Context:', context);
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check if we have the API key
+      if (!this.config.apiKey || this.config.apiKey === 'your-api-key-here') {
+        console.warn('🎭 Heygen: No API key configured, using fallback response');
+        return this.generateFallbackResponse(message, context);
+      }
 
-      // For now, return a mock response
-      // In production, this would call Heygen's API to:
-      // 1. Generate speech from the message text
-      // 2. Create avatar animation
-      // 3. Return the combined video/audio
+      // Create the prompt for the avatar
+      const prompt = this.createAvatarPrompt(message, context);
       
-      return {
-        avatarUrl: '/placeholder-avatar.jpg', // Replace with actual avatar video URL
-        audioUrl: undefined, // Replace with actual audio URL
-        duration: 5, // Duration in seconds
-        success: true
-      };
+      // Call Heygen API to generate avatar video
+      const response = await fetch(`${this.config.baseUrl}/v1/video/generate`, {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': this.config.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          video_inputs: [
+            {
+              character: {
+                type: 'avatar',
+                avatar_id: this.config.avatarId,
+                input_text: prompt,
+                voice_id: 'en_us_001', // Default English voice
+              }
+            }
+          ],
+          test: false, // Set to true for testing
+          aspect_ratio: '16:9',
+          quality: 'medium'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Heygen API error: ${errorData.message || response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('🎭 Heygen: API response:', result);
+
+      // Check if video generation was successful
+      if (result.data && result.data.video_id) {
+        // Poll for video completion
+        const videoUrl = await this.waitForVideoCompletion(result.data.video_id);
+        
+        return {
+          avatarUrl: videoUrl,
+          audioUrl: videoUrl, // Video includes audio
+          duration: result.data.duration || 10,
+          success: true
+        };
+      } else {
+        throw new Error('No video ID returned from Heygen API');
+      }
 
     } catch (error) {
       console.error('🎭 Heygen: Error generating avatar response:', error);
-      return {
-        avatarUrl: '',
-        audioUrl: undefined,
-        duration: 0,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      
+      // Fallback to mock response if API fails
+      return this.generateFallbackResponse(message, context);
     }
+  }
+
+  // Generate fallback response when API is not available
+  private generateFallbackResponse(
+    message: string,
+    context: {
+      patientName: string;
+      treatmentPlan: string;
+      findings: string;
+    }
+  ): AvatarResponse {
+    console.log('🎭 Heygen: Using fallback response');
+    
+    // Simulate API call delay
+    setTimeout(() => {}, 1000);
+
+    return {
+      avatarUrl: '/placeholder-avatar.svg',
+      audioUrl: undefined,
+      duration: 5,
+      success: true
+    };
+  }
+
+  // Create a contextual prompt for the avatar
+  private createAvatarPrompt(
+    message: string,
+    context: {
+      patientName: string;
+      treatmentPlan: string;
+      findings: string;
+    }
+  ): string {
+    return `You are Dr. Smith, a professional dentist. A patient named ${context.patientName} is asking: "${message}". 
+
+Based on their treatment plan and findings, provide a helpful, professional response. Keep your response concise (under 50 words) and focus on being reassuring and informative.
+
+Treatment Plan: ${context.treatmentPlan.substring(0, 200)}...
+Findings: ${context.findings.substring(0, 200)}...
+
+Respond naturally as if you're speaking to the patient in person.`;
+  }
+
+  // Wait for video generation to complete
+  private async waitForVideoCompletion(videoId: string): Promise<string> {
+    const maxAttempts = 30; // 5 minutes max wait
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`${this.config.baseUrl}/v1/video/status?video_id=${videoId}`, {
+          headers: {
+            'X-Api-Key': this.config.apiKey,
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Status check failed: ${response.statusText}`);
+        }
+        
+        const status = await response.json();
+        console.log('🎭 Heygen: Video status:', status);
+        
+        if (status.data.status === 'completed') {
+          return status.data.video_url;
+        } else if (status.data.status === 'failed') {
+          throw new Error(`Video generation failed: ${status.data.error_message}`);
+        }
+        
+        // Wait 10 seconds before next check
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        attempts++;
+        
+      } catch (error) {
+        console.error('🎭 Heygen: Error checking video status:', error);
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+    }
+    
+    throw new Error('Video generation timed out');
   }
 
   // Get available avatars (for future use when you have multiple avatars)

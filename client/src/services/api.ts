@@ -102,6 +102,30 @@ export const api = {
     return response.json();
   },
 
+  // Send report to patient via email
+  async sendReportToPatient(reportId: string, patientEmail: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/send-report-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        report_id: reportId,
+        patient_email: patientEmail,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to send report: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  },
+
   // Get report by ID
   async getReport(reportId: string) {
     const token = await this.getAuthToken();

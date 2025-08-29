@@ -7,12 +7,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, MessageCircle, Send, Brain, User, Loader2, Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
+import { heygenService } from '@/services/heygen';
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'avatar';
   timestamp: Date;
+  videoUrl?: string;
+  duration?: number;
 }
 
 interface ConsultationData {
@@ -91,40 +94,77 @@ const Consultation = () => {
     setIsTyping(true);
 
     try {
-      // Simulate AI response (replace with actual Heygen API call)
-      const avatarResponse = await generateAvatarResponse(inputMessage, consultationData);
+      // Use Heygen service to generate avatar response
+      const avatarResponse = await heygenService.generateAvatarResponse(inputMessage, {
+        patientName: consultationData.patientName,
+        treatmentPlan: consultationData.treatmentPlan,
+        findings: consultationData.findings
+      });
       
-      const avatarMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: avatarResponse,
-        sender: 'avatar',
-        timestamp: new Date()
-      };
+      if (avatarResponse.success && avatarResponse.avatarUrl) {
+        // Create avatar message with video
+        const avatarMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: `I've prepared a personalized response for you. Watch the video below to hear my answer.`,
+          sender: 'avatar',
+          timestamp: new Date()
+        };
 
-      setTimeout(() => {
+        // Add the message first
         setMessages(prev => [...prev, avatarMessage]);
-        setIsTyping(false);
-      }, 1000);
+        
+        // Then add the video response
+        const videoMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          text: `[VIDEO RESPONSE]`,
+          sender: 'avatar',
+          timestamp: new Date(),
+          videoUrl: avatarResponse.avatarUrl,
+          duration: avatarResponse.duration
+        };
+
+        setTimeout(() => {
+          setMessages(prev => [...prev, videoMessage]);
+          setIsTyping(false);
+        }, 500);
+
+      } else {
+        // Fallback to text response
+        const fallbackResponse = generateFallbackTextResponse(inputMessage, consultationData);
+        const avatarMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: fallbackResponse,
+          sender: 'avatar',
+          timestamp: new Date()
+        };
+
+        setTimeout(() => {
+          setMessages(prev => [...prev, avatarMessage]);
+          setIsTyping(false);
+        }, 1000);
+      }
 
     } catch (error) {
       console.error('Error generating response:', error);
       setIsTyping(false);
       
-      const errorMessage: Message = {
+      // Use fallback response
+      const fallbackResponse = generateFallbackTextResponse(inputMessage, consultationData);
+      const avatarMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I apologize, but I'm having trouble processing your question right now. Please try again in a moment.",
+        text: fallbackResponse,
         sender: 'avatar',
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      setTimeout(() => {
+        setMessages(prev => [...prev, avatarMessage]);
+      }, 1000);
     }
   };
 
-  const generateAvatarResponse = async (question: string, data: ConsultationData): Promise<string> => {
-    // This is a placeholder - replace with actual Heygen API integration
-    // For now, return contextual responses based on the question
-    
+  // Fallback text response generator (used when Heygen API is not available)
+  const generateFallbackTextResponse = (question: string, data: ConsultationData): string => {
     const questionLower = question.toLowerCase();
     
     if (questionLower.includes('treatment') || questionLower.includes('plan')) {
@@ -261,6 +301,14 @@ const Consultation = () => {
                       <h4 className="font-semibold text-green-900 text-sm">Available</h4>
                       <p className="text-xs text-green-700">24/7 for your questions</p>
                     </div>
+                    <div className={`p-3 rounded-lg ${heygenService.config.apiKey && heygenService.config.apiKey !== 'your-api-key-here' ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                      <h4 className={`font-semibold text-sm ${heygenService.config.apiKey && heygenService.config.apiKey !== 'your-api-key-here' ? 'text-green-900' : 'text-yellow-900'}`}>
+                        {heygenService.config.apiKey && heygenService.config.apiKey !== 'your-api-key-here' ? 'AI Avatar Active' : 'AI Avatar (Demo Mode)'}
+                      </h4>
+                      <p className={`text-xs ${heygenService.config.apiKey && heygenService.config.apiKey !== 'your-api-key-here' ? 'text-green-700' : 'text-yellow-700'}`}>
+                        {heygenService.config.apiKey && heygenService.config.apiKey !== 'your-api-key-here' ? 'Full video responses available' : 'Text responses only'}
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -291,6 +339,24 @@ const Consultation = () => {
                           }`}
                         >
                           <p className="text-sm">{message.text}</p>
+                          
+                          {/* Show video if available */}
+                          {message.videoUrl && message.videoUrl !== '/placeholder-avatar.svg' && (
+                            <div className="mt-3">
+                              <video
+                                controls
+                                className="w-full rounded-lg"
+                                style={{ maxHeight: '200px' }}
+                              >
+                                <source src={message.videoUrl} type="video/mp4" />
+                                Your browser does not support the video tag.
+                              </video>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Duration: {message.duration}s
+                              </p>
+                            </div>
+                          )}
+                          
                           <p className="text-xs opacity-70 mt-1">
                             {message.timestamp.toLocaleTimeString()}
                           </p>

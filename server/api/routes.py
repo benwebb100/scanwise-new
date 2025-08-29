@@ -1907,24 +1907,63 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         user_id = user_response.user.id
         logger.info(f"✅ User authenticated: {user_id}")
         
-        # Get user metadata to find clinic name
-        logger.info("🏥 Extracting clinic information from user metadata...")
-        user_metadata = user_response.user.user_metadata
-        clinic_name = user_metadata.get('clinicName') or user_metadata.get('clinic_name')
-        
-        if not clinic_name:
-            logger.warning(f"❌ No clinic information found for user {user_id}")
-            logger.warning(f"User metadata: {user_metadata}")
-            return {
-                "images": [],
-                "total": 0,
-                "message": "No clinic information found. Please contact support.",
-                "error": "missing_clinic_info",
-                "user_id": user_id,
-                "metadata_keys": list(user_metadata.keys()) if user_metadata else []
-            }
-        
-        logger.info(f"✅ Clinic name found: {clinic_name}")
+        # Get clinic information from clinic_branding table
+        logger.info("🏥 Fetching clinic information from clinic_branding table...")
+        try:
+            from services.supabase import get_supabase_service
+            supabase_service = get_supabase_service()
+            
+            if not supabase_service:
+                logger.error("❌ Supabase service not available")
+                return {
+                    "images": [],
+                    "total": 0,
+                    "message": "Database service unavailable. Please try again later.",
+                    "error": "database_service_unavailable",
+                    "user_id": user_id
+                }
+            
+            # Get clinic branding for this user
+            clinic_branding = await supabase_service.get_clinic_branding_by_user_id(user_id)
+            
+            if not clinic_branding:
+                logger.warning(f"❌ No clinic branding found for user {user_id}")
+                logger.warning(f"User metadata: {user_metadata}")
+                return {
+                    "images": [],
+                    "total": 0,
+                    "message": "No clinic information found. Please contact support.",
+                    "error": "missing_clinic_info",
+                    "user_id": user_id,
+                    "metadata_keys": list(user_metadata.keys()) if user_metadata else []
+                }
+            
+            clinic_name = clinic_branding.get('clinic_name')
+            logger.info(f"✅ Clinic name found from branding table: {clinic_name}")
+            logger.info(f"🔍 Clinic branding data: {clinic_branding}")
+            
+        except Exception as branding_error:
+            logger.error(f"❌ Error fetching clinic branding: {str(branding_error)}")
+            # Fallback to user metadata
+            logger.info("🔄 Falling back to user metadata...")
+            user_metadata = user_response.user.user_metadata
+            clinic_name = user_metadata.get('clinicName') or user_metadata.get('clinic_name')
+            
+            if not clinic_name:
+                logger.warning(f"❌ No clinic information found in user metadata either")
+                logger.warning(f"User metadata: {user_metadata}")
+                return {
+                    "images": [],
+                    "total": 0,
+                    "message": "No clinic information found. Please contact support.",
+                    "error": "missing_clinic_info",
+                    "user_id": user_id,
+                    "metadata_keys": list(user_metadata.keys()) if user_metadata else []
+                }
+            
+            logger.info(f"✅ Clinic name found from user metadata: {clinic_name}")
+            logger.info(f"🔍 User metadata keys: {list(user_metadata.keys())}")
+            logger.info(f"🔍 Full user metadata: {user_metadata}")
         
         # Get S3 service
         logger.info("☁️ Initializing S3 service...")
@@ -1970,27 +2009,130 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         
         user_clinic = None
         
+        # Try exact match first
         for clinic in clinics:
             if clinic.get('clinic_name') == clinic_name:
                 user_clinic = clinic
-                logger.info(f"✅ Found matching clinic folder: {clinic}")
+                logger.info(f"✅ Found exact clinic folder match: {clinic}")
                 break
+        
+        # If no exact match, try case-insensitive and trimmed
+        if not user_clinic:
+            logger.info(f"🔍 No exact match found, trying case-insensitive search...")
+            clinic_name_clean = clinic_name.strip().lower()
+            
+            for clinic in clinics:
+                clinic_name_from_s3 = clinic.get('clinic_name', '').strip().lower()
+                if clinic_name_from_s3 == clinic_name_clean:
+                    user_clinic = clinic
+                    logger.info(f"✅ Found case-insensitive clinic folder match: {clinic}")
+                    break
+        
+        # If still no match, try partial matching
+        if not user_clinic:
+            logger.info(f"🔍 No case-insensitive match found, trying partial search...")
+            clinic_name_clean = clinic_name.strip().lower()
+            
+            for clinic in clinics:
+                clinic_name_from_s3 = clinic.get('clinic_name', '').strip().lower()
+                if clinic_name_clean in clinic_name_from_s3 or clinic_name_from_s3 in clinic_name_clean:
+                    user_clinic = clinic
+                    logger.info(f"✅ Found partial clinic folder match: {clinic}")
+                    break
         
         if not user_clinic:
             logger.warning(f"❌ Clinic folder not found for clinic: {clinic_name}")
             logger.warning(f"Available clinics: {[c.get('clinic_name') for c in clinics]}")
-            return {
-                "images": [],
-                "total": 0,
-                "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
-                "error": "clinic_folder_not_found",
-                "user_id": user_id,
-                "clinic_name": clinic_name,
-                "available_clinics": [c.get('clinic_name') for c in clinics]
-            }
+            logger.warning(f"🔍 Debug info:")
+            logger.warning(f"  - User clinic name: '{clinic_name}'")
+            logger.warning(f"  - User clinic name (cleaned): '{clinic_name.strip().lower()}'")
+            logger.warning(f"  - Available clinic names: {[c.get('clinic_name', 'Unknown') for c in clinics]}")
+            logger.warning(f"  - Available clinic names (cleaned): {[c.get('clinic_name', 'Unknown').strip().lower() for c in clinics]}")
+            
+            # Try to create the clinic folder if it doesn't exist
+            logger.info(f"🔧 Attempting to create clinic folder for: {clinic_name}")
+            try:
+                from services.s3_service import get_s3_service
+                s3_service = get_s3_service()
+                
+                if s3_service:
+                    # Create clinic folder
+                    clinic_id = f"clinic-{user_id}"
+                    create_result = s3_service.create_clinic_folder(clinic_name, clinic_id)
+                    
+                    if create_result.get('success'):
+                        logger.info(f"✅ Successfully created clinic folder: {clinic_name}")
+                        # Create a mock clinic object for this session
+                        user_clinic = {
+                            'clinic_name': clinic_name,
+                            'clinic_id': clinic_id,
+                            'created': True
+                        }
+                    else:
+                        logger.error(f"❌ Failed to create clinic folder: {create_result.get('error', 'Unknown error')}")
+                        return {
+                            "images": [],
+                            "total": 0,
+                            "message": f"Clinic folder not found for {clinic_name} and could not be created. Please contact support.",
+                            "error": "clinic_folder_creation_failed",
+                            "user_id": user_id,
+                            "clinic_name": clinic_name,
+                            "available_clinics": [c.get('clinic_name') for c in clinics],
+                            "debug_info": {
+                                "user_clinic_name": clinic_name,
+                                "user_clinic_name_cleaned": clinic_name.strip().lower(),
+                                "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
+                            }
+                        }
+                else:
+                    logger.error("❌ S3 service not available for folder creation")
+                    return {
+                        "images": [],
+                        "total": 0,
+                        "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
+                        "error": "clinic_folder_not_found",
+                        "user_id": user_id,
+                        "clinic_name": clinic_name,
+                        "available_clinics": [c.get('clinic_name') for c in clinics],
+                        "debug_info": {
+                            "user_clinic_name": clinic_name,
+                            "user_clinic_name_cleaned": clinic_name.strip().lower(),
+                            "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
+                        }
+                    }
+                    
+            except Exception as create_error:
+                logger.error(f"❌ Error creating clinic folder: {str(create_error)}")
+                return {
+                    "images": [],
+                    "total": 0,
+                    "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
+                    "error": "clinic_folder_not_found",
+                    "user_id": user_id,
+                    "clinic_name": clinic_name,
+                    "available_clinics": [c.get('clinic_name') for c in clinics],
+                    "debug_info": {
+                        "user_clinic_name": clinic_name,
+                        "user_clinic_name_cleaned": clinic_name.strip().lower(),
+                        "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
+                    }
+                }
         
         # Get DICOM files for this clinic
         logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
+        
+        # If this is a newly created clinic folder, return empty results
+        if user_clinic.get('created'):
+            logger.info(f"📁 New clinic folder created - no images yet")
+            return {
+                "images": [],
+                "total": 0,
+                "message": f"Clinic folder created successfully for {clinic_name}. No images uploaded yet.",
+                "clinic_name": clinic_name,
+                "clinic_id": user_clinic['clinic_id'],
+                "status": "new_clinic_created"
+            }
+        
         try:
             dicom_files = s3_service.list_dicom_files(user_clinic['clinic_id'])
             logger.info(f"✅ Found {len(dicom_files)} images in clinic folder")
@@ -2366,4 +2508,121 @@ async def process_aws_image_background(
 # Remove the old manual processing endpoint - no longer needed
 # @router.post("/aws/process-dicom") - REMOVED
 
-# ... existing code ...
+# Email Report to Patient
+@router.post("/send-report-email")
+async def send_report_email(
+    request: Request,
+    token: str = Depends(get_auth_token)
+):
+    """Send dental report to patient via email"""
+    logger.info("📧 Starting report email request")
+    
+    try:
+        # Get request body
+        body = await request.json()
+        report_id = body.get('report_id')
+        patient_email = body.get('patient_email')
+        
+        if not report_id or not patient_email:
+            logger.error("❌ Missing required fields: report_id or patient_email")
+            return {
+                "success": False,
+                "error": "Missing required fields: report_id and patient_email"
+            }
+        
+        logger.info(f"📧 Sending report {report_id} to {patient_email}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        user_response = auth_client.auth.get_user()
+        
+        if not user_response or not user_response.user:
+            logger.error("❌ Authentication failed")
+            return {
+                "success": False,
+                "error": "Authentication failed"
+            }
+        
+        user_id = user_response.user.id
+        logger.info(f"✅ User authenticated: {user_id}")
+        
+        # Get report data
+        try:
+            report_data = await get_diagnosis_by_id(report_id, user_id)
+            if not report_data:
+                logger.error(f"❌ Report {report_id} not found for user {user_id}")
+                return {
+                    "success": False,
+                    "error": "Report not found"
+                }
+        except Exception as e:
+            logger.error(f"❌ Error fetching report: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Failed to fetch report: {str(e)}"
+            }
+        
+        # Send actual email using email service
+        logger.info(f"📧 Sending email to {patient_email}")
+        
+        try:
+            from services.email_service import email_service
+            
+            # Get clinic branding information
+            clinic_branding_response = auth_client.table('clinic_branding').select("*").execute()
+            clinic_branding = {}
+            
+            if clinic_branding_response.data:
+                clinic_branding = clinic_branding_response.data[0]
+                logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
+            else:
+                # Fallback to user metadata
+                user_metadata = user_response.user.user_metadata
+                clinic_branding = {
+                    'clinic_name': user_metadata.get('clinicName') or user_metadata.get('clinic_name') or 'Dental Clinic',
+                    'phone': user_metadata.get('phone') or 'our office',
+                    'website': user_metadata.get('clinicWebsite') or user_metadata.get('website') or 'our website'
+                }
+                logger.info(f"⚠️ Using fallback clinic branding: {clinic_branding}")
+            
+            # Send the email with PDF attachment
+            email_sent = email_service.send_dental_report(
+                patient_email=patient_email,
+                patient_name=report_data.get('patient_name', 'Patient'),
+                report_data=report_data,
+                clinic_branding=clinic_branding
+            )
+            
+            if email_sent:
+                logger.info(f"✅ Email with PDF sent successfully to {patient_email}")
+            else:
+                logger.error(f"❌ Failed to send email to {patient_email}")
+                return {
+                    "success": False,
+                    "error": "Failed to send email"
+                }
+                
+        except Exception as email_error:
+            logger.error(f"❌ Email sending error: {str(email_error)}")
+            return {
+                "success": False,
+                "error": f"Email sending failed: {str(email_error)}"
+            }
+        
+        return {
+            "success": True,
+            "message": f"Report sent successfully to {patient_email}",
+            "report_id": report_id,
+            "patient_email": patient_email,
+            "sent_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error sending report email: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "success": False,
+            "error": f"Failed to send email: {str(e)}"
+        }

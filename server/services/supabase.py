@@ -172,6 +172,40 @@ class SupabaseService:
             logger.error(f"📍 Traceback: {traceback.format_exc()}")
             return False
 
+    async def get_clinic_branding_by_user_id(self, user_id: str) -> Optional[dict]:
+        """Get clinic branding information for a specific user"""
+        try:
+            logger.info(f"🔍 Fetching clinic branding for user: {user_id}")
+            
+            client = self.get_service_client()
+            if not client:
+                logger.error("❌ No service client available for clinic branding retrieval")
+                return None
+            
+            logger.info("✅ Service client obtained, querying clinic_branding table...")
+            
+            # Query clinic_branding table by user_id
+            response = client.table('clinic_branding').select('*').eq('user_id', user_id).execute()
+            
+            logger.info(f"📊 Query response: {response}")
+            logger.info(f"📊 Response data: {response.data}")
+            logger.info(f"📊 Response error: {getattr(response, 'error', None)}")
+            
+            if response.data and len(response.data) > 0:
+                clinic_branding = response.data[0]
+                logger.info(f"✅ Clinic branding retrieved successfully for user: {user_id}")
+                logger.info(f"🏥 Clinic name: {clinic_branding.get('clinic_name')}")
+                return clinic_branding
+            else:
+                logger.warning(f"⚠️ No clinic branding found for user: {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"💥 Error retrieving clinic branding: {str(e)}")
+            import traceback
+            logger.error(f"📍 Traceback: {traceback.format_exc()}")
+            return None
+
     async def create_user_account(self, user_data: dict, password: str) -> Optional[dict]:
         """Create a new user account in Supabase auth"""
         try:

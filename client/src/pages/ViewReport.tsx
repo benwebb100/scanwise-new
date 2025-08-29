@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
 
@@ -15,6 +15,8 @@ const ViewReport = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>("report");
+  const [patientEmail, setPatientEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   useEffect(() => {
     fetchReport();
@@ -116,6 +118,50 @@ const ViewReport = () => {
     }
   };
 
+  const handleSendReportToPatient = async () => {
+    if (!patientEmail.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter the patient's email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!reportData?.report_html) {
+      toast({
+        title: "Report Required",
+        description: "No report content available to send.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      // Call the backend API to send the email
+      await api.sendReportToPatient(reportId!, patientEmail);
+      
+      toast({
+        title: "Report Sent!",
+        description: `Dental report has been sent to ${patientEmail}`,
+      });
+      
+      setPatientEmail(''); // Clear the email input
+      
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast({
+        title: "Send Failed",
+        description: "Failed to send report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -181,6 +227,89 @@ const ViewReport = () => {
               Generated on {new Date(reportData.createdAt).toLocaleDateString()} • 
               Report ID: {reportId}
             </p>
+          </div>
+
+          {/* Send Report to Patient - Prominent Section */}
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <Mail className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-900">Ready to Send to Patient?</h3>
+                      <p className="text-sm text-green-700">
+                        Send this completed dental report directly to your patient's email
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="email"
+                      value={patientEmail}
+                      onChange={(e) => setPatientEmail(e.target.value)}
+                      placeholder="patient@example.com"
+                      className="px-4 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-64"
+                    />
+                    <Button
+                      onClick={handleSendReportToPatient}
+                      disabled={isSendingEmail || !patientEmail.trim()}
+                      className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6"
+                    >
+                      {isSendingEmail ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send Report
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Interactive Avatar Consultation - New Section */}
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <MessageCircle className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Interactive AI Consultation</h3>
+                      <p className="text-sm text-blue-700">
+                        Let patients ask questions about their treatment plan with our AI dentist avatar
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right mr-4">
+                      <p className="text-sm text-blue-600 font-medium">Available 24/7</p>
+                      <p className="text-xs text-blue-500">Personalized responses</p>
+                    </div>
+                    <Button
+                      onClick={() => navigate(`/consultation/${reportId}`)}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 px-6"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Start Consultation
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Report/Video Display */}
@@ -386,6 +515,8 @@ const ViewReport = () => {
                   </div>
                 </div>
               </div>
+
+
             </CardContent>
           </Card>
         </div>
