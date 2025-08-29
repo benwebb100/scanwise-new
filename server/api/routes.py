@@ -1892,6 +1892,18 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         # Get user info to find their clinic
         logger.info("👤 Fetching user information...")
         user_response = auth_client.auth.get_user()
+        
+        if not user_response or not user_response.user:
+            logger.error("❌ Authentication failed - user_response or user is None")
+            logger.error(f"user_response: {user_response}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Authentication failed. Please log in again.",
+                "error": "authentication_failed",
+                "details": "User response is None or invalid"
+            }
+        
         user_id = user_response.user.id
         logger.info(f"✅ User authenticated: {user_id}")
         
