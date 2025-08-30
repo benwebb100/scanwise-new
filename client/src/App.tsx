@@ -16,7 +16,7 @@ import InsuranceVerification from "./pages/InsuranceVerification";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingCanceled from "./pages/BillingCanceled";
 import Admin from "./pages/Admin";
-import Consultation from "./pages/Consultation";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,7 +38,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/insurance" element={<InsuranceVerification />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/consultation/:reportId" element={<Consultation />} />
+
             <Route path="/billing/success" element={<BillingSuccess />} />
             <Route path="/billing/canceled" element={<BillingCanceled />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

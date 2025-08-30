@@ -1884,9 +1884,10 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
     logger.info("🔄 Starting AWS images fetch request")
     
     try:
-        # Create authenticated client
+        # Create authenticated client using global supabase service
         logger.info("🔐 Creating authenticated Supabase client...")
-        auth_client = supabase_service._create_authenticated_client(token)
+        from services.supabase import supabase_service as global_supabase_service
+        auth_client = global_supabase_service._create_authenticated_client(token)
         logger.info("✅ Supabase client created successfully")
         
         # Get user info to find their clinic
@@ -1907,63 +1908,8 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         user_id = user_response.user.id
         logger.info(f"✅ User authenticated: {user_id}")
         
-        # Get clinic information from clinic_branding table
-        logger.info("🏥 Fetching clinic information from clinic_branding table...")
-        try:
-            from services.supabase import get_supabase_service
-            supabase_service = get_supabase_service()
-            
-            if not supabase_service:
-                logger.error("❌ Supabase service not available")
-                return {
-                    "images": [],
-                    "total": 0,
-                    "message": "Database service unavailable. Please try again later.",
-                    "error": "database_service_unavailable",
-                    "user_id": user_id
-                }
-            
-            # Get clinic branding for this user
-            clinic_branding = await supabase_service.get_clinic_branding_by_user_id(user_id)
-            
-            if not clinic_branding:
-                logger.warning(f"❌ No clinic branding found for user {user_id}")
-                logger.warning(f"User metadata: {user_metadata}")
-                return {
-                    "images": [],
-                    "total": 0,
-                    "message": "No clinic information found. Please contact support.",
-                    "error": "missing_clinic_info",
-                    "user_id": user_id,
-                    "metadata_keys": list(user_metadata.keys()) if user_metadata else []
-                }
-            
-            clinic_name = clinic_branding.get('clinic_name')
-            logger.info(f"✅ Clinic name found from branding table: {clinic_name}")
-            logger.info(f"🔍 Clinic branding data: {clinic_branding}")
-            
-        except Exception as branding_error:
-            logger.error(f"❌ Error fetching clinic branding: {str(branding_error)}")
-            # Fallback to user metadata
-            logger.info("🔄 Falling back to user metadata...")
-            user_metadata = user_response.user.user_metadata
-            clinic_name = user_metadata.get('clinicName') or user_metadata.get('clinic_name')
-            
-            if not clinic_name:
-                logger.warning(f"❌ No clinic information found in user metadata either")
-                logger.warning(f"User metadata: {user_metadata}")
-                return {
-                    "images": [],
-                    "total": 0,
-                    "message": "No clinic information found. Please contact support.",
-                    "error": "missing_clinic_info",
-                    "user_id": user_id,
-                    "metadata_keys": list(user_metadata.keys()) if user_metadata else []
-                }
-            
-            logger.info(f"✅ Clinic name found from user metadata: {clinic_name}")
-            logger.info(f"🔍 User metadata keys: {list(user_metadata.keys())}")
-            logger.info(f"🔍 Full user metadata: {user_metadata}")
+        # Use user ID directly - no need to fetch clinic information
+        logger.info(f"🎯 Using user ID directly for AWS folder: {user_id}")
         
         # Get S3 service
         logger.info("☁️ Initializing S3 service...")
@@ -1977,14 +1923,14 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 "total": 0,
                 "message": "AWS S3 service is currently unavailable. Please try again later.",
                 "error": "s3_service_unavailable",
-                "user_id": user_id,
-                "clinic_name": clinic_name
+                "user_id": user_id
             }
         
         logger.info("✅ S3 service initialized successfully")
         
-        # Find clinic folder by name
-        logger.info(f"🔍 Searching for clinic folder: {clinic_name}")
+        # Use user ID directly to find/create clinic folder
+        clinic_id = f"clinic-{user_id}"
+        logger.info(f"🔍 Looking for clinic folder with ID: {clinic_id}")
         try:
             clinics = s3_service.list_clinic_folders()
             logger.info(f"✅ Found {len(clinics)} total clinic folders")
@@ -2003,61 +1949,31 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 "message": "Unable to access AWS S3. Please check your connection.",
                 "error": "s3_connection_error",
                 "user_id": user_id,
-                "clinic_name": clinic_name,
                 "error_details": str(s3_error)
             }
         
         user_clinic = None
         
-        # Try exact match first
+        # Find clinic folder by user ID
         for clinic in clinics:
-            if clinic.get('clinic_name') == clinic_name:
+            if clinic.get('clinic_id') == clinic_id:
                 user_clinic = clinic
-                logger.info(f"✅ Found exact clinic folder match: {clinic}")
+                logger.info(f"✅ Found clinic folder by user ID: {clinic}")
                 break
         
-        # If no exact match, try case-insensitive and trimmed
         if not user_clinic:
-            logger.info(f"🔍 No exact match found, trying case-insensitive search...")
-            clinic_name_clean = clinic_name.strip().lower()
-            
-            for clinic in clinics:
-                clinic_name_from_s3 = clinic.get('clinic_name', '').strip().lower()
-                if clinic_name_from_s3 == clinic_name_clean:
-                    user_clinic = clinic
-                    logger.info(f"✅ Found case-insensitive clinic folder match: {clinic}")
-                    break
-        
-        # If still no match, try partial matching
-        if not user_clinic:
-            logger.info(f"🔍 No case-insensitive match found, trying partial search...")
-            clinic_name_clean = clinic_name.strip().lower()
-            
-            for clinic in clinics:
-                clinic_name_from_s3 = clinic.get('clinic_name', '').strip().lower()
-                if clinic_name_clean in clinic_name_from_s3 or clinic_name_from_s3 in clinic_name_clean:
-                    user_clinic = clinic
-                    logger.info(f"✅ Found partial clinic folder match: {clinic}")
-                    break
-        
-        if not user_clinic:
-            logger.warning(f"❌ Clinic folder not found for clinic: {clinic_name}")
-            logger.warning(f"Available clinics: {[c.get('clinic_name') for c in clinics]}")
-            logger.warning(f"🔍 Debug info:")
-            logger.warning(f"  - User clinic name: '{clinic_name}'")
-            logger.warning(f"  - User clinic name (cleaned): '{clinic_name.strip().lower()}'")
-            logger.warning(f"  - Available clinic names: {[c.get('clinic_name', 'Unknown') for c in clinics]}")
-            logger.warning(f"  - Available clinic names (cleaned): {[c.get('clinic_name', 'Unknown').strip().lower() for c in clinics]}")
+            logger.warning(f"❌ Clinic folder not found for user ID: {clinic_id}")
+            logger.warning(f"Available clinic IDs: {[c.get('clinic_id') for c in clinics]}")
             
             # Try to create the clinic folder if it doesn't exist
-            logger.info(f"🔧 Attempting to create clinic folder for: {clinic_name}")
+            logger.info(f"🔧 Attempting to create clinic folder for user: {user_id}")
             try:
                 from services.s3_service import get_s3_service
                 s3_service = get_s3_service()
                 
                 if s3_service:
-                    # Create clinic folder
-                    clinic_id = f"clinic-{user_id}"
+                    # Create clinic folder with generic name
+                    clinic_name = f"Clinic-{user_id}"
                     create_result = s3_service.create_clinic_folder(clinic_name, clinic_id)
                     
                     if create_result.get('success'):
@@ -2073,32 +1989,20 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         return {
                             "images": [],
                             "total": 0,
-                            "message": f"Clinic folder not found for {clinic_name} and could not be created. Please contact support.",
+                            "message": f"Clinic folder could not be created. Please contact support.",
                             "error": "clinic_folder_creation_failed",
                             "user_id": user_id,
-                            "clinic_name": clinic_name,
-                            "available_clinics": [c.get('clinic_name') for c in clinics],
-                            "debug_info": {
-                                "user_clinic_name": clinic_name,
-                                "user_clinic_name_cleaned": clinic_name.strip().lower(),
-                                "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
-                            }
+                            "clinic_id": clinic_id
                         }
                 else:
                     logger.error("❌ S3 service not available for folder creation")
                     return {
                         "images": [],
                         "total": 0,
-                        "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
+                        "message": f"Clinic folder not found. Please contact support.",
                         "error": "clinic_folder_not_found",
                         "user_id": user_id,
-                        "clinic_name": clinic_name,
-                        "available_clinics": [c.get('clinic_name') for c in clinics],
-                        "debug_info": {
-                            "user_clinic_name": clinic_name,
-                            "user_clinic_name_cleaned": clinic_name.strip().lower(),
-                            "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
-                        }
+                        "clinic_id": clinic_id
                     }
                     
             except Exception as create_error:
@@ -2106,16 +2010,10 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 return {
                     "images": [],
                     "total": 0,
-                    "message": f"Clinic folder not found for {clinic_name}. Please contact support.",
+                    "message": f"Clinic folder could not be created. Please contact support.",
                     "error": "clinic_folder_not_found",
                     "user_id": user_id,
-                    "clinic_name": clinic_name,
-                    "available_clinics": [c.get('clinic_name') for c in clinics],
-                    "debug_info": {
-                        "user_clinic_name": clinic_name,
-                        "user_clinic_name_cleaned": clinic_name.strip().lower(),
-                        "available_clinics": [c.get('clinic_name', 'Unknown') for c in clinics]
-                    }
+                    "clinic_id": clinic_id
                 }
         
         # Get DICOM files for this clinic
@@ -2127,8 +2025,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
             return {
                 "images": [],
                 "total": 0,
-                "message": f"Clinic folder created successfully for {clinic_name}. No images uploaded yet.",
-                "clinic_name": clinic_name,
+                "message": f"Clinic folder created successfully for user {user_id}. No images uploaded yet.",
                 "clinic_id": user_clinic['clinic_id'],
                 "status": "new_clinic_created"
             }
@@ -2154,7 +2051,6 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 "message": "Unable to list images from AWS S3. Please try again later.",
                 "error": "dicom_listing_error",
                 "user_id": user_id,
-                "clinic_name": clinic_name,
                 "clinic_id": user_clinic['clinic_id'],
                 "error_details": str(dicom_error)
             }
@@ -2254,8 +2150,8 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         try:
             if 'user_id' in locals():
                 context['user_id'] = user_id
-            if 'clinic_name' in locals():
-                context['clinic_name'] = clinic_name
+            if 'clinic_id' in locals():
+                context['clinic_id'] = clinic_id
         except:
             pass
         

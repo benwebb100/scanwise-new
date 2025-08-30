@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
+import { heygenService } from '@/services/heygen';
 
 const ViewReport = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -17,6 +18,7 @@ const ViewReport = () => {
   const [activeTab, setActiveTab] = useState<string>("report");
   const [patientEmail, setPatientEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isGeneratingConsultation, setIsGeneratingConsultation] = useState(false);
   
   useEffect(() => {
     fetchReport();
@@ -115,6 +117,52 @@ const ViewReport = () => {
         printWindow.focus();
         printWindow.print();
       };
+    }
+  };
+
+  const handleGenerateConsultation = async () => {
+    if (!reportData) return;
+    
+    setIsGeneratingConsultation(true);
+    
+    try {
+      // Extract treatment plan and findings from report data
+      const treatmentPlan = reportData.report_html || 'Treatment plan not available';
+      const findings = reportData.findings || 'Dental findings not available';
+      
+      const consultationRequest = {
+        reportId: reportId!,
+        patientName: reportData.patientName || 'Patient',
+        treatmentPlan,
+        findings
+      };
+      
+      console.log('🎭 Generating consultation for:', consultationRequest);
+      
+      // Generate consultation URL using Heygen service
+      const result = await heygenService.generateConsultationUrl(consultationRequest);
+      
+      if (result.success && result.consultationUrl) {
+        // Open consultation in new tab
+        window.open(result.consultationUrl, '_blank');
+        
+        toast({
+          title: "Consultation Ready!",
+          description: "Your personalized consultation has been generated and opened in a new tab.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate consultation');
+      }
+      
+    } catch (error) {
+      console.error('Error generating consultation:', error);
+      toast({
+        title: "Consultation Failed",
+        description: "Failed to generate consultation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConsultation(false);
     }
   };
 
@@ -300,11 +348,21 @@ const ViewReport = () => {
                       <p className="text-xs text-blue-500">Personalized responses</p>
                     </div>
                     <Button
-                      onClick={() => navigate(`/consultation/${reportId}`)}
+                      onClick={handleGenerateConsultation}
+                      disabled={isGeneratingConsultation}
                       className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 px-6"
                     >
-                      <MessageCircle className="w-4 h-4" />
-                      Start Consultation
+                      {isGeneratingConsultation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <MessageCircle className="w-4 h-4" />
+                          Start Consultation
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -383,11 +441,21 @@ const ViewReport = () => {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => navigate(`/consultation/${reportId}`)}
+                          onClick={handleGenerateConsultation}
+                          disabled={isGeneratingConsultation}
                           className="flex items-center gap-2"
                         >
-                          <MessageCircle className="w-4 h-4" />
-                          Ask Questions
+                          {isGeneratingConsultation ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="w-4 h-4" />
+                              Ask Questions
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -439,11 +507,21 @@ const ViewReport = () => {
                         </Button>
                         <Button 
                           variant="default"
-                          onClick={() => navigate(`/consultation/${reportId}`)}
+                          onClick={handleGenerateConsultation}
+                          disabled={isGeneratingConsultation}
                           className="bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700"
                         >
-                          <MessageCircle className="mr-2 w-4 h-4" />
-                          Ask Questions
+                          {isGeneratingConsultation ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="w-4 h-4" />
+                              Ask Questions
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>

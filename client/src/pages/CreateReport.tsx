@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw } from "lucide-react";
+import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw, Mail, Send, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +20,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
+import { heygenService } from '@/services/heygen';
 import { generateReplacementOptionsTable } from '@/lib/replacementOptionsTemplate';
 import {
   ToothNumberingSystem,
@@ -200,6 +201,9 @@ const CreateReport = () => {
   const [showAISummary, setShowAISummary] = useState(true);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isGeneratingConsultation, setIsGeneratingConsultation] = useState(false);
+  const [patientEmail, setPatientEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   // Effect to refresh image when tooth number overlay toggle changes
   useEffect(() => {
@@ -1955,6 +1959,98 @@ const CreateReport = () => {
       });
     }
   };
+
+  // Function to send report to patient via email
+  const handleSendReportToPatient = async () => {
+    if (!patientEmail.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter the patient's email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!report) {
+      toast({
+        title: "Report Required",
+        description: "No report content available to send.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      // Call the backend API to send the email
+      await api.sendReportToPatient('preview', patientEmail);
+      
+      toast({
+        title: "Report Sent!",
+        description: `Dental report has been sent to ${patientEmail}`,
+      });
+      
+      setPatientEmail(''); // Clear the email input
+      
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast({
+        title: "Send Failed",
+        description: "Failed to send report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  // Function to generate consultation using Heygen service
+  const handleGenerateConsultation = async () => {
+    if (!report) return;
+    
+    setIsGeneratingConsultation(true);
+    
+    try {
+      // Extract treatment plan and findings from report data
+      const treatmentPlan = report || 'Treatment plan not available';
+      const findings = 'Dental findings from X-ray analysis'; // This would come from the actual findings data
+      
+      const consultationRequest = {
+        reportId: 'preview', // Since this is preview mode
+        patientName: patientName || 'Patient',
+        treatmentPlan,
+        findings
+      };
+      
+      console.log('🎭 Generating consultation for:', consultationRequest);
+      
+      // Generate consultation URL using Heygen service
+      const result = await heygenService.generateConsultationUrl(consultationRequest);
+      
+      if (result.success && result.consultationUrl) {
+        // Open consultation in new tab
+        window.open(result.consultationUrl, '_blank');
+        
+        toast({
+          title: "Consultation Ready!",
+          description: "Your personalized consultation has been generated and opened in a new tab.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate consultation');
+      }
+      
+    } catch (error) {
+      console.error('Error generating consultation:', error);
+      toast({
+        title: "Consultation Failed",
+        description: "Failed to generate consultation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConsultation(false);
+    }
+  };
   
   // Helper function to check video status (extracted from pollForVideoStatus)
   const checkVideoStatus = async (diagnosisId: string): Promise<boolean> => {
@@ -2866,6 +2962,99 @@ const CreateReport = () => {
                               )}
                             </TabsContent>
                           </Tabs>
+
+                          {/* Send Report to Patient - Prominent Section */}
+                          <div className="mt-8 border-t pt-6">
+                            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                              <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                      <Mail className="w-6 h-6 text-green-600" />
+                                    </div>
+                                    <div>
+                                      <h3 className="text-lg font-semibold text-green-900">Ready to Send to Patient?</h3>
+                                      <p className="text-sm text-green-700">
+                                        Send this completed dental report directly to your patient's email
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="email"
+                                      value={patientEmail}
+                                      onChange={(e) => setPatientEmail(e.target.value)}
+                                      placeholder="patient@example.com"
+                                      className="px-4 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-64"
+                                    />
+                                    <Button
+                                      onClick={handleSendReportToPatient}
+                                      disabled={isSendingEmail || !patientEmail.trim()}
+                                      className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6"
+                                    >
+                                      {isSendingEmail ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Sending...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Send className="w-4 h-4" />
+                                          Send Report
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Interactive Avatar Consultation - New Section */}
+                          <div className="mt-6">
+                            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                              <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                      <MessageCircle className="w-6 h-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                      <h3 className="text-lg font-semibold text-blue-900">Interactive AI Consultation Preview</h3>
+                                      <p className="text-sm text-blue-700">
+                                        This is the interactive avatar that will be linked in the patient report. You can preview talking to it by clicking here.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-3">
+                                    <div className="text-right mr-4">
+                                      <p className="text-sm text-blue-600 font-medium">Available 24/7</p>
+                                      <p className="text-xs text-blue-500">Personalized responses</p>
+                                    </div>
+                                    <Button
+                                      onClick={handleGenerateConsultation}
+                                      disabled={isGeneratingConsultation}
+                                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 px-6"
+                                    >
+                                      {isGeneratingConsultation ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Generating...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MessageCircle className="w-4 h-4" />
+                                          Preview Avatar
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
 
                           {/* AI Suggestion Section - Only show in report tab */}
                           {activeTab === "report" && (
