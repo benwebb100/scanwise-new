@@ -1890,22 +1890,33 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         auth_client = global_supabase_service._create_authenticated_client(token)
         logger.info("✅ Supabase client created successfully")
         
-        # Get user info to find their clinic
+        # Derive user_id from JWT to avoid auth.get_user flakiness
         logger.info("👤 Fetching user information...")
-        user_response = auth_client.auth.get_user()
-        
-        if not user_response or not user_response.user:
-            logger.error("❌ Authentication failed - user_response or user is None")
-            logger.error(f"user_response: {user_response}")
+        user_id = None
+        try:
+            import jwt
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            user_id = decoded.get('sub')
+            logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+        except Exception as jwt_error:
+            logger.warning(f"JWT decode failed: {jwt_error}")
+
+        if not user_id:
+            try:
+                user_response = auth_client.auth.get_user()
+                user_id = getattr(getattr(user_response, 'user', None), 'id', None)
+            except Exception as get_user_error:
+                logger.warning(f"auth.get_user failed: {get_user_error}")
+
+        if not user_id:
+            logger.error("❌ Authentication failed - no user_id available")
             return {
                 "images": [],
                 "total": 0,
                 "message": "Authentication failed. Please log in again.",
                 "error": "authentication_failed",
-                "details": "User response is None or invalid"
+                "details": "No user_id from JWT or auth.get_user"
             }
-        
-        user_id = user_response.user.id
         logger.info(f"✅ User authenticated: {user_id}")
         
         # Use user ID directly - no need to fetch clinic information
@@ -1954,12 +1965,22 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         
         user_clinic = None
         
-        # Find clinic folder by user ID
+        # Find clinic folder by user ID (support multiple legacy patterns)
+        candidate_ids = [clinic_id, user_id]
         for clinic in clinics:
-            if clinic.get('clinic_id') == clinic_id:
+            if clinic.get('clinic_id') in candidate_ids:
                 user_clinic = clinic
-                logger.info(f"✅ Found clinic folder by user ID: {clinic}")
+                logger.info(f"✅ Found clinic folder by clinic_id match: {clinic}")
                 break
+        
+        # Fallback: match where clinic_name ends with or contains user_id (legacy 'clinicName-userId' folders)
+        if not user_clinic:
+            for clinic in clinics:
+                name = (clinic.get('clinic_name') or '').lower()
+                if user_id.lower() in name:
+                    user_clinic = clinic
+                    logger.info(f"✅ Found clinic folder by clinic_name contains user_id: {clinic}")
+                    break
         
         if not user_clinic:
             logger.warning(f"❌ Clinic folder not found for user ID: {clinic_id}")
@@ -2430,16 +2451,32 @@ async def send_report_email(
         
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
-        user_response = auth_client.auth.get_user()
-        
-        if not user_response or not user_response.user:
-            logger.error("❌ Authentication failed")
+
+        # Derive user_id from JWT to avoid flaky auth.get_user responses in backend
+        user_id = None
+        try:
+            import jwt
+            decoded_token = jwt.decode(token, options={"verify_signature": False})
+            user_id = decoded_token.get('sub')
+            logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+        except Exception as jwt_error:
+            logger.warning(f"JWT decode failed: {jwt_error}")
+
+        # Fallback to Supabase auth.get_user if needed
+        if not user_id:
+            try:
+                user_response = auth_client.auth.get_user()
+                user_id = getattr(getattr(user_response, 'user', None), 'id', None)
+            except Exception as get_user_error:
+                logger.warning(f"auth.get_user failed: {get_user_error}")
+
+        if not user_id:
+            logger.error("❌ Authentication failed - no user_id available")
             return {
                 "success": False,
                 "error": "Authentication failed"
             }
-        
-        user_id = user_response.user.id
+
         logger.info(f"✅ User authenticated: {user_id}")
         
         # Get report data
@@ -2465,7 +2502,7 @@ async def send_report_email(
             from services.email_service import email_service
             
             # Get clinic branding information
-            clinic_branding_response = auth_client.table('clinic_branding').select("*").execute()
+            clinic_branding_response = auth_client.table('clinic_branding').select("*").eq('user_id', user_id).execute()
             clinic_branding = {}
             
             if clinic_branding_response.data:

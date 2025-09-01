@@ -13,8 +13,8 @@ class EmailService:
     def __init__(self):
         self.smtp_server = "smtp.gmail.com"
         self.smtp_port = 587
-        self.sender_email = os.getenv('GMAIL_EMAIL', 'info@scan-wise.com')
-        self.app_password = os.getenv('GMAIL_APP_PASSWORD', 'yase whsd fqlm hlzb')
+        self.sender_email = os.getenv('GMAIL_EMAIL')
+        self.app_password = os.getenv('GMAIL_APP_PASSWORD')
         
         # Log email configuration (without exposing password)
         logger.info(f"Email service initialized with sender: {self.sender_email}")
@@ -106,6 +106,8 @@ This email was sent automatically. Please do not reply to this email.
             server.starttls()
             
             # Login
+            if not self.sender_email or not self.app_password:
+                raise Exception("Email credentials not configured")
             server.login(self.sender_email, self.app_password)
             
             # Send email
