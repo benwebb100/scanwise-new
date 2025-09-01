@@ -7,10 +7,10 @@
     "dev": "vite",
     "build": "npx vite build",
     "build:server": "tsc",
-    "start": "node dist/server.js",
+    "start": "vite preview --host 0.0.0.0",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
