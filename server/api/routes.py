@@ -2522,3 +2522,111 @@ async def send_report_email(
             "success": False,
             "error": f"Failed to send email: {str(e)}"
         }
+
+# Email Preview Report to Patient (from unsaved content)
+@router.post("/send-preview-report-email")
+async def send_preview_report_email(
+    request: Request,
+    token: str = Depends(get_auth_token)
+):
+    """Send dental report preview to patient via email"""
+    logger.info("📧 Starting preview report email request")
+    
+    try:
+        # Get request body
+        body = await request.json()
+        patient_email = body.get('patient_email')
+        patient_name = body.get('patient_name', 'Patient')
+        report_content = body.get('report_content')
+        findings = body.get('findings', [])
+        
+        if not patient_email or not report_content:
+            logger.error("❌ Missing required fields: patient_email or report_content")
+            return {
+                "success": False,
+                "error": "Missing required fields: patient_email and report_content"
+            }
+        
+        logger.info(f"📧 Sending preview report to {patient_email}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        user_response = auth_client.auth.get_user()
+        
+        if not user_response or not user_response.user:
+            logger.error("❌ Authentication failed")
+            return {
+                "success": False,
+                "error": "Authentication failed"
+            }
+        
+        user_id = user_response.user.id
+        logger.info(f"✅ User authenticated: {user_id}")
+        
+        # Send actual email using email service
+        logger.info(f"📧 Sending preview email to {patient_email}")
+        
+        try:
+            from services.email_service import email_service
+            
+            # Get clinic branding information
+            clinic_branding_response = auth_client.table('clinic_branding').select("*").execute()
+            clinic_branding = {}
+            
+            if clinic_branding_response.data:
+                clinic_branding = clinic_branding_response.data[0]
+                logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
+            else:
+                # Fallback to user metadata
+                user_metadata = user_response.user.user_metadata
+                clinic_branding = {
+                    'clinic_name': user_metadata.get('clinicName') or user_metadata.get('clinic_name') or 'Dental Clinic',
+                    'phone': user_metadata.get('phone') or 'our office',
+                    'website': user_metadata.get('clinicWebsite') or user_metadata.get('website') or 'our website'
+                }
+                logger.info(f"⚠️ Using fallback clinic branding: {clinic_branding}")
+            
+            # Create a mock report data structure for the preview
+            from datetime import datetime
+            preview_report_data = {
+                'patient_name': patient_name,
+                'report_html': report_content,
+                'findings': findings,
+                'created_at': datetime.now().isoformat(),
+                'is_preview': True
+            }
+            
+            # Send the email with PDF attachment
+            email_sent = email_service.send_dental_report(
+                patient_email=patient_email,
+                patient_name=patient_name,
+                report_data=preview_report_data,
+                clinic_branding=clinic_branding
+            )
+            
+            if email_sent:
+                logger.info(f"✅ Preview email with PDF sent successfully to {patient_email}")
+                return {
+                    "success": True,
+                    "message": f"Preview report sent successfully to {patient_email}"
+                }
+            else:
+                logger.error(f"❌ Failed to send preview email to {patient_email}")
+                return {
+                    "success": False,
+                    "error": "Failed to send preview email"
+                }
+                
+        except Exception as email_error:
+            logger.error(f"❌ Preview email sending error: {str(email_error)}")
+            return {
+                "success": False,
+                "error": f"Preview email sending failed: {str(email_error)}"
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ General error in send_preview_report_email: {str(e)}")
+        return {
+            "success": False,
+            "error": f"General error: {str(e)}"
+        }

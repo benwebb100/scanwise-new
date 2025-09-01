@@ -1983,15 +1983,23 @@ const CreateReport = () => {
     setIsSendingEmail(true);
     
     try {
-      // Call the backend API to send the email
-      await api.sendReportToPatient('preview', patientEmail);
-      
-      toast({
-        title: "Report Sent!",
-        description: `Dental report has been sent to ${patientEmail}`,
+      // Send preview report using the new API endpoint
+      const result = await api.sendPreviewReportToPatient({
+        patientEmail: patientEmail.trim(),
+        patientName: patientName || 'Patient',
+        reportContent: report,
+        findings: findings || []
       });
       
-      setPatientEmail(''); // Clear the email input
+      if (result.success) {
+        toast({
+          title: "Report Sent!",
+          description: `Dental report has been sent to ${patientEmail}`,
+        });
+        setPatientEmail(''); // Clear the email input
+      } else {
+        throw new Error(result.error || 'Failed to send report');
+      }
       
     } catch (error) {
       console.error('Error sending report:', error);
@@ -2034,7 +2042,7 @@ const CreateReport = () => {
         
         toast({
           title: "Consultation Ready!",
-          description: "Your personalized consultation has been generated and opened in a new tab.",
+          description: "Your personalized interactive consultation has been created and opened in a new tab.",
         });
       } else {
         throw new Error(result.error || 'Failed to generate consultation');
@@ -2973,7 +2981,7 @@ const CreateReport = () => {
                                       <Mail className="w-6 h-6 text-green-600" />
                                     </div>
                                     <div>
-                                      <h3 className="text-lg font-semibold text-green-900">Ready to Send to Patient?</h3>
+                                      <h3 className="text-lg font-semibold text-green-900">Send Report to Patient</h3>
                                       <p className="text-sm text-green-700">
                                         Send this completed dental report directly to your patient's email
                                       </p>

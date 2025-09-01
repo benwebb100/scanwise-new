@@ -126,6 +126,37 @@ export const api = {
     return response.json();
   },
 
+  // Send preview report to patient via email
+  async sendPreviewReportToPatient(data: {
+    patientEmail: string;
+    patientName: string;
+    reportContent: string;
+    findings?: Array<{ tooth: string; condition: string; treatment: string }>;
+  }) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/send-preview-report-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        patient_email: data.patientEmail,
+        patient_name: data.patientName,
+        report_content: data.reportContent,
+        findings: data.findings || [],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to send preview report: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  },
+
   // Get report by ID
   async getReport(reportId: string) {
     const token = await this.getAuthToken();

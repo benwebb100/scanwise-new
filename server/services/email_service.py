@@ -16,6 +16,10 @@ class EmailService:
         self.sender_email = os.getenv('GMAIL_EMAIL', 'info@scan-wise.com')
         self.app_password = os.getenv('GMAIL_APP_PASSWORD', 'yase whsd fqlm hlzb')
         
+        # Log email configuration (without exposing password)
+        logger.info(f"Email service initialized with sender: {self.sender_email}")
+        logger.info(f"App password configured: {'Yes' if self.app_password else 'No'}")
+        
     def send_dental_report(self, patient_email: str, patient_name: str, report_data: dict, clinic_branding: dict):
         """
         Send dental report to patient via email with PDF attachment
