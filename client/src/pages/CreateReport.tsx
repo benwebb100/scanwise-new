@@ -797,7 +797,15 @@ const CreateReport = () => {
     
     // CRITICAL FIX: Always use the original annotated image for reports, never the numbered version
     // This ensures reports always show clean X-rays without tooth numbers
-    const reportImageUrl = originalImageUrl || data.annotated_image_url;
+    let reportImageUrl = originalImageUrl || data.annotated_image_url;
+    
+    // SECURITY FIX: Only use web-accessible URLs, not local file paths
+    // If the URL looks like a local file path, don't include the image in the report
+    if (reportImageUrl && (reportImageUrl.startsWith('/tmp/') || reportImageUrl.startsWith('file://') || !reportImageUrl.startsWith('http'))) {
+      console.warn('🚨 SECURITY: Blocking local file path from report:', reportImageUrl);
+      reportImageUrl = null; // Don't include potentially unsafe local paths
+    }
+    
     console.log('🔧 REPORT IMAGE: Using original image for report:', !!originalImageUrl, 'URL:', reportImageUrl);
     
     // Use doctor's findings as the primary source of truth

@@ -1,6 +1,9 @@
 import os
 import tempfile
 import logging
+import base64
+import mimetypes
+import re
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,9 @@ class HtmlPdfService:
 
     def render_html_to_pdf(self, html: str, base_url: Optional[str] = None) -> str:
         """Render given HTML string to a temporary PDF file and return its path."""
+        # Convert local file paths in img src attributes to data URLs
+        html = self._convert_local_images_to_data_urls(html)
+        
         # Write HTML to a temp file for deterministic base URL handling
         html_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
         html_tmp.write(html.encode("utf-8"))
@@ -63,6 +69,37 @@ class HtmlPdfService:
                 browser.close()
         logger.info(f"PDF written: {pdf_path}")
         return pdf_path
+
+    def _convert_local_images_to_data_urls(self, html: str) -> str:
+        """Convert local file paths in img src attributes to data URLs."""
+        def replace_src(match):
+            src_value = match.group(1)
+            
+            # Check if this looks like a local file path (starts with / or contains /tmp/)
+            if src_value.startswith('/') or '/tmp/' in src_value:
+                try:
+                    if os.path.exists(src_value):
+                        # Get MIME type
+                        mime_type, _ = mimetypes.guess_type(src_value)
+                        if not mime_type:
+                            mime_type = 'image/jpeg'  # Default fallback
+                        
+                        # Read file and encode as base64
+                        with open(src_value, 'rb') as img_file:
+                            img_data = img_file.read()
+                            b64_data = base64.b64encode(img_data).decode('utf-8')
+                            return f'src="data:{mime_type};base64,{b64_data}"'
+                    else:
+                        logger.warning(f"Local image file not found: {src_value}")
+                except Exception as e:
+                    logger.warning(f"Failed to convert local image to data URL: {src_value}, error: {e}")
+            
+            # Return original src if it's not a local path or conversion failed
+            return match.group(0)
+        
+        # Find and replace src attributes in img tags
+        pattern = r'src="([^"]*)"'
+        return re.sub(pattern, replace_src, html)
 
     def _render_with_xhtml2pdf(self, html: str) -> str:
         logger.info("Rendering PDF with xhtml2pdf fallback…")

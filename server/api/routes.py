@@ -1484,6 +1484,12 @@ async def add_tooth_number_overlay(
         )
         
         if overlay_image:
+            # Security check: ensure we're not returning local file paths
+            if overlay_image.startswith('/tmp/') or overlay_image.startswith('file://') or (not overlay_image.startswith('http') and not overlay_image.startswith('data:')):
+                logger.error(f"🚨 SECURITY: Blocking unsafe image path from overlay service: {overlay_image}")
+                return {"image_url": request.image_url, "has_overlay": False}
+            
+            logger.info(f"✅ Tooth overlay successful, returning: {overlay_image[:100]}...")
             return {"image_url": overlay_image, "has_overlay": True}
         else:
             logger.warning("Failed to create overlay image")
