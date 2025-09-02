@@ -41,3 +41,9 @@ export {
   findingsToTreatmentItems,
   createDefaultStages
 } from './utils/stage-serialization';
+
+export {
+  getUrgencyLevel,
+  getFindingUrgency,
+  createDynamicStages
+} from './utils/treatment-urgency';

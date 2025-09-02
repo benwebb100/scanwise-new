@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw, Mail, Send, MessageCircle, Edit3 } from "lucide-react";
+import { Brain, ArrowLeft, ArrowRight, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw, Mail, Send, MessageCircle, Edit3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +33,7 @@ import {
 import './CreateReport.css';
 
 // Stage Editor imports
-import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId } from '@/features/stage-editor';
+import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId, createDynamicStages, getFindingUrgency } from '@/features/stage-editor';
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -1591,13 +1591,19 @@ const CreateReport = () => {
     return htmlContent;
   };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // New function to handle "Next Step" - opens stage editor instead of generating report
+    const handleNextStep = async (e: React.FormEvent) => {
       e.preventDefault();
       
       // Validation based on mode
       if (useXrayMode) {
         if (!uploadedImage || !patientName.trim()) {
           toast({ title: "Missing info", description: "Please upload an OPG and enter patient name." });
+          return;
+        }
+        // In X-ray mode, ensure AI analysis is complete before proceeding
+        if (!immediateAnalysisData) {
+          toast({ title: "Analysis required", description: "Please wait for AI analysis to complete before proceeding." });
           return;
         }
       } else {
@@ -1654,8 +1660,112 @@ const CreateReport = () => {
         return;
       }
       
-      // If validation passes, proceed with submit
-      await performSubmit({ validFindings, useXrayMode, patientName, patientObservations });
+      // If validation passes, open stage editor with smart defaults
+      await openStageEditorWithFindings({ validFindings, useXrayMode, patientName, patientObservations });
+    };
+
+    // Function to create stages from findings and open editor
+    const openStageEditorWithFindings = async (data: { validFindings: any[], useXrayMode: boolean, patientName: string, patientObservations: string }) => {
+      console.log('🎯 Opening stage editor with findings:', data.validFindings);
+      
+      let findingsForStaging = data.validFindings;
+      
+      // In X-ray mode, check if we have AI-generated stages to use as a starting point
+      if (data.useXrayMode && immediateAnalysisData?.treatment_stages?.length > 0) {
+        console.log('🎯 X-ray mode: Using AI analysis data for staging');
+        
+        // Try to use AI-generated stages first, then fall back to manual findings
+        try {
+          const aiStages = deserializeStages(immediateAnalysisData.treatment_stages);
+          const totalItems = aiStages.reduce((sum, stage) => sum + stage.items.length, 0);
+          const maxItemsInOneStage = Math.max(...aiStages.map(stage => stage.items.length));
+          
+          // If AI stages are well-distributed, use them
+          if (aiStages.length > 1 && !(totalItems > 3 && maxItemsInOneStage / totalItems > 0.8)) {
+            console.log('🎯 Using well-distributed AI stages');
+            setCurrentTreatmentStages(aiStages);
+            setPendingSubmitData(data);
+            setIsStageEditorOpen(true);
+            return;
+          } else {
+            console.log('🎯 AI stages poorly distributed, using manual findings approach');
+          }
+        } catch (error) {
+          console.warn('🎯 Error processing AI stages, falling back to manual findings:', error);
+        }
+      }
+      
+      // Create dynamic stages using the new urgency system (fallback or non-X-ray mode)
+      const dynamicStages = createDynamicStages(findingsForStaging);
+      console.log('🎯 Created dynamic stages:', dynamicStages);
+      
+      // Convert to editor format
+      const editorStages = dynamicStages.map((stage, index) => ({
+        id: generateId(),
+        name: stage.name,
+        focus: stage.focus,
+        order: index,
+        items: stage.items.map(finding => ({
+          id: generateId(),
+          toothNumber: finding.tooth,
+          condition: finding.condition,
+          treatment: finding.treatment,
+          replacement: finding.replacement || null,
+          urgency: getFindingUrgency(finding.condition, finding.treatment),
+          estimatedTime: 30, // Default, will be calculated
+          price: finding.price || 0
+        })),
+        totalTime: 0,
+        totalCost: 0
+      }));
+      
+      console.log('🎯 Editor stages ready:', editorStages);
+      
+      // Store the pending data for when "Generate Report" is clicked in the editor
+      setPendingSubmitData(data);
+      
+      // Set stages and open editor
+      setCurrentTreatmentStages(editorStages);
+      setIsStageEditorOpen(true);
+    };
+
+    // Original handleSubmit renamed to handleGenerateFromEditor
+    const handleGenerateFromEditor = async (finalStages: any[]) => {
+      if (!pendingSubmitData) {
+        console.error('No pending submit data found');
+        return;
+      }
+      
+      console.log('🎯 Generating report with final stages:', finalStages);
+      
+      // Convert stages back to findings format for report generation
+      const updatedFindings = finalStages.flatMap(stage => 
+        stage.items.map((item: any) => ({
+          tooth: item.toothNumber,
+          condition: item.condition,
+          treatment: item.treatment,
+          replacement: item.replacement,
+          price: item.price
+        }))
+      );
+      
+      // Update the findings with the organized data
+      const updatedSubmitData = {
+        ...pendingSubmitData,
+        validFindings: updatedFindings
+      };
+      
+      // Close stage editor
+      setIsStageEditorOpen(false);
+      
+      // Proceed with report generation using the organized findings
+      await performSubmit(updatedSubmitData);
+    };
+
+    // Keep original handleSubmit for backward compatibility (shouldn't be used in new workflow)
+    const handleSubmit = async (e: React.FormEvent) => {
+      // This should redirect to the new workflow
+      await handleNextStep(e);
     };
     
     // Function to poll for video status
@@ -1871,144 +1981,19 @@ const CreateReport = () => {
   };
 
   // Stage Editor handlers
-  const handleOpenStageEditor = () => {
-    if (!isStageEditorEnabled) return;
-    
-    // Get current treatment stages from analysis result or create from findings
-    let stages: any[] = [];
-    
-    console.log('🎯 Analysis data:', immediateAnalysisData);
-    console.log('🎯 Treatment stages:', immediateAnalysisData?.treatment_stages);
-    
-    if (immediateAnalysisData?.treatment_stages?.length > 0) {
-      console.log('🎯 Using AI-generated stages');
-      // Properly deserialize the AI-generated stages
-      stages = deserializeStages(immediateAnalysisData.treatment_stages);
-      
-      // Check if AI stages are actually well-distributed or if everything is in one stage
-      const totalItems = stages.reduce((sum, stage) => sum + stage.items.length, 0);
-      const maxItemsInOneStage = Math.max(...stages.map(stage => stage.items.length));
-      
-      // If 80% or more items are in one stage, recreate stages from AI analysis items
-      if (stages.length === 1 || (totalItems > 3 && maxItemsInOneStage / totalItems > 0.8)) {
-        console.log('🎯 AI stages are poorly distributed, redistributing by urgency');
-        
-        // Extract all treatment items from the poorly distributed stages
-        const allItems = stages.flatMap(stage => stage.items);
-        console.log('🎯 All items to redistribute:', allItems);
-        
-        // Redistribute by urgency
-        const highUrgencyItems = allItems.filter(item => item.urgency === 'high');
-        const mediumUrgencyItems = allItems.filter(item => item.urgency === 'medium');
-        const lowUrgencyItems = allItems.filter(item => item.urgency === 'low');
-        
-        const redistributedStages = [];
-        
-        if (highUrgencyItems.length > 0) {
-          redistributedStages.push({
-            id: generateId(),
-            name: 'Emergency Care',
-            focus: 'Immediate treatment of urgent conditions',
-            order: 0,
-            items: highUrgencyItems,
-            totalTime: 0,
-            totalCost: 0
-          });
-        }
-        
-        if (mediumUrgencyItems.length > 0) {
-          redistributedStages.push({
-            id: generateId(),
-            name: 'Restorative Treatment',
-            focus: 'Primary treatment phase', 
-            order: redistributedStages.length,
-            items: mediumUrgencyItems,
-            totalTime: 0,
-            totalCost: 0
-          });
-        }
-        
-        if (lowUrgencyItems.length > 0) {
-          redistributedStages.push({
-            id: generateId(),
-            name: 'Preventive Care',
-            focus: 'Maintenance and preventive treatments',
-            order: redistributedStages.length,
-            items: lowUrgencyItems,
-            totalTime: 0,
-            totalCost: 0
-          });
-        }
-        
-        stages = redistributedStages.length > 0 ? redistributedStages : stages;
-        console.log('🎯 Redistributed stages:', stages);
-      }
-    } else if (findings.length > 0) {
-      console.log('🎯 Creating stages from findings');
-      // Convert current findings to treatment items and create default stages
-      const treatmentItems = findingsToTreatmentItems(findings);
-      console.log('🎯 Treatment items:', treatmentItems);
-      
-      // Create default stages using the same logic as backend
-      const stageData = [{
-        stage: 'Emergency Care',
-        focus: 'Immediate treatment of urgent conditions',
-        items: treatmentItems.filter(item => item.urgency === 'high')
-      }, {
-        stage: 'Restorative Treatment', 
-        focus: 'Primary treatment phase',
-        items: treatmentItems.filter(item => item.urgency === 'medium')
-      }, {
-        stage: 'Preventive Care',
-        focus: 'Maintenance and preventive treatments', 
-        items: treatmentItems.filter(item => item.urgency === 'low')
-      }].filter(stage => stage.items.length > 0); // Only include non-empty stages
-      
-      console.log('🎯 Stage data before deserialize:', stageData);
-      stages = deserializeStages(stageData);
-    }
-    
-    console.log('🎯 Final stages for editor:', stages);
-    setCurrentTreatmentStages(stages);
-    setIsStageEditorOpen(true);
-  };
 
+
+  // Save function for the stage editor modal - only used when "Save" is clicked (not "Generate Report")
   const handleSaveStageEdits = (editedStages: any[]) => {
-    // Convert back to backend format
-    const backendStages = serializeStages(editedStages);
-    
-    console.log('🎯 Saving stage edits:', { editedStages, backendStages });
-    
-    // Update the immediate analysis data with new stages
-    if (immediateAnalysisData) {
-      const updatedAnalysisData = {
-        ...immediateAnalysisData,
-        treatment_stages: backendStages
-      };
-      setImmediateAnalysisData(updatedAnalysisData);
-      
-      // Regenerate the report HTML with new stages
-      try {
-        const regeneratedReport = generateReportHTML(updatedAnalysisData, showReplacementOptionsTable);
-        const brandedReport = applyBrandingToReport(regeneratedReport);
-        
-        // Update the report display
-        setReport(brandedReport);
-        addVersion(brandedReport, "Stage Edit", "Treatment stages were reorganized");
-        
-        console.log('🎯 Report regenerated with new stages');
-      } catch (error) {
-        console.error('🎯 Error regenerating report:', error);
-        // Fallback: just update the stages data
-      }
-    }
-    
-    // Update the current treatment stages for future edits
+    console.log('🎯 Saving stage edits (Close/Save workflow)');
     setCurrentTreatmentStages(editedStages);
     
+    // Close the stage editor - user can re-open to continue editing
+    setIsStageEditorOpen(false);
+    
     toast({
-      title: "Treatment Stages Updated",
-      description: "Your treatment plan has been reorganized and the report has been updated.",
+      title: "Stages Saved",
+      description: "Your treatment stages have been saved. You can continue editing or generate the report.",
     });
   };
 
@@ -2709,7 +2694,22 @@ const CreateReport = () => {
 
                     {/* Submit Button - Only show if no report */}
                     {!report && (
-                      <div className="flex justify-center mt-8">
+                      <div className="flex flex-col items-center gap-3 mt-8">
+                        {/* Continue Editing Stages button - shown if stages were previously saved */}
+                        {currentTreatmentStages.length > 0 && !isProcessing && (
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            onClick={() => setIsStageEditorOpen(true)}
+                            className="text-lg px-8 py-4"
+                          >
+                            <Edit3 className="mr-2 h-5 w-5" />
+                            Continue Editing Stages
+                          </Button>
+                        )}
+                        
+                        {/* Main Next Step button */}
                         <Button 
                           size="lg"
                           type="submit"
@@ -2723,8 +2723,8 @@ const CreateReport = () => {
                             </>
                           ) : (
                             <>
-                              <Brain className="mr-2 h-5 w-5" />
-                              {t.createReport.generateReport}
+                              <ArrowRight className="mr-2 h-5 w-5" />
+                              {currentTreatmentStages.length > 0 ? 'Review & Generate Report' : 'Next Step'}
                             </>
                           )}
                         </Button>
@@ -2923,7 +2923,22 @@ const CreateReport = () => {
 
 
                   {/* Submit Button for Non-X-ray Mode */}
-                  <div className="flex justify-center mt-8">
+                  <div className="flex flex-col items-center gap-3 mt-8">
+                    {/* Continue Editing Stages button - shown if stages were previously saved */}
+                    {currentTreatmentStages.length > 0 && !isProcessing && (
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setIsStageEditorOpen(true)}
+                        className="text-lg px-8 py-4"
+                      >
+                        <Edit3 className="mr-2 h-5 w-5" />
+                        Continue Editing Stages
+                      </Button>
+                    )}
+                    
+                    {/* Main Next Step button */}
                     <Button
                       size="lg"
                       type="submit"
@@ -2937,8 +2952,8 @@ const CreateReport = () => {
                         </>
                       ) : (
                         <>
-                          <Brain className="mr-2 h-5 w-5" />
-                          Generate Treatment Report
+                          <ArrowRight className="mr-2 h-5 w-5" />
+                          {currentTreatmentStages.length > 0 ? 'Review & Generate Report' : 'Next Step'}
                         </>
                       )}
                     </Button>
@@ -3065,27 +3080,7 @@ const CreateReport = () => {
                                       Edit Report
                                     </Button>
                                     
-                                    {/* Treatment Stage Editor Button - positioned after report content */}
-                                    {isStageEditorEnabled && report && (
-                                      <div className="border-t pt-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div>
-                                            <h4 className="font-medium text-sm text-gray-900">Treatment Plan Organization</h4>
-                                            <p className="text-xs text-gray-600">Customize how treatments are grouped into stages</p>
-                                          </div>
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm"
-                                            type="button" 
-                                            onClick={handleOpenStageEditor}
-                                            disabled={isAiLoading}
-                                          >
-                                            <Edit3 className="w-4 h-4 mr-2" />
-                                            Edit Treatment Stages
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    )}
+
                                   </div>
                                 ) : (
                                   <div className="flex gap-3 mt-3">
@@ -3339,16 +3334,15 @@ const CreateReport = () => {
         </div>
       </div>
       
-      {/* Stage Editor Modal */}
-      {isStageEditorEnabled && (
-        <StageEditorModal
-          isOpen={isStageEditorOpen}
-          onClose={() => setIsStageEditorOpen(false)}
-          initialStages={currentTreatmentStages}
-          onSave={handleSaveStageEdits}
-          timeThreshold={90}
-        />
-      )}
+      {/* Stage Editor Modal - Core part of workflow */}
+      <StageEditorModal
+        isOpen={isStageEditorOpen}
+        onClose={() => setIsStageEditorOpen(false)}
+        initialStages={currentTreatmentStages}
+        onSave={handleSaveStageEdits}
+        onGenerateReport={handleGenerateFromEditor}
+        timeThreshold={90}
+      />
       
       {/* Price Validation Dialog */}
       <PriceValidationDialog

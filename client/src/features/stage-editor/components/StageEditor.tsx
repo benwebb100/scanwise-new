@@ -25,7 +25,8 @@ import {
   DollarSign,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  Brain
 } from 'lucide-react';
 import { TreatmentStage, TreatmentItem } from '../types/stage-editor.types';
 import { StageColumn } from './StageColumn';
@@ -38,6 +39,7 @@ interface StageEditorProps {
   initialStages: TreatmentStage[];
   onSave: (stages: TreatmentStage[]) => void;
   onCancel: () => void;
+  onGenerateReport?: (stages: TreatmentStage[]) => void;
   timeThreshold?: number;
 }
 
@@ -45,6 +47,7 @@ export function StageEditor({
   initialStages, 
   onSave, 
   onCancel, 
+  onGenerateReport,
   timeThreshold = 90 
 }: StageEditorProps) {
   const {
@@ -148,6 +151,12 @@ export function StageEditor({
     }
   };
 
+  const handleGenerateReport = () => {
+    if (onGenerateReport && canSave) {
+      onGenerateReport(stages);
+    }
+  };
+
   const handleAddStage = () => {
     addStage(`Stage ${stages.length + 1}`, 'Additional treatment phase');
   };
@@ -187,16 +196,27 @@ export function StageEditor({
             </Button>
             <Button variant="outline" onClick={onCancel}>
               <X className="h-4 w-4 mr-2" />
-              Cancel
+              Close
             </Button>
-            <Button 
-              onClick={handleSave} 
-              disabled={!canSave}
-              className="min-w-[100px]"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </Button>
+            {onGenerateReport ? (
+              <Button 
+                onClick={handleGenerateReport} 
+                disabled={!canSave}
+                className="min-w-[140px] bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
+              >
+                <Brain className="h-4 w-4 mr-2" />
+                Generate Report
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleSave} 
+                disabled={!canSave}
+                className="min-w-[100px]"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
+            )}
           </div>
         </div>
         

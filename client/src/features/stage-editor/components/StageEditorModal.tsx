@@ -14,6 +14,7 @@ interface StageEditorModalProps {
   onClose: () => void;
   initialStages: TreatmentStage[];
   onSave: (stages: TreatmentStage[]) => void;
+  onGenerateReport?: (stages: TreatmentStage[]) => void;
   timeThreshold?: number;
 }
 
@@ -22,6 +23,7 @@ export function StageEditorModal({
   onClose,
   initialStages,
   onSave,
+  onGenerateReport,
   timeThreshold = 90
 }: StageEditorModalProps) {
   const handleSave = (stages: TreatmentStage[]) => {
@@ -43,6 +45,7 @@ export function StageEditorModal({
           initialStages={initialStages}
           onSave={handleSave}
           onCancel={onClose}
+          onGenerateReport={onGenerateReport}
           timeThreshold={timeThreshold}
         />
       </DialogContent>
