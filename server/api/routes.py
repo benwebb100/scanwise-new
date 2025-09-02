@@ -1907,7 +1907,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 user_id = getattr(getattr(user_response, 'user', None), 'id', None)
             except Exception as get_user_error:
                 logger.warning(f"auth.get_user failed: {get_user_error}")
-
+        
         if not user_id:
             logger.error("❌ Authentication failed - no user_id available")
             return {
@@ -2007,9 +2007,9 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         }
                     else:
                         logger.error(f"❌ Failed to create clinic folder: {create_result.get('error', 'Unknown error')}")
-                        return {
-                            "images": [],
-                            "total": 0,
+            return {
+                "images": [],
+                "total": 0,
                             "message": f"Clinic folder could not be created. Please contact support.",
                             "error": "clinic_folder_creation_failed",
                             "user_id": user_id,
@@ -2021,8 +2021,8 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         "images": [],
                         "total": 0,
                         "message": f"Clinic folder not found. Please contact support.",
-                        "error": "clinic_folder_not_found",
-                        "user_id": user_id,
+                "error": "clinic_folder_not_found",
+                "user_id": user_id,
                         "clinic_id": clinic_id
                     }
                     
@@ -2035,7 +2035,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                     "error": "clinic_folder_not_found",
                     "user_id": user_id,
                     "clinic_id": clinic_id
-                }
+            }
         
         # Get DICOM files for this clinic
         logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
@@ -2564,7 +2564,7 @@ async def send_report_email(
 @router.post("/send-preview-report-email")
 async def send_preview_report_email(
     request: Request,
-    token: str = Depends(get_auth_token)
+    authorization: Optional[str] = Header(None)
 ):
     """Send dental report preview to patient via email"""
     logger.info("📧 Starting preview report email request")
@@ -2586,19 +2586,49 @@ async def send_preview_report_email(
         
         logger.info(f"📧 Sending preview report to {patient_email}")
         
+        # Try to extract user_id from Authorization header (auth-optional)
+        token = None
+        user_id = None
+        auth_client = None
+        try:
+            if authorization:
+                token = authorization.replace("Bearer ", "").strip()
+            if token:
+                try:
+                    import jwt
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    user_id = decoded.get('sub')
+                    logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+                except Exception as jwt_error:
+                    logger.warning(f"JWT decode failed: {jwt_error}")
+                try:
+                    from services.supabase import supabase_service
+                    auth_client = supabase_service._create_authenticated_client(token)
+                except Exception as client_error:
+                    logger.warning(f"Failed to create authenticated supabase client: {client_error}")
+        except Exception as auth_error:
+            logger.warning(f"Authorization header processing failed: {auth_error}")
+        
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
-        user_response = auth_client.auth.get_user()
+        user_response = None
+        try:
+            user_response = auth_client.auth.get_user()
+        except Exception as get_user_error:
+            logger.warning(f"auth.get_user failed: {get_user_error}")
         
-        if not user_response or not user_response.user:
-            logger.error("❌ Authentication failed")
-            return {
-                "success": False,
-                "error": "Authentication failed"
-            }
-        
-        user_id = user_response.user.id
-        logger.info(f"✅ User authenticated: {user_id}")
+        user_id = None
+        if user_response and getattr(user_response, 'user', None):
+            user_id = user_response.user.id
+            logger.info(f"✅ User authenticated: {user_id}")
+        else:
+            # Fallback: decode user id from JWT
+            try:
+                decoded = jwt.decode(token, options={"verify_signature": False})
+                user_id = decoded.get('sub')
+                logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+            except Exception as jwt_error:
+                logger.warning(f"JWT decode failed: {jwt_error}")
         
         # Send actual email using email service
         logger.info(f"📧 Sending preview email to {patient_email}")
@@ -2606,16 +2636,18 @@ async def send_preview_report_email(
         try:
             from services.email_service import email_service
             
-            # Get clinic branding information
-            clinic_branding_response = auth_client.table('clinic_branding').select("*").execute()
+            # Get clinic branding information (auth-optional)
             clinic_branding = {}
-            
-            if clinic_branding_response.data:
-                clinic_branding = clinic_branding_response.data[0]
-                logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
-            else:
-                # Fallback to user metadata
-                user_metadata = user_response.user.user_metadata
+            if user_id:
+                try:
+                    clinic_branding_response = auth_client.table('clinic_branding').select("*").eq('user_id', user_id).execute()
+                    if clinic_branding_response.data:
+                        clinic_branding = clinic_branding_response.data[0]
+                        logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
+                except Exception as branding_error:
+                    logger.warning(f"Clinic branding lookup failed: {branding_error}")
+            if not clinic_branding:
+                user_metadata = getattr(getattr(user_response, 'user', None), 'user_metadata', {}) or {}
                 clinic_branding = {
                     'clinic_name': user_metadata.get('clinicName') or user_metadata.get('clinic_name') or 'Dental Clinic',
                     'phone': user_metadata.get('phone') or 'our office',
