@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw, Mail, Send, MessageCircle } from "lucide-react";
+import { Brain, ArrowLeft, Upload, Camera, FileImage, Loader2, Mic, FileText, Video, Play, ToggleLeft, ToggleRight, Settings, Info, RefreshCw, Mail, Send, MessageCircle, Edit3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,12 +32,18 @@ import {
 } from '@/data/dental-data';
 import './CreateReport.css';
 
+// Stage Editor imports
+import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems } from '@/features/stage-editor';
+
 const CreateReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, translateCondition, translateTreatment } = useTranslation();
   const { clinicPrices, savePrice, savePrices, getPrice, validatePricing, loading: pricingLoading } = useClinicPricing();
   const { applyBrandingToReport } = useClinicBranding();
+  
+  // Feature flag for stage editor
+  const isStageEditorEnabled = useFeatureFlag('stageEditorV2');
   
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -60,6 +66,10 @@ const CreateReport = () => {
   const [useXrayMode, setUseXrayMode] = useState(true);
   const [patientObservations, setPatientObservations] = useState("");
   const [detections, setDetections] = useState<any[]>([]);
+  
+  // Treatment stage editor state
+  const [isStageEditorOpen, setIsStageEditorOpen] = useState(false);
+  const [currentTreatmentStages, setCurrentTreatmentStages] = useState<any[]>([]);
   
   // New state for enhanced functionality
   const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>(() => {
@@ -1860,6 +1870,55 @@ const CreateReport = () => {
     }
   };
 
+  // Stage Editor handlers
+  const handleOpenStageEditor = () => {
+    if (!isStageEditorEnabled) return;
+    
+    // Get current treatment stages from analysis result or create from findings
+    let stages: any[] = [];
+    
+    if (immediateAnalysisData?.treatment_stages?.length > 0) {
+      stages = immediateAnalysisData.treatment_stages;
+    } else if (findings.length > 0) {
+      // Convert current findings to treatment items and create default stages
+      const treatmentItems = findingsToTreatmentItems(findings);
+      stages = deserializeStages([{
+        stage: 'Treatment Plan',
+        focus: 'Comprehensive dental treatment',
+        items: treatmentItems
+      }]);
+    }
+    
+    setCurrentTreatmentStages(stages);
+    setIsStageEditorOpen(true);
+  };
+
+  const handleSaveStageEdits = (editedStages: any[]) => {
+    // Convert back to backend format
+    const backendStages = serializeStages(editedStages);
+    
+    // Update the immediate analysis data
+    if (immediateAnalysisData) {
+      setImmediateAnalysisData({
+        ...immediateAnalysisData,
+        treatment_stages: backendStages
+      });
+    }
+    
+    // Regenerate the report with new stages
+    // This would trigger a report regeneration with the new stage data
+    // For now, we'll just update the current treatment stages
+    setCurrentTreatmentStages(editedStages);
+    
+    toast({
+      title: "Treatment Stages Updated",
+      description: "Your treatment plan has been reorganized successfully.",
+    });
+    
+    // Mark as dirty for potential re-generation
+    addVersion(report || '', "Stage Edit", "Treatment stages were reorganized");
+  };
+
   const handleRestoreVersion = (idx: number) => {
     setReport(history[idx].html);
     // Update the backup to the new current state for future edits
@@ -2908,9 +2967,22 @@ const CreateReport = () => {
                                 
                                 {/* Edit/Save buttons */}
                                 {!isEditing ? (
-                                  <Button className="mt-3" type="button" onClick={handleEditClick} disabled={isAiLoading}>
-                                    Edit Report
-                                  </Button>
+                                  <div className="flex gap-3 mt-3">
+                                    <Button type="button" onClick={handleEditClick} disabled={isAiLoading}>
+                                      Edit Report
+                                    </Button>
+                                    {isStageEditorEnabled && report && (
+                                      <Button 
+                                        variant="outline" 
+                                        type="button" 
+                                        onClick={handleOpenStageEditor}
+                                        disabled={isAiLoading}
+                                      >
+                                        <Edit3 className="w-4 h-4 mr-2" />
+                                        Edit Treatment Stages
+                                      </Button>
+                                    )}
+                                  </div>
                                 ) : (
                                   <div className="flex gap-3 mt-3">
                                     <Button type="button" onClick={handleSaveEdit}>
@@ -3162,6 +3234,17 @@ const CreateReport = () => {
                     )}
         </div>
       </div>
+      
+      {/* Stage Editor Modal */}
+      {isStageEditorEnabled && (
+        <StageEditorModal
+          isOpen={isStageEditorOpen}
+          onClose={() => setIsStageEditorOpen(false)}
+          initialStages={currentTreatmentStages}
+          onSave={handleSaveStageEdits}
+          timeThreshold={90}
+        />
+      )}
       
       {/* Price Validation Dialog */}
       <PriceValidationDialog
