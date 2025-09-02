@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +29,10 @@ interface StageColumnProps {
   onUpdateStage: (updates: Partial<TreatmentStage>) => void;
   onDeleteStage: () => void;
   onRemoveItem: (itemId: string) => void;
+  onMoveItem: (itemId: string, direction: 'left' | 'right') => void;
   canDelete: boolean;
+  stageIndex: number;
+  totalStages: number;
 }
 
 export function StageColumn({ 
@@ -40,18 +41,15 @@ export function StageColumn({
   onUpdateStage, 
   onDeleteStage, 
   onRemoveItem,
-  canDelete 
+  onMoveItem,
+  canDelete,
+  stageIndex,
+  totalStages
 }: StageColumnProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(stage.name);
   
-  const { setNodeRef, isOver } = useDroppable({
-    id: stage.id,
-    data: {
-      type: 'stage',
-      stageId: stage.id,
-    },
-  });
+  // No longer need drag and drop functionality
 
   const isOverThreshold = isStageOverThreshold(stage, timeThreshold);
 
@@ -172,50 +170,22 @@ export function StageColumn({
       </CardHeader>
       
       <CardContent className="flex-1 pt-0">
-        <div 
-          className={`
-            min-h-[200px] space-y-2 relative
-            ${isOver ? 'bg-blue-50 border-2 border-dashed border-blue-400 rounded-lg p-2' : 'p-2'}
-          `}
-        >
-          <SortableContext 
-            items={stage.items.map(item => item.id)} 
-            strategy={verticalListSortingStrategy}
-          >
-            {stage.items.map((item, index) => (
-              <div key={item.id} className="group relative">
-                {/* Drop indicator line - shows when dragging over this stage */}
-                {isOver && (
-                  <div className="absolute -top-1 left-0 right-0 h-0.5 bg-blue-500 rounded transition-opacity" />
-                )}
-                
-                <TreatmentCard
-                  item={item}
-                  onRemove={() => onRemoveItem(item.id)}
-                />
-                
-                {/* Drop indicator line for bottom of last item */}
-                {isOver && index === stage.items.length - 1 && (
-                  <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-500 rounded transition-opacity" />
-                )}
-              </div>
-            ))}
-          </SortableContext>
+        <div className="min-h-[200px] space-y-2 p-2">
+          {stage.items.map((item, index) => (
+            <TreatmentCard
+              key={item.id}
+              item={item}
+              onRemove={() => onRemoveItem(item.id)}
+              onMoveLeft={stageIndex > 0 ? () => onMoveItem(item.id, 'left') : undefined}
+              onMoveRight={stageIndex < totalStages - 1 ? () => onMoveItem(item.id, 'right') : undefined}
+              canMoveLeft={stageIndex > 0}
+              canMoveRight={stageIndex < totalStages - 1}
+            />
+          ))}
           
           {stage.items.length === 0 && (
-            <div className={`
-              flex items-center justify-center h-32 text-gray-400 text-sm border-2 border-dashed rounded-lg transition-colors
-              ${isOver ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-gray-200'}
-            `}>
-              {isOver ? 'Drop treatment here' : 'Drop treatments here'}
-            </div>
-          )}
-          
-          {/* Global drop indicator when hovering over stage */}
-          {isOver && stage.items.length > 0 && (
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 rounded" />
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded" />
+            <div className="flex items-center justify-center h-32 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+              No treatments in this stage
             </div>
           )}
         </div>

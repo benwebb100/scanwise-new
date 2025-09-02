@@ -1,16 +1,4 @@
 import React from 'react';
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverEvent,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCorners,
-  DragOverlay,
-} from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,76 +54,28 @@ export function StageEditor({
     resetToAISuggestion
   } = useStageEditor({ initialStages, timeThreshold });
 
-  const [activeItem, setActiveItem] = React.useState<TreatmentItem | null>(null);
-  const [activeStage, setActiveStage] = React.useState<TreatmentStage | null>(null);
+  // Create move item function using existing moveItemBetweenStages
+  const handleMoveItem = (itemId: string, direction: 'left' | 'right') => {
+    const sourceStageId = findItemStageId(itemId);
+    if (!sourceStageId) return;
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 1, // Very low distance for immediate response
-        tolerance: 5, // Allow some tolerance for accidental movements
-      },
-    })
-  );
+    const currentStageIndex = stages.findIndex(s => s.id === sourceStageId);
+    if (currentStageIndex === -1) return;
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const data = active.data.current;
-
-    if (data?.type === 'treatment') {
-      setActiveItem(data.item);
-    } else if (data?.type === 'stage') {
-      setActiveStage(stages.find(s => s.id === active.id) || null);
+    let targetStageIndex;
+    if (direction === 'left' && currentStageIndex > 0) {
+      targetStageIndex = currentStageIndex - 1;
+    } else if (direction === 'right' && currentStageIndex < stages.length - 1) {
+      targetStageIndex = currentStageIndex + 1;
+    } else {
+      return; // Can't move in that direction
     }
+
+    const targetStageId = stages[targetStageIndex].id;
+    moveItemBetweenStages(itemId, sourceStageId, targetStageId);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeData = active.data.current;
-    const overData = over.data.current;
-
-    // Only handle treatment item drags
-    if (activeData?.type !== 'treatment') return;
-
-    const activeStageId = findItemStageId(active.id as string);
-    const overStageId = overData?.stageId;
-
-    if (!activeStageId || !overStageId || activeStageId === overStageId) return;
-
-    // Move item between stages
-    moveItemBetweenStages(active.id as string, activeStageId, overStageId);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveItem(null);
-    setActiveStage(null);
-
-    if (!over) return;
-
-    const activeData = active.data.current;
-    const overData = over.data.current;
-
-    // Handle treatment item reordering within the same stage
-    if (activeData?.type === 'treatment' && overData?.type === 'treatment') {
-      const activeStageId = findItemStageId(active.id as string);
-      const overStageId = findItemStageId(over.id as string);
-
-      if (activeStageId === overStageId && activeStageId) {
-        const stage = stages.find(s => s.id === activeStageId);
-        if (!stage) return;
-
-        const activeIndex = stage.items.findIndex(item => item.id === active.id);
-        const overIndex = stage.items.findIndex(item => item.id === over.id);
-
-        if (activeIndex !== overIndex) {
-          reorderItemsInStage(activeStageId, activeIndex, overIndex);
-        }
-      }
-    }
-  };
+  // Drag handlers removed - now using arrow buttons
 
   const findItemStageId = (itemId: string): string | null => {
     for (const stage of stages) {
@@ -279,52 +219,40 @@ export function StageEditor({
 
       {/* Main editor area */}
       <div className="flex-1 overflow-auto p-6">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-6 min-h-full">
-            {stages.map((stage) => {
-              const { canDelete } = canDeleteStage(stage);
-              const canDeleteThisStage = canDelete && stages.length > 1;
-              
-              return (
-                <StageColumn
-                  key={stage.id}
-                  stage={stage}
-                  timeThreshold={timeThreshold}
-                  onUpdateStage={(updates) => updateStage(stage.id, updates)}
-                  onDeleteStage={() => handleDeleteStage(stage.id)}
-                  onRemoveItem={(itemId) => removeTreatmentItem(stage.id, itemId)}
-                  canDelete={canDeleteThisStage}
-                />
-              );
-            })}
+        <div className="flex gap-6 min-h-full">
+          {stages.map((stage, index) => {
+            const { canDelete } = canDeleteStage(stage);
+            const canDeleteThisStage = canDelete && stages.length > 1;
             
-            {/* Add stage button */}
-            <Card className="w-80 min-h-[400px] border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors">
-              <Button
-                variant="ghost"
-                size="lg"
-                onClick={handleAddStage}
-                className="h-auto p-8 flex-col gap-2 text-gray-500 hover:text-gray-700"
-              >
-                <Plus className="h-8 w-8" />
-                <span>Add Stage</span>
-              </Button>
-            </Card>
-          </div>
-
-          {/* Drag overlay */}
-          <DragOverlay>
-            {activeItem && (
-              <TreatmentCard item={activeItem} isDragging />
-            )}
-          </DragOverlay>
-        </DndContext>
+            return (
+              <StageColumn
+                key={stage.id}
+                stage={stage}
+                timeThreshold={timeThreshold}
+                onUpdateStage={(updates) => updateStage(stage.id, updates)}
+                onDeleteStage={() => handleDeleteStage(stage.id)}
+                onRemoveItem={(itemId) => removeTreatmentItem(stage.id, itemId)}
+                onMoveItem={handleMoveItem}
+                canDelete={canDeleteThisStage}
+                stageIndex={index}
+                totalStages={stages.length}
+              />
+            );
+          })}
+          
+          {/* Add stage button */}
+          <Card className="w-80 min-h-[400px] border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors">
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={handleAddStage}
+              className="h-auto p-8 flex-col gap-2 text-gray-500 hover:text-gray-700"
+            >
+              <Plus className="h-8 w-8" />
+              <span>Add Stage</span>
+            </Button>
+          </Card>
+        </div>
       </div>
     </div>
   );
