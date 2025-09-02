@@ -12,9 +12,12 @@ type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
  */
 export function useFeatureFlag(flag: FeatureFlagKey): boolean {
   return useMemo(() => {
-    // Check environment variable first
-    const envKey = `VITE_FEATURE_${flag.toUpperCase()}`;
-    const envValue = import.meta.env[envKey];
+    // Check environment variables with static keys (Vite requires static imports)
+    let envValue: string | undefined;
+    
+    if (flag === 'stageEditorV2') {
+      envValue = import.meta.env.VITE_FEATURE_STAGEEDITORV2;
+    }
     
     if (envValue !== undefined) {
       return envValue === 'true' || envValue === '1';
