@@ -33,7 +33,7 @@ import {
 import './CreateReport.css';
 
 // Stage Editor imports
-import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems } from '@/features/stage-editor';
+import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId } from '@/features/stage-editor';
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -1877,18 +1877,98 @@ const CreateReport = () => {
     // Get current treatment stages from analysis result or create from findings
     let stages: any[] = [];
     
+    console.log('🎯 Analysis data:', immediateAnalysisData);
+    console.log('🎯 Treatment stages:', immediateAnalysisData?.treatment_stages);
+    
     if (immediateAnalysisData?.treatment_stages?.length > 0) {
-      stages = immediateAnalysisData.treatment_stages;
+      console.log('🎯 Using AI-generated stages');
+      // Properly deserialize the AI-generated stages
+      stages = deserializeStages(immediateAnalysisData.treatment_stages);
+      
+      // Check if AI stages are actually well-distributed or if everything is in one stage
+      const totalItems = stages.reduce((sum, stage) => sum + stage.items.length, 0);
+      const maxItemsInOneStage = Math.max(...stages.map(stage => stage.items.length));
+      
+      // If 80% or more items are in one stage, recreate stages from AI analysis items
+      if (stages.length === 1 || (totalItems > 3 && maxItemsInOneStage / totalItems > 0.8)) {
+        console.log('🎯 AI stages are poorly distributed, redistributing by urgency');
+        
+        // Extract all treatment items from the poorly distributed stages
+        const allItems = stages.flatMap(stage => stage.items);
+        console.log('🎯 All items to redistribute:', allItems);
+        
+        // Redistribute by urgency
+        const highUrgencyItems = allItems.filter(item => item.urgency === 'high');
+        const mediumUrgencyItems = allItems.filter(item => item.urgency === 'medium');
+        const lowUrgencyItems = allItems.filter(item => item.urgency === 'low');
+        
+        const redistributedStages = [];
+        
+        if (highUrgencyItems.length > 0) {
+          redistributedStages.push({
+            id: generateId(),
+            name: 'Emergency Care',
+            focus: 'Immediate treatment of urgent conditions',
+            order: 0,
+            items: highUrgencyItems,
+            totalTime: 0,
+            totalCost: 0
+          });
+        }
+        
+        if (mediumUrgencyItems.length > 0) {
+          redistributedStages.push({
+            id: generateId(),
+            name: 'Restorative Treatment',
+            focus: 'Primary treatment phase', 
+            order: redistributedStages.length,
+            items: mediumUrgencyItems,
+            totalTime: 0,
+            totalCost: 0
+          });
+        }
+        
+        if (lowUrgencyItems.length > 0) {
+          redistributedStages.push({
+            id: generateId(),
+            name: 'Preventive Care',
+            focus: 'Maintenance and preventive treatments',
+            order: redistributedStages.length,
+            items: lowUrgencyItems,
+            totalTime: 0,
+            totalCost: 0
+          });
+        }
+        
+        stages = redistributedStages.length > 0 ? redistributedStages : stages;
+        console.log('🎯 Redistributed stages:', stages);
+      }
     } else if (findings.length > 0) {
+      console.log('🎯 Creating stages from findings');
       // Convert current findings to treatment items and create default stages
       const treatmentItems = findingsToTreatmentItems(findings);
-      stages = deserializeStages([{
-        stage: 'Treatment Plan',
-        focus: 'Comprehensive dental treatment',
-        items: treatmentItems
-      }]);
+      console.log('🎯 Treatment items:', treatmentItems);
+      
+      // Create default stages using the same logic as backend
+      const stageData = [{
+        stage: 'Emergency Care',
+        focus: 'Immediate treatment of urgent conditions',
+        items: treatmentItems.filter(item => item.urgency === 'high')
+      }, {
+        stage: 'Restorative Treatment', 
+        focus: 'Primary treatment phase',
+        items: treatmentItems.filter(item => item.urgency === 'medium')
+      }, {
+        stage: 'Preventive Care',
+        focus: 'Maintenance and preventive treatments', 
+        items: treatmentItems.filter(item => item.urgency === 'low')
+      }].filter(stage => stage.items.length > 0); // Only include non-empty stages
+      
+      console.log('🎯 Stage data before deserialize:', stageData);
+      stages = deserializeStages(stageData);
     }
     
+    console.log('🎯 Final stages for editor:', stages);
     setCurrentTreatmentStages(stages);
     setIsStageEditorOpen(true);
   };
@@ -1897,26 +1977,39 @@ const CreateReport = () => {
     // Convert back to backend format
     const backendStages = serializeStages(editedStages);
     
-    // Update the immediate analysis data
+    console.log('🎯 Saving stage edits:', { editedStages, backendStages });
+    
+    // Update the immediate analysis data with new stages
     if (immediateAnalysisData) {
-      setImmediateAnalysisData({
+      const updatedAnalysisData = {
         ...immediateAnalysisData,
         treatment_stages: backendStages
-      });
+      };
+      setImmediateAnalysisData(updatedAnalysisData);
+      
+      // Regenerate the report HTML with new stages
+      try {
+        const regeneratedReport = generateReportHTML(updatedAnalysisData, showReplacementOptionsTable);
+        const brandedReport = applyBrandingToReport(regeneratedReport);
+        
+        // Update the report display
+        setReport(brandedReport);
+        addVersion(brandedReport, "Stage Edit", "Treatment stages were reorganized");
+        
+        console.log('🎯 Report regenerated with new stages');
+      } catch (error) {
+        console.error('🎯 Error regenerating report:', error);
+        // Fallback: just update the stages data
+      }
     }
     
-    // Regenerate the report with new stages
-    // This would trigger a report regeneration with the new stage data
-    // For now, we'll just update the current treatment stages
+    // Update the current treatment stages for future edits
     setCurrentTreatmentStages(editedStages);
     
     toast({
       title: "Treatment Stages Updated",
-      description: "Your treatment plan has been reorganized successfully.",
+      description: "Your treatment plan has been reorganized and the report has been updated.",
     });
-    
-    // Mark as dirty for potential re-generation
-    addVersion(report || '', "Stage Edit", "Treatment stages were reorganized");
   };
 
   const handleRestoreVersion = (idx: number) => {
@@ -2967,20 +3060,31 @@ const CreateReport = () => {
                                 
                                 {/* Edit/Save buttons */}
                                 {!isEditing ? (
-                                  <div className="flex gap-3 mt-3">
+                                  <div className="space-y-3 mt-3">
                                     <Button type="button" onClick={handleEditClick} disabled={isAiLoading}>
                                       Edit Report
                                     </Button>
+                                    
+                                    {/* Treatment Stage Editor Button - positioned after report content */}
                                     {isStageEditorEnabled && report && (
-                                      <Button 
-                                        variant="outline" 
-                                        type="button" 
-                                        onClick={handleOpenStageEditor}
-                                        disabled={isAiLoading}
-                                      >
-                                        <Edit3 className="w-4 h-4 mr-2" />
-                                        Edit Treatment Stages
-                                      </Button>
+                                      <div className="border-t pt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div>
+                                            <h4 className="font-medium text-sm text-gray-900">Treatment Plan Organization</h4>
+                                            <p className="text-xs text-gray-600">Customize how treatments are grouped into stages</p>
+                                          </div>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            type="button" 
+                                            onClick={handleOpenStageEditor}
+                                            disabled={isAiLoading}
+                                          >
+                                            <Edit3 className="w-4 h-4 mr-2" />
+                                            Edit Treatment Stages
+                                          </Button>
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
                                 ) : (

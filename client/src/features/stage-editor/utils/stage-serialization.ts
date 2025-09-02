@@ -5,23 +5,43 @@ import { getTreatmentDuration, generateId } from './stage-calculations';
  * Convert backend treatment stages to editor format
  */
 export function deserializeStages(backendStages: any[]): TreatmentStage[] {
-  return backendStages.map((stage, index) => ({
-    id: generateId(),
-    name: stage.stage || `Stage ${index + 1}`,
-    focus: stage.focus || '',
-    order: index,
-    items: (stage.items || []).map((item: any) => ({
+  if (!Array.isArray(backendStages)) {
+    console.warn('Invalid backend stages data:', backendStages);
+    return [];
+  }
+
+  return backendStages.map((stage, index) => {
+    // Handle both backend format and already-deserialized format
+    const isAlreadyDeserialized = stage.id && stage.name && Array.isArray(stage.items);
+    
+    if (isAlreadyDeserialized) {
+      // Already in editor format, just ensure it has required fields
+      return {
+        ...stage,
+        totalTime: stage.totalTime || 0,
+        totalCost: stage.totalCost || 0
+      };
+    }
+    
+    // Convert from backend format
+    return {
       id: generateId(),
-      tooth: item.tooth || '',
-      condition: item.condition || '',
-      treatment: item.recommended_treatment || item.treatment || '',
-      estimatedTime: getTreatmentDuration(item.recommended_treatment || item.treatment || ''),
-      price: item.price || 0,
-      urgency: determineUrgency(item.condition)
-    })),
-    totalTime: 0, // Will be calculated
-    totalCost: 0  // Will be calculated
-  }));
+      name: stage.stage || `Stage ${index + 1}`,
+      focus: stage.focus || '',
+      order: index,
+      items: (stage.items || []).map((item: any) => ({
+        id: generateId(),
+        tooth: item.tooth || '',
+        condition: item.condition || '',
+        treatment: item.recommended_treatment || item.treatment || '',
+        estimatedTime: getTreatmentDuration(item.recommended_treatment || item.treatment || ''),
+        price: item.price || 0,
+        urgency: determineUrgency(item.condition)
+      })),
+      totalTime: 0, // Will be calculated
+      totalCost: 0  // Will be calculated
+    };
+  });
 }
 
 /**

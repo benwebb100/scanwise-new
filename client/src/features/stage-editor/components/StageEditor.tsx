@@ -69,7 +69,7 @@ export function StageEditor({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 3, // Reduced distance for more responsive dragging
       },
     })
   );
