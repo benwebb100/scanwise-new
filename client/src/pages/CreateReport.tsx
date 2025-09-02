@@ -1988,7 +1988,8 @@ const CreateReport = () => {
         patientEmail: patientEmail.trim(),
         patientName: patientName || 'Patient',
         reportContent: report,
-        findings: findings || []
+        findings: findings || [],
+        annotatedImageUrl: originalImageUrl || immediateAnalysisData?.annotated_image_url
       });
       
       if (result.success) {

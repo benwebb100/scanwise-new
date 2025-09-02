@@ -42,9 +42,43 @@ class EmailService:
             text_part = MIMEText(text_content, 'plain')
             msg.attach(text_part)
             
-            # Generate PDF
-            from services.pdf_generator import pdf_generator
-            pdf_path = pdf_generator.generate_dental_report_pdf(report_data, clinic_branding)
+            # Generate PDF using HTML-preserving renderer
+            try:
+                from services.html_pdf_service import html_pdf_service
+                from jinja2 import Environment, FileSystemLoader, select_autoescape
+                from datetime import datetime
+
+                templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+                env = Environment(
+                    loader=FileSystemLoader(templates_dir),
+                    autoescape=select_autoescape(['html'])
+                )
+                template = env.get_template('report.html')
+
+                # Build legend if available (optional list of strings)
+                legend = report_data.get('legend', [])
+
+                html = template.render(
+                    clinic_name=clinic_branding.get('clinic_name', 'Dental Clinic'),
+                    address=clinic_branding.get('address'),
+                    phone=clinic_branding.get('phone'),
+                    email=clinic_branding.get('email'),
+                    website=clinic_branding.get('website'),
+                    primary_color=clinic_branding.get('primary_color', '#1e88e5'),
+                    patient_name=report_data.get('patient_name', 'Patient'),
+                    report_date=report_data.get('created_at', datetime.now().isoformat()),
+                    report_html=report_data.get('report_html', ''),
+                    annotated_image_url=report_data.get('annotated_image_url'),
+                    legend=legend,
+                    video_url=report_data.get('video_url'),
+                    consultation_url=report_data.get('consultation_url'),
+                )
+
+                pdf_path = html_pdf_service.render_html_to_pdf(html)
+            except Exception as html_err:
+                logger.warning(f"HTML PDF render failed ({html_err}); falling back to ReportLab.")
+                from services.pdf_generator import pdf_generator
+                pdf_path = pdf_generator.generate_dental_report_pdf(report_data, clinic_branding)
             
             # Attach PDF
             with open(pdf_path, 'rb') as pdf_file:

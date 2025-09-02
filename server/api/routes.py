@@ -2576,6 +2576,7 @@ async def send_preview_report_email(
         patient_name = body.get('patient_name', 'Patient')
         report_content = body.get('report_content')
         findings = body.get('findings', [])
+        annotated_image_url = body.get('annotated_image_url')
         
         if not patient_email or not report_content:
             logger.error("❌ Missing required fields: patient_email or report_content")
@@ -2662,7 +2663,8 @@ async def send_preview_report_email(
                 'report_html': report_content,
                 'findings': findings,
                 'created_at': datetime.now().isoformat(),
-                'is_preview': True
+                'is_preview': True,
+                'annotated_image_url': annotated_image_url
             }
             
             # Send the email with PDF attachment

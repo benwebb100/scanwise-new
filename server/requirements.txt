@@ -85,3 +85,5 @@ shapely==2.0.6
 boto3==1.40.15
 pydicom==2.4.4
 reportlab==4.1.0
+playwright==1.49.0
+xhtml2pdf==0.2.16

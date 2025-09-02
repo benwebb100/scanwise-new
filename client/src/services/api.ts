@@ -132,6 +132,7 @@ export const api = {
     patientName: string;
     reportContent: string;
     findings?: Array<{ tooth: string; condition: string; treatment: string }>;
+    annotatedImageUrl?: string;
   }) {
     const token = await this.getAuthToken();
     
@@ -146,6 +147,7 @@ export const api = {
         patient_name: data.patientName,
         report_content: data.reportContent,
         findings: data.findings || [],
+        annotated_image_url: data.annotatedImageUrl,
       }),
     });
 
