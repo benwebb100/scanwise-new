@@ -55,11 +55,10 @@ export const CONDITION_URGENCY: Record<string, UrgencyLevel> = {
 export const TREATMENT_URGENCY: Record<string, UrgencyLevel> = {
   // HIGH URGENCY - Emergency/Infection Control (Stage 1)
   'root-canal-treatment': 'high',      // Treats infected/inflamed pulp
-  'surgical-extraction': 'high',       // Complex surgical procedure
   'apicoectomy': 'high',               // Root-end surgery
   'extraction': 'high',                // Tooth removal (usually urgent)
   
-  // MEDIUM URGENCY - Major Restorative (Stage 2)
+  'surgical-extraction': 'medium',     // Complex but planned surgical procedure
   'filling': 'medium',                 // Restores decay but not always urgent
   'crown': 'medium',                   // Major restoration
   'bridge': 'medium',                  // Major restoration
