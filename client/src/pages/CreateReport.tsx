@@ -33,7 +33,7 @@ import {
 import './CreateReport.css';
 
 // Stage Editor imports
-import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId, createDynamicStages, getFindingUrgency } from '@/features/stage-editor';
+import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId, createDynamicStages, getFindingUrgency, getTreatmentDurationFromMapping } from '@/features/stage-editor';
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -1730,7 +1730,7 @@ const CreateReport = () => {
           treatment: finding.treatment,
           replacement: finding.replacement || null,
           urgency: getFindingUrgency(finding.condition, finding.treatment),
-          estimatedTime: 30, // Default, will be calculated
+          estimatedTime: getTreatmentDurationFromMapping(finding.treatment),
           price: finding.price || 0
         })),
         totalTime: 0,

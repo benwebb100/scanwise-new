@@ -163,6 +163,29 @@ export function getFindingUrgency(condition: string, treatment: string): Urgency
 /**
  * Create dynamic stages based on available urgency levels
  */
+// Common treatment duration mapping (in minutes)
+export const TREATMENT_DURATIONS: Record<string, number> = {
+  'filling': 30,
+  'crown': 90,
+  'root-canal-treatment': 120,
+  'surgical-extraction': 60,
+  'implant': 180,
+  'implant-placement': 180,
+  'bridge': 120,
+  'scaling': 60,
+  'whitening': 45,
+  'extraction': 30,
+  'cleaning': 60,
+};
+
+/**
+ * Get estimated treatment duration in minutes
+ */
+export function getTreatmentDuration(treatment: string): number {
+  const normalizedTreatment = treatment.toLowerCase().replace(/\s+/g, '-');
+  return TREATMENT_DURATIONS[normalizedTreatment] || 30; // Default to 30 minutes
+}
+
 export function createDynamicStages(findings: Array<{ condition: string; treatment: string; [key: string]: any }>): Array<{
   name: string;
   focus: string;

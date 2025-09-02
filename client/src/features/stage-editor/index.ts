@@ -45,5 +45,6 @@ export {
 export {
   getUrgencyLevel,
   getFindingUrgency,
-  createDynamicStages
+  createDynamicStages,
+  getTreatmentDuration as getTreatmentDurationFromMapping
 } from './utils/treatment-urgency';
