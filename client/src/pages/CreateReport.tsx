@@ -518,7 +518,7 @@ const CreateReport = () => {
     console.log('🚀 REPORT GENERATION: Starting report generation...');
     console.log('🚀 REPORT GENERATION: Submit data:', submitData);
     
-    const { validFindings, useXrayMode, patientName, patientObservations } = submitData;
+    const { validFindings, useXrayMode, patientName, patientObservations, organizedStages } = submitData;
     
     console.log('🚀 REPORT GENERATION: Valid findings count:', validFindings?.length || 0);
     console.log('🚀 REPORT GENERATION: Use X-ray mode:', useXrayMode);
@@ -628,6 +628,13 @@ const CreateReport = () => {
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty, using frontend generation');
           console.log('🚀 REPORT GENERATION: Calling generateReportHTML with toggle state:', showReplacementOptionsTable);
+          
+          // If we have organized stages from the stage editor, use them
+          if (organizedStages) {
+            console.log('🚀 REPORT GENERATION: Using organized stages from stage editor:', organizedStages);
+            analysisResult.treatment_stages = organizedStages;
+          }
+          
           reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML length:', reportHtml?.length || 0);
         }
@@ -714,6 +721,13 @@ const CreateReport = () => {
         if (!reportHtml) {
           console.log('🚀 REPORT GENERATION: Backend report_html is empty (no xray), using frontend generation');
           console.log('🚀 REPORT GENERATION: Calling generateReportHTML with toggle state (no xray):', showReplacementOptionsTable);
+          
+          // If we have organized stages from the stage editor, use them
+          if (organizedStages) {
+            console.log('🚀 REPORT GENERATION: Using organized stages from stage editor (no xray):', organizedStages);
+            analysisResult.treatment_stages = organizedStages;
+          }
+          
           reportHtml = generateReportHTML(analysisResult, showReplacementOptionsTable);
           console.log('🚀 REPORT GENERATION: Frontend generated HTML (no xray) length:', reportHtml?.length || 0);
         }
@@ -1696,8 +1710,12 @@ const CreateReport = () => {
       }
       
       // Create dynamic stages using the new urgency system (fallback or non-X-ray mode)
+      console.log('🎯 Findings for staging:', findingsForStaging);
+      console.log('🎯 Sample finding structure:', findingsForStaging[0]);
+      
       const dynamicStages = createDynamicStages(findingsForStaging);
       console.log('🎯 Created dynamic stages:', dynamicStages);
+      console.log('🎯 Stage distribution:', dynamicStages.map(s => ({ name: s.name, itemCount: s.items.length })));
       
       // Convert to editor format
       const editorStages = dynamicStages.map((stage, index) => ({
@@ -1749,16 +1767,31 @@ const CreateReport = () => {
         }))
       );
       
-      // Update the findings with the organized data
+      // Convert stages to backend format for report generation
+      const organizedStages = finalStages.map((stage, index) => ({
+        stage: stage.name,
+        focus: stage.focus,
+        items: stage.items.map((item: any) => ({
+          tooth: item.toothNumber,
+          condition: item.condition,
+          treatment: item.treatment,
+          replacement: item.replacement,
+          price: item.price,
+          urgency: item.urgency
+        }))
+      }));
+      
+      // Update the findings with the organized data and pass stage organization
       const updatedSubmitData = {
         ...pendingSubmitData,
-        validFindings: updatedFindings
+        validFindings: updatedFindings,
+        organizedStages: organizedStages // Pass the stage organization
       };
       
       // Close stage editor
       setIsStageEditorOpen(false);
       
-      // Proceed with report generation using the organized findings
+      // Proceed with report generation using the organized findings and stages
       await performSubmit(updatedSubmitData);
     };
 

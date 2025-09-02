@@ -71,7 +71,7 @@ export function TreatmentCard({ item, onRemove, isDragging }: TreatmentCardProps
               {/* Tooth and urgency */}
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className="text-xs font-mono">
-                  #{item.tooth}
+                  #{item.toothNumber || item.tooth}
                 </Badge>
                 {item.urgency && (
                   <Badge 

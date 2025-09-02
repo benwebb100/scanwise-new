@@ -170,34 +170,51 @@ export function createDynamicStages(findings: Array<{ condition: string; treatme
   urgencyLevel: UrgencyLevel;
   items: any[];
 }> {
+  console.log('🎯 createDynamicStages called with findings:', findings);
+  console.log('🎯 Sample finding for urgency test:', findings[0]);
+  
   // Categorize findings by urgency
-  const highUrgencyFindings = findings.filter(f => getFindingUrgency(f.condition, f.treatment) === 'high');
+  const highUrgencyFindings = findings.filter(f => {
+    const urgency = getFindingUrgency(f.condition, f.treatment);
+    console.log(`🎯 Finding: ${f.condition} + ${f.treatment} = ${urgency} urgency`);
+    return urgency === 'high';
+  });
   const mediumUrgencyFindings = findings.filter(f => getFindingUrgency(f.condition, f.treatment) === 'medium');
   const lowUrgencyFindings = findings.filter(f => getFindingUrgency(f.condition, f.treatment) === 'low');
+  
+  console.log('🎯 Urgency distribution:', {
+    high: highUrgencyFindings.length,
+    medium: mediumUrgencyFindings.length, 
+    low: lowUrgencyFindings.length
+  });
   
   const stages = [];
   
   // Dynamic stage assignment based on what exists
+  let stageCounter = 1;
+  
   if (highUrgencyFindings.length > 0) {
     stages.push({
-      name: 'Emergency Care',
+      name: `Stage ${stageCounter}`,
       focus: 'Immediate treatment of urgent conditions',
       urgencyLevel: 'high' as UrgencyLevel,
       items: highUrgencyFindings
     });
+    stageCounter++;
     
     if (mediumUrgencyFindings.length > 0) {
       stages.push({
-        name: 'Restorative Treatment',
+        name: `Stage ${stageCounter}`,
         focus: 'Major restorative and surgical procedures',
         urgencyLevel: 'medium' as UrgencyLevel,
         items: mediumUrgencyFindings
       });
+      stageCounter++;
     }
     
     if (lowUrgencyFindings.length > 0) {
       stages.push({
-        name: 'Preventive Care',
+        name: `Stage ${stageCounter}`,
         focus: 'Maintenance and preventive treatments',
         urgencyLevel: 'low' as UrgencyLevel,
         items: lowUrgencyFindings
@@ -206,15 +223,16 @@ export function createDynamicStages(findings: Array<{ condition: string; treatme
   } else if (mediumUrgencyFindings.length > 0) {
     // No high urgency items, start with medium
     stages.push({
-      name: 'Primary Treatment',
+      name: `Stage ${stageCounter}`,
       focus: 'Main treatment phase',
       urgencyLevel: 'medium' as UrgencyLevel,
       items: mediumUrgencyFindings
     });
+    stageCounter++;
     
     if (lowUrgencyFindings.length > 0) {
       stages.push({
-        name: 'Follow-up Care',
+        name: `Stage ${stageCounter}`,
         focus: 'Preventive and maintenance treatments',
         urgencyLevel: 'low' as UrgencyLevel,
         items: lowUrgencyFindings
@@ -223,7 +241,7 @@ export function createDynamicStages(findings: Array<{ condition: string; treatme
   } else if (lowUrgencyFindings.length > 0) {
     // Only low urgency items
     stages.push({
-      name: 'Treatment Plan',
+      name: `Stage ${stageCounter}`,
       focus: 'Preventive and cosmetic treatments',
       urgencyLevel: 'low' as UrgencyLevel,
       items: lowUrgencyFindings

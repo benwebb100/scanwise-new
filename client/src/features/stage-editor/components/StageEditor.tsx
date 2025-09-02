@@ -72,7 +72,8 @@ export function StageEditor({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 3, // Reduced distance for more responsive dragging
+        distance: 1, // Very low distance for immediate response
+        tolerance: 5, // Allow some tolerance for accidental movements
       },
     })
   );
@@ -198,7 +199,16 @@ export function StageEditor({
               <X className="h-4 w-4 mr-2" />
               Close
             </Button>
-            {onGenerateReport ? (
+            <Button 
+              onClick={handleSave} 
+              disabled={!canSave}
+              variant="outline"
+              className="min-w-[100px]"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+            {onGenerateReport && (
               <Button 
                 onClick={handleGenerateReport} 
                 disabled={!canSave}
@@ -206,15 +216,6 @@ export function StageEditor({
               >
                 <Brain className="h-4 w-4 mr-2" />
                 Generate Report
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleSave} 
-                disabled={!canSave}
-                className="min-w-[100px]"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
               </Button>
             )}
           </div>
