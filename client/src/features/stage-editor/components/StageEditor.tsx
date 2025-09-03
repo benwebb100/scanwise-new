@@ -83,13 +83,13 @@ export function StageEditor({
   };
 
   const handleSave = () => {
-    if (canSave) {
+    if (validation.isValid) {
       onSave(stages);
     }
   };
 
   const handleGenerateReport = () => {
-    if (onGenerateReport && canSave) {
+    if (onGenerateReport && validation.isValid) {
       onGenerateReport(stages);
     }
   };
@@ -107,9 +107,7 @@ export function StageEditor({
     }
   };
 
-  const handleResetToAI = () => {
-    resetToAISuggestion(initialStages);
-  };
+
 
   return (
     <div className="flex flex-col h-full max-h-[90vh]">
@@ -124,11 +122,8 @@ export function StageEditor({
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleResetToAI}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset to AI
-            </Button>
             <Button variant="outline" onClick={resetToOriginal}>
+              <RotateCcw className="h-4 w-4 mr-2" />
               Reset
             </Button>
             <Button variant="outline" onClick={onCancel}>
@@ -137,7 +132,7 @@ export function StageEditor({
             </Button>
             <Button 
               onClick={handleSave} 
-              disabled={!canSave}
+              disabled={!validation.isValid}
               variant="outline"
               className="min-w-[100px]"
             >
@@ -147,7 +142,7 @@ export function StageEditor({
             {onGenerateReport && (
               <Button 
                 onClick={handleGenerateReport} 
-                disabled={!canSave}
+                disabled={!validation.isValid}
                 className="min-w-[140px] bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
               >
                 <Brain className="h-4 w-4 mr-2" />

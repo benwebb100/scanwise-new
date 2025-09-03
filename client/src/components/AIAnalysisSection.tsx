@@ -164,6 +164,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   };
 
   const [addedDetections, setAddedDetections] = useState<Set<number>>(new Set());
+  const [isAddingAll, setIsAddingAll] = useState(false);
 
   // Helper to normalize missing tooth variants
   const normalizeMissingToGeneric = (detection: Detection): Detection => {
@@ -468,31 +469,39 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                         size="sm"
                         variant="outline"
                         className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
+                        disabled={isAddingAll}
                         onClick={async () => {
-                          let removedPlaceholder = false;
-                          let addedCount = 0;
-                          activeConditions.forEach((detection) => {
-                            const originalIndex = detections.indexOf(detection);
-                            if (!addedDetections.has(originalIndex)) {
-                              if (!removedPlaceholder) {
-                                window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
-                                removedPlaceholder = true;
+                          if (isAddingAll) return; // Prevent double-clicks
+                          
+                          setIsAddingAll(true);
+                          try {
+                            let removedPlaceholder = false;
+                            let addedCount = 0;
+                            activeConditions.forEach((detection) => {
+                              const originalIndex = detections.indexOf(detection);
+                              if (!addedDetections.has(originalIndex)) {
+                                if (!removedPlaceholder) {
+                                  window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
+                                  removedPlaceholder = true;
+                                }
+                                // Use existing tooth mappings instead of re-mapping
+                                const mapData = toothMappings[originalIndex]
+                                  ? { tooth: toothMappings[originalIndex].tooth, confidence: toothMappings[originalIndex].confidence, reasoning: toothMappings[originalIndex].reasoning }
+                                  : undefined;
+                                // Normalize missing tooth variants before adding
+                                const normalizedDetection = normalizeMissingToGeneric(detection);
+                                onAcceptFinding?.(normalizedDetection as any, mapData as any);
+                                setAddedDetections(prev => new Set([...prev, originalIndex]));
+                                addedCount++;
                               }
-                              // Use existing tooth mappings instead of re-mapping
-                              const mapData = toothMappings[originalIndex]
-                                ? { tooth: toothMappings[originalIndex].tooth, confidence: toothMappings[originalIndex].confidence, reasoning: toothMappings[originalIndex].reasoning }
-                                : undefined;
-                              // Normalize missing tooth variants before adding
-                              const normalizedDetection = normalizeMissingToGeneric(detection);
-                              onAcceptFinding?.(normalizedDetection as any, mapData as any);
-                              setAddedDetections(prev => new Set([...prev, originalIndex]));
-                              addedCount++;
+                            });
+                            if (addedCount > 0) {
+                              toast({ title: 'Findings Added', description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.` });
+                            } else {
+                              toast({ title: 'No New Findings', description: 'All active conditions have already been added to dental findings.' });
                             }
-                          });
-                          if (addedCount > 0) {
-                            toast({ title: 'Findings Added', description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.` });
-                          } else {
-                            toast({ title: 'No New Findings', description: 'All active conditions have already been added to dental findings.' });
+                          } finally {
+                            setIsAddingAll(false);
                           }
                         }}
                       >

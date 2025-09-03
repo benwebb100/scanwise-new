@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,11 @@ export function StageColumn({
   const [isEditingFocus, setIsEditingFocus] = useState(false);
   const [editedFocus, setEditedFocus] = useState(stage.focus || '');
   
+  // Sync editedFocus with stage.focus when it changes
+  useEffect(() => {
+    setEditedFocus(stage.focus || '');
+  }, [stage.focus]);
+  
   // No longer need drag and drop functionality
 
   const isOverThreshold = isStageOverThreshold(stage, timeThreshold);
@@ -58,7 +63,7 @@ export function StageColumn({
       onUpdateStage({ focus: editedFocus.trim() });
     }
     setIsEditingFocus(false);
-    setEditedFocus(stage.focus || '');
+    setEditedFocus(editedFocus.trim()); // Use the new value, not the old stage.focus
   };
 
   const handleFocusCancel = () => {
@@ -76,10 +81,7 @@ export function StageColumn({
 
   return (
     <Card 
-      className={`
-        w-80 min-h-[400px] flex flex-col transition-all duration-200
-        ${isOverThreshold ? 'border-orange-300 bg-orange-50' : ''}
-      `}
+      className="w-80 min-h-[400px] flex flex-col transition-all duration-200"
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
