@@ -76,10 +76,8 @@ export function StageColumn({
 
   return (
     <Card 
-      ref={setNodeRef}
       className={`
         w-80 min-h-[400px] flex flex-col transition-all duration-200
-        ${isOver ? 'ring-2 ring-blue-500 bg-blue-50' : ''}
         ${isOverThreshold ? 'border-orange-300 bg-orange-50' : ''}
       `}
     >
