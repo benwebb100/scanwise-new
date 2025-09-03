@@ -1,4 +1,5 @@
 import { TreatmentItem, TreatmentStage } from '../types/stage-editor.types';
+import { getTreatmentDuration as getCustomDuration } from '@/utils/treatment-settings-utils';
 
 // Treatment duration estimates (in minutes)
 export const TREATMENT_DURATIONS: Record<string, number> = {
@@ -36,10 +37,22 @@ export const TREATMENT_DURATIONS: Record<string, number> = {
 };
 
 /**
- * Get estimated time for a treatment
+ * Get estimated time for a treatment from custom settings or fallback to default
  */
 export function getTreatmentDuration(treatment: string): number {
   const normalizedTreatment = treatment.toLowerCase().replace(/\s+/g, '-');
+  
+  // Try to get from custom settings first
+  try {
+    const customDuration = getCustomDuration(normalizedTreatment);
+    if (customDuration !== 30) { // If not default, use custom
+      return customDuration;
+    }
+  } catch (error) {
+    // Fallback to default if custom settings not available
+  }
+  
+  // Fallback to default durations
   return TREATMENT_DURATIONS[normalizedTreatment] || 60; // Default 60 minutes
 }
 

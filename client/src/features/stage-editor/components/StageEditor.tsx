@@ -18,6 +18,7 @@ import { TreatmentCard } from './TreatmentCard';
 import { useStageEditor } from '../hooks/useStageEditor';
 import { formatDuration, formatCurrency } from '../utils/stage-calculations';
 import { canDeleteStage } from '../utils/stage-validation';
+import { useTreatmentDurationThreshold } from '@/hooks/useTreatmentDurationThreshold';
 
 interface StageEditorProps {
   initialStages: TreatmentStage[];
@@ -32,8 +33,11 @@ export function StageEditor({
   onSave, 
   onCancel, 
   onGenerateReport,
-  timeThreshold = 90 
+  timeThreshold 
 }: StageEditorProps) {
+  // Use the clinic's custom threshold or fall back to the prop
+  const clinicThreshold = useTreatmentDurationThreshold();
+  const effectiveThreshold = timeThreshold || clinicThreshold;
   const {
     stages,
     isDirty,
@@ -48,7 +52,7 @@ export function StageEditor({
     removeTreatmentItem,
     resetToOriginal,
     resetToAISuggestion
-  } = useStageEditor({ initialStages, timeThreshold });
+  } = useStageEditor({ initialStages, timeThreshold: effectiveThreshold });
 
   // Create move item function using existing moveItemBetweenStages
   const handleMoveItem = (itemId: string, direction: 'left' | 'right') => {
@@ -202,7 +206,7 @@ export function StageEditor({
               <StageColumn
                 key={stage.id}
                 stage={stage}
-                timeThreshold={timeThreshold}
+                timeThreshold={effectiveThreshold}
                 onUpdateStage={(updates) => updateStage(stage.id, updates)}
                 onDeleteStage={() => handleDeleteStage(stage.id)}
                 onRemoveItem={(itemId) => removeTreatmentItem(stage.id, itemId)}

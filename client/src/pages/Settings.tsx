@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Brain, ArrowLeft, Settings as SettingsIcon, Building2, DollarSign } from 'lucide-react'
+import { Brain, ArrowLeft, Settings as SettingsIcon, Building2, DollarSign, Stethoscope } from 'lucide-react'
 import { ClinicBranding } from '@/components/ClinicBranding'
 import { PricingManagement } from '@/components/PricingManagement'
+import { TreatmentSettings } from '@/components/TreatmentSettings'
 import { LanguageToggle } from '@/components/LanguageToggle'
 import { useTranslation } from '@/contexts/TranslationContext'
 import { useToast } from '@/hooks/use-toast'
@@ -19,6 +20,10 @@ const Settings = () => {
   const [toothNumberingSystem, setToothNumberingSystem] = useState<'FDI' | 'Universal'>(() => {
     const saved = localStorage.getItem('toothNumberingSystem');
     return (saved as 'FDI' | 'Universal') || 'FDI';
+  });
+  const [treatmentDurationThreshold, setTreatmentDurationThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem('treatmentDurationThreshold');
+    return saved ? parseInt(saved, 10) : 90; // Default to 90 minutes
   });
 
   const handleBrandingSave = async (brandingData: any) => {
@@ -78,7 +83,7 @@ const Settings = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="branding" className="flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
                 Clinic Branding
@@ -86,6 +91,10 @@ const Settings = () => {
               <TabsTrigger value="pricing" className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
                 Pricing Management
+              </TabsTrigger>
+              <TabsTrigger value="treatments" className="flex items-center gap-2">
+                <Stethoscope className="w-4 h-4" />
+                Treatment Settings
               </TabsTrigger>
               <TabsTrigger value="general" className="flex items-center gap-2">
                 <SettingsIcon className="w-4 h-4" />
@@ -121,6 +130,22 @@ const Settings = () => {
                 </CardHeader>
                 <CardContent>
                   <PricingManagement />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Treatment Settings Tab */}
+            <TabsContent value="treatments" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Treatment Settings</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Customize treatment durations and prices for your clinic. Set custom values for each treatment
+                    to match your clinic's procedures and pricing structure.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <TreatmentSettings />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -212,21 +237,54 @@ const Settings = () => {
                         </label>
                       </div>
                     </div>
-
-                    <div className="flex justify-end pt-6">
-                      <Button 
-                        className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => {
-                          localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
-                          toast({
-                            title: "Settings Saved",
-                            description: "Your general settings have been saved successfully.",
-                          });
-                        }}
-                      >
-                        Save General Settings
-                      </Button>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Treatment Duration Threshold</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Set the maximum duration for treatment stages. Stages exceeding this duration 
+                      will show a warning badge in the Treatment Stage Editor.
+                    </p>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input 
+                          type="number" 
+                          min="30" 
+                          max="300" 
+                          step="15"
+                          value={treatmentDurationThreshold}
+                          onChange={(e) => setTreatmentDurationThreshold(parseInt(e.target.value, 10) || 90)}
+                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="text-sm text-gray-600">minutes</span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        ({Math.floor(treatmentDurationThreshold / 60)}h {treatmentDurationThreshold % 60}m)
+                      </div>
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Common durations: 60min (1h), 90min (1.5h), 120min (2h), 180min (3h)
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-6">
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => {
+                        localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
+                        localStorage.setItem('treatmentDurationThreshold', treatmentDurationThreshold.toString());
+                        
+                        // Dispatch custom event to notify other components
+                        window.dispatchEvent(new CustomEvent('treatmentDurationThresholdChanged'));
+                        
+                        toast({
+                          title: "Settings Saved",
+                          description: "Your general settings have been saved successfully.",
+                        });
+                      }}
+                    >
+                      Save General Settings
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

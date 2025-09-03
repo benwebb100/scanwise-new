@@ -124,9 +124,9 @@ export function StageColumn({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditingName(true)}>
+              <DropdownMenuItem onClick={() => setIsEditingFocus(true)}>
                 <Edit2 className="h-4 w-4 mr-2" />
-                Edit Name
+                Edit Focus
               </DropdownMenuItem>
               {canDelete && (
                 <DropdownMenuItem 

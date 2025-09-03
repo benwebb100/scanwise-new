@@ -49,6 +49,53 @@ export const CONDITION_URGENCY: Record<string, UrgencyLevel> = {
   'overbite': 'low',                   // Orthodontic, elective
   'crossbite': 'low',                  // Orthodontic, elective
   'open-bite': 'low',                  // Orthodontic, elective
+  
+  // NEW: Comprehensive urgency mappings from Batch 1
+  // HIGH URGENCY - Emergency/Infection Control (Stage 1)
+  'tooth_nonrestorable': 'high',       // Non-restorable tooth
+  'irreversible_pulpitis': 'high',     // Irreversible pulp inflammation
+  'necrotic_pulp': 'high',             // Dead pulp tissue
+  'periapical_abscess': 'high',        // Periapical abscess
+  'symptomatic_apical_periodontitis': 'high', // Symptomatic apical periodontitis
+  'flare_up_post_endo': 'high',        // Post-endodontic flare-up
+  'periodontal_abscess': 'high',       // Periodontal abscess
+  'pericoronitis': 'high',             // Pericoronitis
+  'dry_socket': 'high',                // Alveolar osteitis (dry socket)
+  'trauma_avulsion': 'high',           // Dental trauma - avulsion
+  'trauma_luxation': 'high',           // Dental trauma - luxation
+  'trauma_fracture_crown': 'high',     // Dental trauma - crown fracture
+  
+  // MEDIUM URGENCY - Major Restorative (Stage 2)
+  'caries_dentine': 'medium',          // Caries in dentine
+  'caries_recurrent': 'medium',        // Recurrent caries
+  'caries_root': 'medium',             // Root caries
+  'fractured_cusp_restorable': 'medium', // Fractured cusp (restorable)
+  'cracked_tooth_vital': 'medium',     // Cracked tooth (vital)
+  'failed_restoration': 'medium',      // Failed/defective restoration
+  'reversible_pulpitis': 'medium',     // Reversible pulpitis
+  'asymptomatic_apical_periodontitis': 'medium', // Asymptomatic apical periodontitis
+  'periodontitis_stage_i_ii': 'medium', // Periodontitis (Stage I-II)
+  'periodontitis_stage_iii_iv': 'medium', // Periodontitis (Stage III-IV)
+  'impacted_tooth': 'medium',          // Impacted tooth
+  'retained_root': 'medium',           // Retained root
+  'soft_tissue_lesion_suspect': 'medium', // Suspicious soft tissue lesion
+  'bruxism': 'medium',                 // Bruxism/parafunction
+  'tmj_pain_dysfunction': 'medium',    // TMJ pain/dysfunction
+  
+  // LOW URGENCY - Preventive/Cosmetic (Stage 3)
+  'caries_enamel': 'low',              // Caries in enamel (incipient)
+  'tooth_wear_attrition': 'low',       // Tooth wear - attrition
+  'tooth_wear_erosion': 'low',         // Tooth wear - erosion
+  'tooth_wear_abfraction': 'low',      // Tooth wear - abfraction/abrasion
+  'dentine_hypersensitivity': 'low',   // Dentine hypersensitivity
+  'gingivitis_plaque': 'low',          // Gingivitis (plaque-induced)
+  'mucositis_denture': 'low',          // Denture stomatitis/mucositis
+  'halitosis': 'low',                  // Halitosis (oral cause)
+  'missing_single_tooth': 'low',       // Missing tooth (single)
+  'partial_edentulism': 'low',         // Partial edentulism
+  'complete_edentulism': 'low',        // Complete edentulism
+  'aesthetic_discolouration': 'low',   // Aesthetic concern - discolouration
+  'aesthetic_shape_alignment': 'low'   // Aesthetic concern - shape/alignment
 };
 
 // Treatment urgency mapping
@@ -163,8 +210,9 @@ export function getFindingUrgency(condition: string, treatment: string): Urgency
 /**
  * Create dynamic stages based on available urgency levels
  */
-// Common treatment duration mapping (in minutes)
+// Comprehensive treatment duration mapping (in minutes) - Australian Dental Glossary
 export const TREATMENT_DURATIONS: Record<string, number> = {
+  // Existing treatments (updated with more accurate durations)
   'filling': 30,
   'crown': 90,
   'root-canal-treatment': 120,
@@ -176,6 +224,158 @@ export const TREATMENT_DURATIONS: Record<string, number> = {
   'whitening': 45,
   'extraction': 30,
   'cleaning': 60,
+  
+  // NEW: Comprehensive durations from Australian Dental Glossary (Batch 1)
+  // Examinations and diagnostics
+  'exam_emergency': 20,
+  'exam_comprehensive': 30,
+  'radiograph_intraoral': 10,
+  'radiograph_opg': 10,
+  
+  // Preventive treatments
+  'scale_clean_polish': 45,
+  'fluoride_application': 5,
+  'fissure_sealant': 20,
+  'desensitising': 10,
+  'oh_instructions': 10,
+  'whitening_inchair': 75,
+  'whitening_takehome': 30,
+  
+  // Restorative treatments - Composite
+  'resto_comp_one_surface_ant': 30,
+  'resto_comp_two_surface_ant': 40,
+  'resto_comp_three_plus_ant': 50,
+  'resto_comp_one_surface_post': 40,
+  'resto_comp_two_surface_post': 50,
+  'resto_comp_three_plus_post': 60,
+  'resto_glassionomer': 25,
+  'resto_amalgam_post': 45,
+  
+  // Crowns and indirect restorations
+  'crown_temp': 30,
+  'crown_full_tooth_coloured': 90,
+  'crown_full_metal': 90,
+  'onlay_inlay_indirect_tc': 80,
+  'veneer_indirect': 80,
+  'veneer_direct': 60,
+  
+  // Endodontic treatments
+  'endo_direct_pulp_cap': 20,
+  'endo_indirect_pulp_cap': 20,
+  'endo_pulpotomy': 40,
+  'endo_extirpation': 30,
+  'endo_rct_single': 90,
+  'endo_rct_multi': 120,
+  'endo_retx': 120,
+  'endo_apicectomy': 60,
+  
+  // Periodontal treatments
+  'perio_scale_root_planing': 45,
+  'perio_curettage': 45,
+  'perio_flap_surgery': 90,
+  'perio_graft': 60,
+  'perio_crown_lengthening': 75,
+  
+  // Surgical treatments
+  'surg_simple_extraction': 30,
+  'surg_surgical_extraction': 60,
+  'surg_incision_drainage': 30,
+  'surg_replantation': 60,
+  'surg_frenectomy': 45,
+  'surg_biopsy': 30,
+  
+  // Prosthodontic treatments
+  'prost_partial_denture_resin': 120,
+  'prost_partial_denture_cast': 150,
+  'prost_full_denture_resin': 150,
+  'prost_denture_reline': 60,
+  'prost_denture_repair': 45,
+  
+  // Functional treatments
+  'splint_occlusal': 60,
+  'tmj_adjustment': 30,
+  
+  // NEW: Batch 2 - Prosthodontics (Crowns/Bridges/Posts)
+  'post_core_direct': 45,
+  'post_core_indirect': 60,
+  'bridge_temp': 30,
+  'bridge_pontic_indirect_tc': 70,
+  'bridge_abutment_crown_tc': 90,
+  'bridge_recement': 30,
+  'crown_recement': 25,
+  
+  // NEW: Batch 2 - Dentures (Partial/Full/Repairs)
+  'prost_partial_denture_resin_1to3': 120,
+  'prost_partial_denture_resin_4plus': 130,
+  'prost_partial_denture_cast_1to3': 150,
+  'prost_partial_denture_cast_4plus': 160,
+  'prost_immediate_denture_partial': 150,
+  'prost_immediate_denture_full': 170,
+  'prost_full_denture_upper': 150,
+  'prost_full_denture_lower': 150,
+  'prost_add_to_denture': 45,
+  'prost_soft_reline': 45,
+  'prost_hard_reline_lab': 60,
+  'prost_denture_repair_fracture': 45,
+  'prost_denture_adjustment': 20,
+  
+  // NEW: Batch 2 - Implant Restorative
+  'crown_implant_supported_tc': 75,
+  'abutment_custom': 40,
+  
+  // NEW: Batch 2 - General/Palliative/Sedation
+  'palliative_care': 20,
+  'postop_review_simple': 10,
+  'medication_prescription': 5,
+  'nitrous_sedation': 45,
+  'iv_sedation_inhouse': 60,
+  'mouthguard_custom': 30,
+  
+  // NEW: Batch 3 - Advanced Periodontics
+  'perio_guided_tissue_regen': 90,
+  'perio_bone_graft': 75,
+  
+  // NEW: Batch 3 - Oral Surgery Extensions
+  'surg_exposure_unerupted': 45,
+  'surg_alveoloplasty': 60,
+  'surg_tori_removal': 90,
+  'surg_minor_soft_tissue': 45,
+  'surg_apical_cystectomy': 90,
+  
+  // NEW: Batch 3 - Trauma / Emergency
+  'trauma_splinting': 45,
+  'trauma_pulpotomy_temp': 30,
+  
+  // NEW: Batch 3 - Optional Prosthodontics (Advanced GP)
+  'prost_resilient_lining': 45,
+  'prost_overdenture': 150,
+  
+  // NEW: Batch 3 - Optional Orthodontic (Lite Mode)
+  'ortho_removable_appliance': 60,
+  'ortho_clear_aligner_simple': 60,
+  'ortho_retainer': 30,
+  
+  // Additional existing treatments with durations
+  'scale-and-clean': 45,
+  'deep-cleaning': 45,
+  'periodontal-treatment': 45,
+  'fluoride-treatment': 5,
+  'composite-build-up': 30,
+  'partial-denture': 120,
+  'complete-denture': 150,
+  'inlay': 80,
+  'onlay': 80,
+  'bonding': 30,
+  'sealant': 20,
+  'night-guard': 60,
+  'orthodontic-treatment': 60,
+  'braces': 60,
+  'invisalign': 30,
+  'retainer': 30,
+  'space-maintainer': 30,
+  'bone-graft': 60,
+  'sinus-lift': 90,
+  'gum-graft': 60
 };
 
 /**

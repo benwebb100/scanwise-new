@@ -35,6 +35,9 @@ import './CreateReport.css';
 // Stage Editor imports
 import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId, createDynamicStages, getFindingUrgency, getTreatmentDurationFromMapping } from '@/features/stage-editor';
 
+// Treatment Settings imports
+import { getTreatmentPrice as getCustomTreatmentPrice } from '@/utils/treatment-settings-utils';
+
 const CreateReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -863,6 +866,15 @@ const CreateReport = () => {
     const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
       // Use the price from the finding if available, otherwise use clinic/default pricing
       if (findingPrice) return findingPrice;
+      
+      // Try to get from custom treatment settings first
+      try {
+        const customPrice = getCustomTreatmentPrice(treatment);
+        if (customPrice > 0) return customPrice;
+      } catch (error) {
+        // Fallback to clinic pricing
+      }
+      
       return getPrice(treatment) || 100;
     };
 
@@ -2065,30 +2077,36 @@ const CreateReport = () => {
       return;
     }
 
-    // Get current valid findings
-    const currentValidFindings = findings.filter((finding: any) => 
-      finding.condition && finding.treatment && finding.tooth
-    );
+    // If we have saved stages, use them; otherwise create new ones from findings
+    if (currentTreatmentStages && currentTreatmentStages.length > 0) {
+      console.log('🎯 Continue Editing: Using saved stages:', currentTreatmentStages);
+      setIsStageEditorOpen(true);
+    } else {
+      // Get current valid findings
+      const currentValidFindings = findings.filter((finding: any) => 
+        finding.condition && finding.treatment && finding.tooth
+      );
 
-    if (currentValidFindings.length === 0) {
-      toast({
-        title: "No Findings",
-        description: "No dental findings found. Please add some findings first.",
-        variant: "destructive",
-      });
-      return;
+      if (currentValidFindings.length === 0) {
+        toast({
+          title: "No Findings",
+          description: "No dental findings found. Please add some findings first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create the data structure for stage creation
+      const data = {
+        validFindings: currentValidFindings,
+        useXrayMode: useXrayMode,
+        patientName: patientName,
+        patientObservations: patientObservations
+      };
+
+      // Use the same logic as handleNextStep to create/refresh stages
+      await openStageEditorWithFindings(data);
     }
-
-    // Create the data structure for stage creation
-    const data = {
-      validFindings: currentValidFindings,
-      useXrayMode: useXrayMode,
-      patientName: patientName,
-      patientObservations: patientObservations
-    };
-
-    // Use the same logic as handleNextStep to create/refresh stages
-    await openStageEditorWithFindings(data);
   };
 
   // Generate report directly from saved stages (for "Confirm and Generate Report" button)
@@ -3501,7 +3519,6 @@ const CreateReport = () => {
         initialStages={currentTreatmentStages}
         onSave={handleSaveStageEdits}
         onGenerateReport={handleGenerateFromEditor}
-        timeThreshold={90}
       />
       
       {/* Price Validation Dialog */}

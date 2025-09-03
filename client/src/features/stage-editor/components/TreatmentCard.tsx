@@ -42,7 +42,7 @@ export function TreatmentCard({
             {/* Tooth and urgency */}
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline" className="text-xs font-mono">
-                #{item.toothNumber || item.tooth}
+                #{item.tooth}
               </Badge>
               {item.urgency && (
                 <Badge 
