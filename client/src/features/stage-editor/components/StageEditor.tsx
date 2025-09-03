@@ -185,7 +185,7 @@ export function StageEditor({
               
               {isDirty && (
                 <Badge variant="outline" className="text-orange-600 border-orange-300">
-                  <Info className="h-3 w-3 mr-1" />
+                  <Clock className="h-3 w-3 mr-1" />
                   Unsaved changes
                 </Badge>
               )}
