@@ -82,7 +82,7 @@ export function useStageEditor({ initialStages, timeThreshold = 90 }: UseStageEd
 
       // Add to target stage
       const targetItems = [...toStage.items];
-      const insertIndex = newIndex !== undefined ? newIndex : targetItems.length;
+      const insertIndex = newIndex !== undefined ? newIndex : 0; // Default to top of stage
       targetItems.splice(insertIndex, 0, item);
 
       newStages[toStageIndex] = {

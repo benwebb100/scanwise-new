@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Plus, 
   RotateCcw, 
@@ -11,9 +10,6 @@ import {
   X, 
   Clock, 
   DollarSign,
-  AlertTriangle,
-  CheckCircle,
-  Info,
   Brain
 } from 'lucide-react';
 import { TreatmentStage, TreatmentItem } from '../types/stage-editor.types';
@@ -198,24 +194,7 @@ export function StageEditor({
         </Card>
       </div>
 
-      {/* Validation messages */}
-      {(validation.errors.length > 0 || validation.warnings.length > 0) && (
-        <div className="flex-shrink-0 p-6 space-y-2">
-          {validation.errors.map((error, index) => (
-            <Alert key={index} variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ))}
-          
-          {validation.warnings.map((warning, index) => (
-            <Alert key={index}>
-              <Info className="h-4 w-4" />
-              <AlertDescription>{warning}</AlertDescription>
-            </Alert>
-          ))}
-        </div>
-      )}
+
 
       {/* Main editor area */}
       <div className="flex-1 overflow-auto p-6">

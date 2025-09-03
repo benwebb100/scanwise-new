@@ -1071,8 +1071,8 @@ const CreateReport = () => {
 
         <!-- Stage-Based Treatment Plan -->
         ${(() => {
-          // Check if we have Staging V2 data from backend
-          if (data.staging_v2_meta && data.stages && data.stages.length > 0) {
+          // Check if we have Staging V2 data from backend OR stage editor data
+          if ((data.staging_v2_meta && data.stages && data.stages.length > 0) || (data.stages && data.stages.length > 0)) {
             // Render Staging V2 with visits
             return `
               <div style="padding: 0 20px; margin-bottom: 40px;">
@@ -1090,7 +1090,7 @@ const CreateReport = () => {
                 ${data.stages.map((stage: any) => `
                   <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <div style="background-color: #e3f2fd; padding: 12px 16px;">
-                      <strong style="font-size: 16px;">${stage.stage_title}</strong>
+                      <strong style="font-size: 16px;">${stage.stage_title}${stage.focus ? ` - ${stage.focus}` : ''}</strong>
                     </div>
                     <div style="padding: 20px;">
                       ${stage.visits.map((visit: any) => `
@@ -1627,6 +1627,11 @@ const CreateReport = () => {
         }
       }
 
+      // Validate that all findings are complete before proceeding
+      if (!validateFindingsComplete()) {
+        return;
+      }
+
       // Validate findings rows: either all empty, or all required filled
       const invalidIndex = findings.findIndex(f => {
         const toothOk = !!(f.tooth && f.tooth.trim() !== '');
@@ -1769,16 +1774,21 @@ const CreateReport = () => {
       
       // Convert stages to backend format for report generation
       const organizedStages = finalStages.map((stage, index) => ({
-        stage: stage.name,
+        stage_title: stage.name,
         focus: stage.focus,
-        items: stage.items.map((item: any) => ({
-          tooth: item.toothNumber,
-          condition: item.condition,
-          treatment: item.treatment,
-          replacement: item.replacement,
-          price: item.price,
-          urgency: item.urgency
-        }))
+        visits: [{
+          visit_label: `Visit ${index + 1}`,
+          visit_duration_min: stage.totalTime || 0,
+          visit_cost: stage.totalCost || 0,
+          treatments: stage.items.map((item: any) => ({
+            tooth: item.toothNumber,
+            condition: item.condition,
+            treatment: item.treatment,
+            replacement: item.replacement,
+            price: item.price,
+            urgency: item.urgency
+          }))
+        }]
       }));
       
       // Update the findings with the organized data and pass stage organization
@@ -2015,6 +2025,121 @@ const CreateReport = () => {
 
   // Stage Editor handlers
 
+  // Validate that all findings are complete before opening stage editor
+  const validateFindingsComplete = () => {
+    const incompleteFindings: number[] = [];
+    
+    findings.forEach((finding: any, index: number) => {
+      if (!finding.tooth || !finding.condition || !finding.treatment) {
+        incompleteFindings.push(index);
+      }
+    });
+
+    if (incompleteFindings.length > 0) {
+      // Scroll to first incomplete finding
+      const firstIncompleteIndex = incompleteFindings[0];
+      const element = document.getElementById(`finding-${firstIncompleteIndex}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add red outline temporarily
+        element.classList.add('border-red-500', 'border-2');
+        setTimeout(() => {
+          element.classList.remove('border-red-500', 'border-2');
+        }, 3000);
+      }
+
+      toast({
+        title: "Incomplete Findings",
+        description: `Please complete all dental findings before opening the stage editor. ${incompleteFindings.length} finding(s) are incomplete.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  // Refresh stages based on current dental findings (for "Continue Editing Stages" button)
+  const handleContinueEditingStages = async () => {
+    // Validate all findings are complete first
+    if (!validateFindingsComplete()) {
+      return;
+    }
+
+    // Get current valid findings
+    const currentValidFindings = findings.filter((finding: any) => 
+      finding.condition && finding.treatment && finding.tooth
+    );
+
+    if (currentValidFindings.length === 0) {
+      toast({
+        title: "No Findings",
+        description: "No dental findings found. Please add some findings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create the data structure for stage creation
+    const data = {
+      validFindings: currentValidFindings,
+      useXrayMode: useXrayMode,
+      patientName: patientName,
+      patientObservations: patientObservations
+    };
+
+    // Use the same logic as handleNextStep to create/refresh stages
+    await openStageEditorWithFindings(data);
+  };
+
+  // Generate report directly from saved stages (for "Confirm and Generate Report" button)
+  const handleGenerateFromSavedStages = async () => {
+    if (!currentTreatmentStages || currentTreatmentStages.length === 0) {
+      toast({
+        title: "No Stages Found",
+        description: "No treatment stages found. Please create stages first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert saved stages to the format expected by performSubmit
+    const organizedStages = currentTreatmentStages.map((stage, index) => ({
+      stage_title: stage.name,
+      focus: stage.focus,
+      visits: [{
+        visit_label: `Visit ${index + 1}`,
+        visit_duration_min: stage.totalTime || 0,
+        visit_cost: stage.totalCost || 0,
+        treatments: stage.items.map((item: any) => ({
+          tooth: item.toothNumber || item.tooth,
+          condition: item.condition,
+          treatment: item.treatment,
+          replacement: item.replacement,
+          price: item.price || 0
+        }))
+      }]
+    }));
+
+    // Create the submit data structure
+    const submitData = {
+      validFindings: currentTreatmentStages.flatMap(stage => 
+        stage.items.map((item: any) => ({
+          tooth: item.toothNumber || item.tooth,
+          condition: item.condition,
+          treatment: item.treatment,
+          replacement: item.replacement,
+          price: item.price || 0
+        }))
+      ),
+      useXrayMode: useXrayMode,
+      patientName: patientName,
+      patientObservations: patientObservations,
+      organizedStages: organizedStages
+    };
+
+    // Generate the report directly
+    await performSubmit(submitData);
+  };
 
   // Save function for the stage editor modal - only used when "Save" is clicked (not "Generate Report")
   const handleSaveStageEdits = (editedStages: any[]) => {
@@ -2575,7 +2700,7 @@ const CreateReport = () => {
                         {findings.map((f, idx) => {
                           const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                           return (
-                          <Card key={idx} className="p-4 finding-card relative">
+                          <Card key={idx} id={`finding-${idx}`} className="p-4 finding-card relative">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Tooth Number */}
                               <div className="space-y-2">
@@ -2734,7 +2859,7 @@ const CreateReport = () => {
                             type="button"
                             variant="outline"
                             size="lg"
-                            onClick={() => setIsStageEditorOpen(true)}
+                            onClick={handleContinueEditingStages}
                             className="text-lg px-8 py-4"
                           >
                             <Edit3 className="mr-2 h-5 w-5" />
@@ -2745,8 +2870,9 @@ const CreateReport = () => {
                         {/* Main Next Step button */}
                         <Button 
                           size="lg"
-                          type="submit"
+                          type={currentTreatmentStages.length > 0 ? "button" : "submit"}
                           disabled={isProcessing}
+                          onClick={currentTreatmentStages.length > 0 ? handleGenerateFromSavedStages : undefined}
                           className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
                         >
                           {isProcessing ? (
@@ -2757,7 +2883,7 @@ const CreateReport = () => {
                           ) : (
                             <>
                               <ArrowRight className="mr-2 h-5 w-5" />
-                              {currentTreatmentStages.length > 0 ? 'Review & Generate Report' : 'Next Step'}
+                              {currentTreatmentStages.length > 0 ? 'Confirm and Generate Report' : 'Next Step'}
                             </>
                           )}
                         </Button>
@@ -2856,7 +2982,7 @@ const CreateReport = () => {
                       {findings.map((f, idx) => {
                         const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                         return (
-                        <Card key={idx} className="p-4 relative">
+                        <Card key={idx} id={`finding-${idx}`} className="p-4 relative">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Tooth Number */}
                             <div className="space-y-2">
@@ -2963,7 +3089,7 @@ const CreateReport = () => {
                         type="button"
                         variant="outline"
                         size="lg"
-                        onClick={() => setIsStageEditorOpen(true)}
+                        onClick={handleContinueEditingStages}
                         className="text-lg px-8 py-4"
                       >
                         <Edit3 className="mr-2 h-5 w-5" />
@@ -2974,8 +3100,9 @@ const CreateReport = () => {
                     {/* Main Next Step button */}
                     <Button
                       size="lg"
-                      type="submit"
+                      type={currentTreatmentStages.length > 0 ? "button" : "submit"}
                       disabled={isProcessing}
+                      onClick={currentTreatmentStages.length > 0 ? handleGenerateFromSavedStages : undefined}
                       className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
                     >
                       {isProcessing ? (
@@ -2986,7 +3113,7 @@ const CreateReport = () => {
                       ) : (
                         <>
                           <ArrowRight className="mr-2 h-5 w-5" />
-                          {currentTreatmentStages.length > 0 ? 'Review & Generate Report' : 'Next Step'}
+                          {currentTreatmentStages.length > 0 ? 'Confirm and Generate Report' : 'Next Step'}
                         </>
                       )}
                     </Button>

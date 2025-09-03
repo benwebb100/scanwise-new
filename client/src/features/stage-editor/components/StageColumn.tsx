@@ -46,31 +46,31 @@ export function StageColumn({
   stageIndex,
   totalStages
 }: StageColumnProps) {
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState(stage.name);
+  const [isEditingFocus, setIsEditingFocus] = useState(false);
+  const [editedFocus, setEditedFocus] = useState(stage.focus || '');
   
   // No longer need drag and drop functionality
 
   const isOverThreshold = isStageOverThreshold(stage, timeThreshold);
 
-  const handleNameSave = () => {
-    if (editedName.trim() && editedName !== stage.name) {
-      onUpdateStage({ name: editedName.trim() });
+  const handleFocusSave = () => {
+    if (editedFocus.trim() !== stage.focus) {
+      onUpdateStage({ focus: editedFocus.trim() });
     }
-    setIsEditingName(false);
-    setEditedName(stage.name);
+    setIsEditingFocus(false);
+    setEditedFocus(stage.focus || '');
   };
 
-  const handleNameCancel = () => {
-    setIsEditingName(false);
-    setEditedName(stage.name);
+  const handleFocusCancel = () => {
+    setIsEditingFocus(false);
+    setEditedFocus(stage.focus || '');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleNameSave();
+      handleFocusSave();
     } else if (e.key === 'Escape') {
-      handleNameCancel();
+      handleFocusCancel();
     }
   };
 
@@ -84,33 +84,34 @@ export function StageColumn({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            {isEditingName ? (
-              <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">
+              {stage.name}
+            </CardTitle>
+            
+            {isEditingFocus ? (
+              <div className="flex items-center gap-2 mt-1">
                 <Input
-                  value={editedName}
-                  onChange={(e) => setEditedName(e.target.value)}
+                  value={editedFocus}
+                  onChange={(e) => setEditedFocus(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  className="text-sm font-semibold"
+                  className="text-sm text-gray-600"
+                  placeholder="Enter stage description..."
                   autoFocus
                 />
-                <Button size="sm" variant="ghost" onClick={handleNameSave}>
+                <Button size="sm" variant="ghost" onClick={handleFocusSave}>
                   <Check className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={handleNameCancel}>
+                <Button size="sm" variant="ghost" onClick={handleFocusCancel}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
-              <CardTitle 
-                className="text-lg cursor-pointer hover:text-blue-600"
-                onClick={() => setIsEditingName(true)}
+              <p 
+                className="text-sm text-gray-600 mt-1 cursor-pointer hover:text-blue-600"
+                onClick={() => setIsEditingFocus(true)}
               >
-                {stage.name}
-              </CardTitle>
-            )}
-            
-            {stage.focus && (
-              <p className="text-sm text-gray-600 mt-1">{stage.focus}</p>
+                {stage.focus || 'Click to add description...'}
+              </p>
             )}
           </div>
           
