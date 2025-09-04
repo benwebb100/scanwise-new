@@ -284,6 +284,36 @@ export const api = {
     return response.json();
   },
 
+  // Treatment settings endpoints (pricing + durations)
+  async saveTreatmentSettings(treatmentData: Record<string, { duration: number; price: number }>) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/treatment-settings`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(treatmentData),
+    });
+
+    if (!response.ok) throw new Error('Failed to save treatment settings');
+    return response.json();
+  },
+
+  async getTreatmentSettings() {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/treatment-settings`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get treatment settings');
+    return response.json();
+  },
+
   // Clinic branding endpoints
   async saveClinicBranding(brandingData: any) {
     const token = await this.getAuthToken();

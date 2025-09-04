@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { PricingInput, useClinicPricing } from "@/components/PricingInput";
+import { PricingInput } from "@/components/PricingInput";
+import { useTreatmentSettings } from "@/hooks/useTreatmentSettings";
 import { PriceValidationDialog } from "@/components/PriceValidationDialog";
 import { useClinicBranding } from "@/components/ClinicBranding";
 import { AIAnalysisSection } from '@/components/AIAnalysisSection';
@@ -35,15 +36,26 @@ import './CreateReport.css';
 // Stage Editor imports
 import { StageEditorModal, useFeatureFlag, deserializeStages, serializeStages, findingsToTreatmentItems, generateId, createDynamicStages, getFindingUrgency, getTreatmentDurationFromMapping } from '@/features/stage-editor';
 
-// Treatment Settings imports
-import { getTreatmentPrice as getCustomTreatmentPrice } from '@/utils/treatment-settings-utils';
+// Treatment Settings imports - now handled by useTreatmentSettings hook
 
 const CreateReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, translateCondition, translateTreatment } = useTranslation();
-  const { clinicPrices, savePrice, savePrices, getPrice, validatePricing, loading: pricingLoading } = useClinicPricing();
+  const { settings: treatmentSettings, updateTreatmentSetting, saveChanges, getTreatmentSetting, isLoading: treatmentSettingsLoading } = useTreatmentSettings();
   const { applyBrandingToReport } = useClinicBranding();
+  
+  // Create a getPrice function that uses the new treatment settings
+  const getPrice = (treatment: string): number => {
+    const setting = getTreatmentSetting(treatment);
+    return setting.price;
+  };
+  
+  // Create a savePrice function that uses the new treatment settings
+  const savePrice = async (treatment: string, price: number) => {
+    updateTreatmentSetting(treatment, { price });
+    // Note: We don't auto-save here, user needs to click "Save Changes" in settings
+  };
   
   // Feature flag for stage editor
   const isStageEditorEnabled = useFeatureFlag('stageEditorV2');
@@ -485,8 +497,10 @@ const CreateReport = () => {
   // Handle price validation dialog
   const handlePricesProvided = async (prices: Record<string, number>) => {
     try {
-      // Save the provided prices
-      await savePrices(prices);
+      // Save the provided prices to treatment settings
+      Object.entries(prices).forEach(([treatment, price]) => {
+        updateTreatmentSetting(treatment, { price });
+      });
       
       // Close the dialog
       setShowPriceValidation(false);
@@ -864,17 +878,10 @@ const CreateReport = () => {
     };
 
     const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
-      // Use the price from the finding if available, otherwise use clinic/default pricing
+      // Use the price from the finding if available, otherwise use treatment settings
       if (findingPrice) return findingPrice;
       
-      // Try to get from custom treatment settings first
-      try {
-        const customPrice = getCustomTreatmentPrice(treatment);
-        if (customPrice > 0) return customPrice;
-      } catch (error) {
-        // Fallback to clinic pricing
-      }
-      
+      // Get price from treatment settings
       return getPrice(treatment) || 100;
     };
 
@@ -1495,7 +1502,9 @@ const CreateReport = () => {
             relevantTreatments: findings.filter(f => 
               f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
             ).map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment })),
-            clinicPrices: clinicPrices,
+            clinicPrices: Object.fromEntries(
+              Object.entries(treatmentSettings).map(([key, value]) => [key, value.price])
+            ),
             toggleState: showReplacementOptionsTable // Add this to see the actual toggle state
           });
           
@@ -1523,7 +1532,9 @@ const CreateReport = () => {
           return generateReplacementOptionsTable({
             context: 'missing-tooth',
             selectedTreatment: relevantTreatments[0].treatment, // Use first treatment as primary
-            clinicPrices: clinicPrices
+            clinicPrices: Object.fromEntries(
+              Object.entries(treatmentSettings).map(([key, value]) => [key, value.price])
+            )
           });
         })()}
 
@@ -1681,11 +1692,21 @@ const CreateReport = () => {
       // Validate pricing for all treatments
       const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
       const treatments = validFindings.map(f => f.treatment);
-      const pricingValidation = validatePricing(treatments);
+      
+      // Check if all treatments have prices
+      const missingPrices = treatments.filter(treatment => {
+        const setting = getTreatmentSetting(treatment);
+        return !setting.price || setting.price === 0;
+      });
+      
+      const pricingValidation = {
+        valid: missingPrices.length === 0,
+        missingPrices: missingPrices
+      };
       
       if (!pricingValidation.valid) {
         // Show price validation dialog instead of toast
-        setMissingPrices(pricingValidation.missing);
+        setMissingPrices(pricingValidation.missingPrices);
         setPendingSubmitData({ validFindings, useXrayMode, patientName, patientObservations });
         setShowPriceValidation(true);
         return;
@@ -2719,7 +2740,7 @@ const CreateReport = () => {
                           const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                           return (
                           <Card key={idx} id={`finding-${idx}`} className="p-4 finding-card relative">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                               {/* Tooth Number */}
                               <div className="space-y-2">
                                 <div className="flex items-center space-x-1">
@@ -2754,7 +2775,7 @@ const CreateReport = () => {
                               </div>
 
                               {/* Condition */}
-                              <div className="space-y-2">
+                              <div className="space-y-2 lg:col-span-2">
                                 <Label className="text-sm font-medium">{t.createReport.condition}</Label>
                                 <SearchableSelect
                                   options={ALL_CONDITIONS}
@@ -2767,7 +2788,7 @@ const CreateReport = () => {
                               </div>
 
                               {/* Treatment */}
-                              <div className="space-y-2">
+                              <div className="space-y-2 lg:col-span-2">
                                 <Label className="text-sm font-medium">{t.createReport.treatment}</Label>
                                 <SearchableSelect
                                   options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
@@ -2820,7 +2841,6 @@ const CreateReport = () => {
                                     treatment={f.treatment}
                                     value={f.price}
                                     onChange={(price) => handleFindingChange(idx, "price", price)}
-                                    clinicPrices={clinicPrices}
                                     onPriceSave={handlePriceSave}
                                     disabled={isProcessing}
                                   />
@@ -3001,7 +3021,7 @@ const CreateReport = () => {
                         const isMissingTooth = normalizeConditionName(f.condition) === 'missing-tooth';
                         return (
                         <Card key={idx} id={`finding-${idx}`} className="p-4 relative">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                             {/* Tooth Number */}
                             <div className="space-y-2">
                               <div className="flex items-center space-x-1">
@@ -3049,7 +3069,7 @@ const CreateReport = () => {
                             </div>
 
                             {/* Treatment */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 lg:col-span-2">
                               <Label className="text-sm font-medium">Treatment</Label>
                               <SearchableSelect
                                 options={f.condition ? getSuggestedTreatments(f.condition) : ALL_TREATMENTS}
@@ -3086,7 +3106,6 @@ const CreateReport = () => {
                                 treatment={f.treatment}
                                 value={f.price}
                                 onChange={(price) => handleFindingChange(idx, "price", price)}
-                                clinicPrices={clinicPrices}
                                 onPriceSave={handlePriceSave}
                                 disabled={isProcessing}
                               />

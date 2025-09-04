@@ -106,7 +106,7 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
+        className="w-auto min-w-[var(--radix-popover-trigger-width)] max-w-[500px] p-0"
         align="start"
         sideOffset={4}
       >
@@ -117,7 +117,7 @@ export function SearchableSelect({
             value={searchValue}
             onValueChange={setSearchValue}
           />
-          <CommandList className="max-h-[200px]">
+          <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty>{emptyText}</CommandEmpty>
             
             {/* Pinned Options */}
@@ -136,7 +136,7 @@ export function SearchableSelect({
                       e.preventDefault();
                       console.log('SearchableSelect: Pinned option mousedown:', option.value);
                     }}
-                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground"
+                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground min-h-[40px] py-2"
                     disabled={false}
                   >
                     <Check
@@ -145,7 +145,7 @@ export function SearchableSelect({
                         value === option.value ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <span className="truncate">{option.label}</span>
+                    <span className="whitespace-nowrap">{option.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -167,7 +167,7 @@ export function SearchableSelect({
                       e.preventDefault();
                       console.log('SearchableSelect: Regular option mousedown:', option.value);
                     }}
-                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground"
+                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100 hover:bg-accent hover:text-accent-foreground min-h-[40px] py-2"
                     disabled={false}
                   >
                     <Check
@@ -176,7 +176,7 @@ export function SearchableSelect({
                         value === option.value ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <span className="truncate">{option.label}</span>
+                    <span className="whitespace-nowrap">{option.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

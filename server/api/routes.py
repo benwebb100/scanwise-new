@@ -921,6 +921,90 @@ async def get_clinic_pricing(
         raise HTTPException(status_code=500, detail=f"Failed to get pricing: {str(e)}")
 
 
+@router.post("/treatment-settings")
+async def save_treatment_settings(
+    treatment_data: Dict[str, Dict[str, float]],
+    token: str = Depends(get_auth_token)
+):
+    """Save clinic-specific treatment settings (pricing and durations)"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Save or update treatment settings data
+        # First, try to get existing settings
+        existing_response = auth_client.table('clinic_pricing').select("*").execute()
+        
+        if existing_response.data:
+            # Update existing record with treatment settings
+            # Use a new field 'treatment_settings' to avoid conflicts with existing 'pricing_data'
+            response = auth_client.table('clinic_pricing').update({
+                'treatment_settings': treatment_data,
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', existing_response.data[0]['id']).execute()
+        else:
+            # Create new treatment settings record
+            response = auth_client.table('clinic_pricing').insert({
+                'treatment_settings': treatment_data,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }).execute()
+        
+        return {
+            "status": "success",
+            "message": "Treatment settings saved successfully",
+            "treatment_data": treatment_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving treatment settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save treatment settings: {str(e)}")
+
+
+@router.get("/treatment-settings")
+async def get_treatment_settings(
+    token: str = Depends(get_auth_token)
+):
+    """Get clinic-specific treatment settings (pricing and durations)"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get treatment settings data
+        response = auth_client.table('clinic_pricing').select("*").execute()
+        
+        if response.data and len(response.data) > 0:
+            # Try to get from new 'treatment_settings' field first, fallback to 'pricing_data' for migration
+            treatment_data = response.data[0].get('treatment_settings', {})
+            
+            # If no treatment_settings field exists, try to migrate from pricing_data
+            if not treatment_data and 'pricing_data' in response.data[0]:
+                pricing_data = response.data[0]['pricing_data']
+                # Convert old format to new format
+                treatment_data = {}
+                for treatment, price in pricing_data.items():
+                    if isinstance(price, (int, float)):
+                        treatment_data[treatment] = {
+                            'price': float(price),
+                            'duration': 30  # Default duration for migrated data
+                        }
+            
+            return {
+                "status": "success",
+                "treatment_data": treatment_data
+            }
+        else:
+            # Return empty settings if none exist
+            return {
+                "status": "success",
+                "treatment_data": {}
+            }
+        
+    except Exception as e:
+        logger.error(f"Error getting treatment settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get treatment settings: {str(e)}")
+
+
 @router.post("/clinic-branding")
 async def save_clinic_branding(
     branding_data: ClinicBrandingData,

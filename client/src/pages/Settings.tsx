@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Brain, ArrowLeft, Settings as SettingsIcon, Building2, DollarSign, Stethoscope } from 'lucide-react'
+import { Brain, ArrowLeft, Settings as SettingsIcon, Building2, Stethoscope } from 'lucide-react'
 import { ClinicBranding } from '@/components/ClinicBranding'
-import { PricingManagement } from '@/components/PricingManagement'
 import { TreatmentSettings } from '@/components/TreatmentSettings'
 import { LanguageToggle } from '@/components/LanguageToggle'
 import { useTranslation } from '@/contexts/TranslationContext'
@@ -83,14 +82,10 @@ const Settings = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="branding" className="flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
                 Clinic Branding
-              </TabsTrigger>
-              <TabsTrigger value="pricing" className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                Pricing Management
               </TabsTrigger>
               <TabsTrigger value="treatments" className="flex items-center gap-2">
                 <Stethoscope className="w-4 h-4" />
@@ -118,21 +113,6 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            {/* Pricing Management Tab */}
-            <TabsContent value="pricing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Treatment Pricing Management</CardTitle>
-                  <p className="text-sm text-gray-600">
-                    Manage your clinic's treatment pricing. Upload price lists, set custom prices,
-                    and ensure accurate pricing for all treatments in your reports.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <PricingManagement />
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             {/* Treatment Settings Tab */}
             <TabsContent value="treatments" className="space-y-6">

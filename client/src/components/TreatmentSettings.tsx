@@ -21,6 +21,7 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
   const {
     settings,
     hasUnsavedChanges,
+    isLoading,
     updateTreatmentSetting,
     saveChanges,
     resetToDefaults,
@@ -32,6 +33,64 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<TreatmentCategory>('general');
   const [isImporting, setIsImporting] = useState(false);
+
+  // Handle save with async operation
+  const handleSave = async () => {
+    try {
+      const success = await saveChanges();
+      if (success) {
+        toast({
+          title: "Settings Saved",
+          description: "Your treatment settings have been saved successfully.",
+        });
+      } else {
+        toast({
+          title: "Save Warning",
+          description: "Settings saved locally but failed to sync to cloud. Check your connection.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle import
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const success = await importSettings(file);
+      if (success) {
+        toast({
+          title: "Settings Imported",
+          description: "Treatment settings have been imported successfully.",
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: "Failed to import settings. Please check the file format.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
 
   // Filter treatments based on search query
   const filteredTreatments = useMemo(() => {
@@ -352,5 +411,126 @@ function TreatmentSettingCard({ treatment, setting, onDurationChange, onPriceCha
         </div>
       </CardContent>
     </Card>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Actions */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search treatments..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button variant="outline" onClick={exportSettings} className="flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          Export
+        </Button>
+        <Button variant="outline" onClick={() => document.getElementById('import-file')?.click()} className="flex items-center gap-2">
+          <Upload className="h-4 w-4" />
+          Import
+        </Button>
+        <input
+          id="import-file"
+          type="file"
+          accept=".json"
+          onChange={handleImport}
+          className="hidden"
+        />
+      </div>
+
+      {/* Treatment List */}
+      {searchQuery ? (
+        // Search Results
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Search Results ({filteredTreatments.length} treatments)</h3>
+          </div>
+          <div className="grid gap-4">
+            {filteredTreatments.map((treatment) => {
+              const setting = settings[treatment.value];
+              return (
+                <TreatmentSettingCard
+                  key={treatment.value}
+                  treatment={treatment}
+                  setting={setting}
+                  onDurationChange={(duration) => updateTreatmentSetting(treatment.value, { duration })}
+                  onPriceChange={(price) => updateTreatmentSetting(treatment.value, { price })}
+                />
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        // Category Tabs
+        <Tabs value={activeCategory} onValueChange={(value) => setActiveCategory(value as TreatmentCategory)}>
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
+            {TREATMENT_CATEGORIES.map((category) => (
+              <TabsTrigger key={category.id} value={category.id} className="text-xs">
+                {category.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {TREATMENT_CATEGORIES.map((category) => (
+            <TabsContent key={category.id} value={category.id} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">{category.name}</h3>
+                  <p className="text-sm text-muted-foreground">{category.description}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => resetCategoryToDefaults(category.id)}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset Category
+                </Button>
+              </div>
+              <div className="grid gap-4">
+                {category.treatments.map((treatment) => {
+                  const setting = settings[treatment.value];
+                  return (
+                    <TreatmentSettingCard
+                      key={treatment.value}
+                      treatment={treatment}
+                      setting={setting}
+                      onDurationChange={(duration) => updateTreatmentSetting(treatment.value, { duration })}
+                      onPriceChange={(price) => updateTreatmentSetting(treatment.value, { price })}
+                    />
+                  );
+                })}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
+
+      {/* Save and Reset Buttons */}
+      <div className="flex items-center justify-between pt-6 border-t">
+        <Button
+          variant="outline"
+          onClick={resetToDefaults}
+          className="flex items-center gap-2"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Reset All to Defaults
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={!hasUnsavedChanges || isLoading}
+          className="flex items-center gap-2"
+        >
+          <Save className="h-4 w-4" />
+          {isLoading ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+    </div>
   );
 }

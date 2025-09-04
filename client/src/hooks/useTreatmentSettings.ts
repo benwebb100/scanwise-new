@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TreatmentSettings, TreatmentSettingsState, TreatmentSetting } from '@/types/treatment-settings.types';
 import { ALL_TREATMENT_SETTINGS } from '@/data/treatment-settings-data';
+import { api } from '@/services/api';
 
 const STORAGE_KEY = 'treatmentSettings';
 
@@ -18,29 +19,50 @@ const getDefaultSettings = (): TreatmentSettings => {
   return defaultSettings;
 };
 
-// Load settings from localStorage
-const loadSettings = (): TreatmentSettings => {
+// Load settings from Supabase
+const loadSettings = async (): Promise<TreatmentSettings> => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const response = await api.getTreatmentSettings();
+    if (response.status === 'success' && response.treatment_data) {
       // Merge with defaults to ensure all treatments are included
       const defaults = getDefaultSettings();
-      return { ...defaults, ...parsed };
+      return { ...defaults, ...response.treatment_data };
     }
   } catch (error) {
-    console.error('Error loading treatment settings:', error);
+    console.error('Error loading treatment settings from Supabase:', error);
+    // Fallback to localStorage for offline support
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const defaults = getDefaultSettings();
+        return { ...defaults, ...parsed };
+      }
+    } catch (localError) {
+      console.error('Error loading treatment settings from localStorage:', localError);
+    }
   }
   
   return getDefaultSettings();
 };
 
-// Save settings to localStorage
-const saveSettings = (settings: TreatmentSettings): void => {
+// Save settings to Supabase (with localStorage fallback)
+const saveSettings = async (settings: TreatmentSettings): Promise<boolean> => {
   try {
+    await api.saveTreatmentSettings(settings);
+    // Also save to localStorage as backup
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    return true;
   } catch (error) {
-    console.error('Error saving treatment settings:', error);
+    console.error('Error saving treatment settings to Supabase:', error);
+    // Fallback to localStorage only
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      return false; // Indicate that Supabase save failed
+    } catch (localError) {
+      console.error('Error saving treatment settings to localStorage:', localError);
+      return false;
+    }
   }
 };
 
@@ -48,15 +70,30 @@ export const useTreatmentSettings = () => {
   const [state, setState] = useState<TreatmentSettingsState>({
     settings: getDefaultSettings(),
     hasUnsavedChanges: false,
-    isLoading: false
+    isLoading: true
   });
 
   // Load settings on mount
   useEffect(() => {
-    setState(prev => ({
-      ...prev,
-      settings: loadSettings()
-    }));
+    const loadInitialSettings = async () => {
+      setState(prev => ({ ...prev, isLoading: true }));
+      try {
+        const settings = await loadSettings();
+        setState(prev => ({
+          ...prev,
+          settings,
+          isLoading: false
+        }));
+      } catch (error) {
+        console.error('Failed to load initial settings:', error);
+        setState(prev => ({
+          ...prev,
+          isLoading: false
+        }));
+      }
+    };
+
+    loadInitialSettings();
   }, []);
 
   // Update a single treatment setting
@@ -90,16 +127,23 @@ export const useTreatmentSettings = () => {
     }));
   }, []);
 
-  // Save all changes to localStorage
-  const saveChanges = useCallback(() => {
-    setState(prev => {
-      saveSettings(prev.settings);
-      return {
+  // Save all changes to Supabase
+  const saveChanges = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true }));
+    try {
+      const success = await saveSettings(state.settings);
+      setState(prev => ({
         ...prev,
-        hasUnsavedChanges: false
-      };
-    });
-  }, []);
+        hasUnsavedChanges: false,
+        isLoading: false
+      }));
+      return success;
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      setState(prev => ({ ...prev, isLoading: false }));
+      return false;
+    }
+  }, [state.settings]);
 
   // Reset to default settings
   const resetToDefaults = useCallback(() => {
