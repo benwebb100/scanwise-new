@@ -134,6 +134,23 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
     updateTreatmentSetting(treatmentValue, { price });
   };
 
+  // Handle export
+  const handleExport = () => {
+    exportSettings();
+    toast({
+      title: "Settings Exported",
+      description: "Treatment settings have been exported to a JSON file."
+    });
+  };
+
+  // Handle reset
+  const handleReset = () => {
+    resetToDefaults();
+    toast({
+      title: "Settings Reset",
+      description: "All treatment settings have been reset to defaults."
+    });
+  };
 
   return (
     <div className="space-y-6">
