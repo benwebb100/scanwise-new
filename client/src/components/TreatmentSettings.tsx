@@ -10,7 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useTreatmentSettings } from '@/hooks/useTreatmentSettings';
 import { TREATMENT_CATEGORIES } from '@/data/treatment-settings-data';
 import { TreatmentCategory } from '@/types/treatment-settings.types';
-import { TREATMENT_LIMITS } from '@/types/treatment-settings.types';
 
 interface TreatmentSettingsProps {
   onClose?: () => void;
@@ -109,10 +108,10 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
 
   // Handle treatment setting updates
   const handleDurationChange = (treatmentValue: string, duration: number) => {
-    if (duration < TREATMENT_LIMITS.DURATION.MIN || duration > TREATMENT_LIMITS.DURATION.MAX) {
+    if (duration <= 0) {
       toast({
         title: "Invalid Duration",
-        description: `Duration must be between ${TREATMENT_LIMITS.DURATION.MIN} and ${TREATMENT_LIMITS.DURATION.MAX} minutes`,
+        description: "Duration must be greater than 0 minutes",
         variant: "destructive"
       });
       return;
@@ -122,10 +121,10 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
   };
 
   const handlePriceChange = (treatmentValue: string, price: number) => {
-    if (price < TREATMENT_LIMITS.PRICE.MIN || price > TREATMENT_LIMITS.PRICE.MAX) {
+    if (price < 0) {
       toast({
         title: "Invalid Price",
-        description: `Price must be between $${TREATMENT_LIMITS.PRICE.MIN} and $${TREATMENT_LIMITS.PRICE.MAX}`,
+        description: "Price must be greater than or equal to $0",
         variant: "destructive"
       });
       return;
@@ -331,9 +330,6 @@ function TreatmentSettingCard({ treatment, setting, onDurationChange, onPriceCha
                 type="number"
                 value={setting.duration}
                 onChange={(e) => onDurationChange(parseInt(e.target.value) || 0)}
-                min={TREATMENT_LIMITS.DURATION.MIN}
-                max={TREATMENT_LIMITS.DURATION.MAX}
-                step={TREATMENT_LIMITS.DURATION.STEP}
                 className={`w-20 ${isCustomDuration ? 'border-blue-300 bg-blue-50' : ''}`}
               />
               {isCustomDuration && (
@@ -351,9 +347,6 @@ function TreatmentSettingCard({ treatment, setting, onDurationChange, onPriceCha
                 type="number"
                 value={setting.price}
                 onChange={(e) => onPriceChange(parseInt(e.target.value) || 0)}
-                min={TREATMENT_LIMITS.PRICE.MIN}
-                max={TREATMENT_LIMITS.PRICE.MAX}
-                step={TREATMENT_LIMITS.PRICE.STEP}
                 className={`w-24 ${isCustomPrice ? 'border-blue-300 bg-blue-50' : ''}`}
               />
               {isCustomPrice && (
