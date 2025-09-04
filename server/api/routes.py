@@ -928,27 +928,84 @@ async def save_treatment_settings(
 ):
     """Save clinic-specific treatment settings (pricing and durations)"""
     try:
+        logger.info(f"💾 Saving treatment settings: {len(treatment_data)} treatments")
+        
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get user ID from token for better error handling
+        user_response = auth_client.auth.get_user()
+        user_id = user_response.user.id if user_response.user else None
+        logger.info(f"👤 User ID: {user_id}")
         
         # Save or update treatment settings data
         # First, try to get existing settings
         existing_response = auth_client.table('clinic_pricing').select("*").execute()
+        logger.info(f"🔍 Existing records found: {len(existing_response.data) if existing_response.data else 0}")
         
         if existing_response.data:
             # Update existing record with treatment settings
-            # Use a new field 'treatment_settings' to avoid conflicts with existing 'pricing_data'
-            response = auth_client.table('clinic_pricing').update({
-                'treatment_settings': treatment_data,
-                'updated_at': datetime.now().isoformat()
-            }).eq('id', existing_response.data[0]['id']).execute()
+            logger.info("🔄 Updating existing clinic pricing record")
+            try:
+                # Try to update with treatment_settings column first
+                response = auth_client.table('clinic_pricing').update({
+                    'treatment_settings': treatment_data,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', existing_response.data[0]['id']).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully updated treatment settings")
+                else:
+                    logger.error(f"❌ Update failed: {response}")
+                    raise Exception(f"Update failed: {response}")
+            except Exception as col_error:
+                logger.warning(f"⚠️ treatment_settings column may not exist, trying pricing_data: {str(col_error)}")
+                # Fallback to pricing_data column if treatment_settings doesn't exist
+                # Convert treatment_data to old format for backward compatibility
+                pricing_data = {k: v['price'] for k, v in treatment_data.items()}
+                response = auth_client.table('clinic_pricing').update({
+                    'pricing_data': pricing_data,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', existing_response.data[0]['id']).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully updated pricing data (fallback)")
+                else:
+                    logger.error(f"❌ Fallback update failed: {response}")
+                    raise Exception(f"Fallback update failed: {response}")
         else:
             # Create new treatment settings record
-            response = auth_client.table('clinic_pricing').insert({
-                'treatment_settings': treatment_data,
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
-            }).execute()
+            logger.info("🆕 Creating new clinic pricing record")
+            try:
+                # Try to insert with treatment_settings column first
+                response = auth_client.table('clinic_pricing').insert({
+                    'user_id': user_id,
+                    'treatment_settings': treatment_data,
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
+                }).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully created treatment settings")
+                else:
+                    logger.error(f"❌ Insert failed: {response}")
+                    raise Exception(f"Insert failed: {response}")
+            except Exception as col_error:
+                logger.warning(f"⚠️ treatment_settings column may not exist, trying pricing_data: {str(col_error)}")
+                # Fallback to pricing_data column if treatment_settings doesn't exist
+                pricing_data = {k: v['price'] for k, v in treatment_data.items()}
+                response = auth_client.table('clinic_pricing').insert({
+                    'user_id': user_id,
+                    'pricing_data': pricing_data,
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
+                }).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully created pricing data (fallback)")
+                else:
+                    logger.error(f"❌ Fallback insert failed: {response}")
+                    raise Exception(f"Fallback insert failed: {response}")
         
         return {
             "status": "success",
@@ -957,7 +1014,9 @@ async def save_treatment_settings(
         }
         
     except Exception as e:
-        logger.error(f"Error saving treatment settings: {str(e)}")
+        logger.error(f"❌ Error saving treatment settings: {str(e)}")
+        import traceback
+        logger.error(f"📍 Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to save treatment settings: {str(e)}")
 
 
