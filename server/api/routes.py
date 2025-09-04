@@ -933,10 +933,8 @@ async def save_treatment_settings(
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
         
-        # Get user ID from token for better error handling
-        user_response = auth_client.auth.get_user()
-        user_id = user_response.user.id if user_response.user else None
-        logger.info(f"👤 User ID: {user_id}")
+        # Note: user_id will be handled automatically by Supabase RLS
+        logger.info("🔐 Using authenticated client with RLS")
         
         # Save or update treatment settings data
         # First, try to get existing settings
@@ -979,7 +977,6 @@ async def save_treatment_settings(
             try:
                 # Try to insert with treatment_settings column first
                 response = auth_client.table('clinic_pricing').insert({
-                    'user_id': user_id,
                     'treatment_settings': treatment_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
@@ -995,7 +992,6 @@ async def save_treatment_settings(
                 # Fallback to pricing_data column if treatment_settings doesn't exist
                 pricing_data = {k: v['price'] for k, v in treatment_data.items()}
                 response = auth_client.table('clinic_pricing').insert({
-                    'user_id': user_id,
                     'pricing_data': pricing_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
