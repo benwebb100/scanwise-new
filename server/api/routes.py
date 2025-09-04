@@ -1909,7 +1909,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
 
         if not user_id:
             try:
-        user_response = auth_client.auth.get_user()
+                user_response = auth_client.auth.get_user()
                 user_id = getattr(getattr(user_response, 'user', None), 'id', None)
             except Exception as get_user_error:
                 logger.warning(f"auth.get_user failed: {get_user_error}")
