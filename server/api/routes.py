@@ -933,8 +933,23 @@ async def save_treatment_settings(
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
         
-        # Note: user_id will be handled automatically by Supabase RLS
-        logger.info("🔐 Using authenticated client with RLS")
+        # Get user context from the authenticated client
+        try:
+            user_response = auth_client.auth.get_user()
+            if user_response and hasattr(user_response, 'user') and user_response.user:
+                user_id = user_response.user.id
+                logger.info(f"👤 User ID from auth client: {user_id}")
+                logger.info(f"👤 User ID type: {type(user_id)}")
+                logger.info(f"👤 User email: {user_response.user.email}")
+            else:
+                logger.error("❌ Could not get user from authenticated client")
+                logger.error(f"❌ User response: {user_response}")
+                raise HTTPException(status_code=401, detail="Could not authenticate user")
+        except Exception as auth_error:
+            logger.error(f"❌ Authentication error: {str(auth_error)}")
+            import traceback
+            logger.error(f"📍 Auth traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=401, detail="Authentication failed")
         
         # Save or update treatment settings data
         # First, try to get existing settings
@@ -977,6 +992,7 @@ async def save_treatment_settings(
             try:
                 # Try to insert with treatment_settings column first
                 response = auth_client.table('clinic_pricing').insert({
+                    'user_id': user_id,
                     'treatment_settings': treatment_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
@@ -992,6 +1008,7 @@ async def save_treatment_settings(
                 # Fallback to pricing_data column if treatment_settings doesn't exist
                 pricing_data = {k: v['price'] for k, v in treatment_data.items()}
                 response = auth_client.table('clinic_pricing').insert({
+                    'user_id': user_id,
                     'pricing_data': pricing_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
@@ -2048,7 +2065,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
 
         if not user_id:
             try:
-                user_response = auth_client.auth.get_user()
+        user_response = auth_client.auth.get_user()
                 user_id = getattr(getattr(user_response, 'user', None), 'id', None)
             except Exception as get_user_error:
                 logger.warning(f"auth.get_user failed: {get_user_error}")
@@ -2152,9 +2169,9 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         }
                     else:
                         logger.error(f"❌ Failed to create clinic folder: {create_result.get('error', 'Unknown error')}")
-                        return {
-                            "images": [],
-                            "total": 0,
+            return {
+                "images": [],
+                "total": 0,
                             "message": f"Clinic folder could not be created. Please contact support.",
                             "error": "clinic_folder_creation_failed",
                             "user_id": user_id,
@@ -2166,8 +2183,8 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         "images": [],
                         "total": 0,
                         "message": f"Clinic folder not found. Please contact support.",
-                        "error": "clinic_folder_not_found",
-                        "user_id": user_id,
+                "error": "clinic_folder_not_found",
+                "user_id": user_id,
                         "clinic_id": clinic_id
                     }
                     
@@ -2180,7 +2197,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                     "error": "clinic_folder_not_found",
                     "user_id": user_id,
                     "clinic_id": clinic_id
-                }
+            }
         
         # Get DICOM files for this clinic
         logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
