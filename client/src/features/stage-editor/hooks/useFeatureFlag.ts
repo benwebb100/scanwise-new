@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 // Simple feature flag system
 const FEATURE_FLAGS = {
   stageEditorV2: true, // Enable by default for development
+  rootCanalAutoMapping: true, // Enable by default for development
 } as const;
 
 type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
@@ -17,6 +18,8 @@ export function useFeatureFlag(flag: FeatureFlagKey): boolean {
     
     if (flag === 'stageEditorV2') {
       envValue = import.meta.env.VITE_FEATURE_STAGEEDITORV2;
+    } else if (flag === 'rootCanalAutoMapping') {
+      envValue = import.meta.env.VITE_FEATURE_ROOTCANALAUTOMAPPING;
     }
     
     if (envValue !== undefined) {

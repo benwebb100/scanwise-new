@@ -269,6 +269,22 @@ export const TREATMENT_DURATIONS: Record<string, number> = {
   'endo_retx': 120,
   'endo_apicectomy': 60,
   
+  // NEW: Root Canal Variants (1-4 canals)
+  'endo_rct_1_canal': 90,
+  'endo_rct_2_canals': 105,
+  'endo_rct_3_canals': 120,
+  'endo_rct_4_canals': 135,
+  
+  // NEW: Root Canal Loads/Add-ons
+  'endo_retx_load': 30,
+  'endo_calcified_per_canal': 15,
+  'endo_remove_post': 20,
+  'endo_remove_root_filling_per_canal': 15,
+  'endo_additional_irrigation_visit': 15,
+  'endo_interim_therapeutic_fill': 20,
+  'endo_apicectomy_per_root': 60,
+  'endo_extirpation_emergency': 30,
+  
   // Periodontal treatments
   'perio_scale_root_planing': 45,
   'perio_curettage': 45,

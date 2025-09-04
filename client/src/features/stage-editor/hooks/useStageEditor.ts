@@ -205,6 +205,23 @@ export function useStageEditor({ initialStages, timeThreshold = 90 }: UseStageEd
     });
   }, [updateStages]);
 
+  const updateTreatmentItem = useCallback((stageId: string, updatedItem: any) => {
+    updateStages(stages => {
+      const stageIndex = stages.findIndex(s => s.id === stageId);
+      if (stageIndex === -1) return stages;
+
+      const newStages = [...stages];
+      newStages[stageIndex] = {
+        ...stages[stageIndex],
+        items: stages[stageIndex].items.map(item => 
+          item.id === updatedItem.id ? updatedItem : item
+        )
+      };
+
+      return newStages;
+    });
+  }, [updateStages]);
+
   const resetToOriginal = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -245,6 +262,7 @@ export function useStageEditor({ initialStages, timeThreshold = 90 }: UseStageEd
     updateStage,
     addTreatmentItem,
     removeTreatmentItem,
+    updateTreatmentItem,
     resetToOriginal,
     resetToAISuggestion
   };

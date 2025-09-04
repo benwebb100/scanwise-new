@@ -50,6 +50,7 @@ export function StageEditor({
     deleteStage,
     updateStage,
     removeTreatmentItem,
+    updateTreatmentItem,
     resetToOriginal,
     resetToAISuggestion
   } = useStageEditor({ initialStages, timeThreshold: effectiveThreshold });
@@ -211,6 +212,7 @@ export function StageEditor({
                 onDeleteStage={() => handleDeleteStage(stage.id)}
                 onRemoveItem={(itemId) => removeTreatmentItem(stage.id, itemId)}
                 onMoveItem={handleMoveItem}
+                onUpdateItem={(updatedItem) => updateTreatmentItem(stage.id, updatedItem)}
                 canDelete={canDeleteThisStage}
                 stageIndex={index}
                 totalStages={stages.length}

@@ -221,6 +221,22 @@ export const ALL_TREATMENTS: SearchableSelectOption[] = [
   { value: 'endo_retx', label: 'Root Canal Retreatment' },
   { value: 'endo_apicectomy', label: 'Apicectomy' },
   
+  // NEW: Root Canal Variants (1-4 canals)
+  { value: 'endo_rct_1_canal', label: 'Root Canal Treatment – 1 Canal' },
+  { value: 'endo_rct_2_canals', label: 'Root Canal Treatment – 2 Canals' },
+  { value: 'endo_rct_3_canals', label: 'Root Canal Treatment – 3 Canals' },
+  { value: 'endo_rct_4_canals', label: 'Root Canal Treatment – 4 Canals' },
+  
+  // NEW: Root Canal Loads/Add-ons
+  { value: 'endo_retx_load', label: 'RCT Retreatment Load' },
+  { value: 'endo_calcified_per_canal', label: 'Calcified Canal (per canal)' },
+  { value: 'endo_remove_post', label: 'Remove Post' },
+  { value: 'endo_remove_root_filling_per_canal', label: 'Remove Root Filling (per canal)' },
+  { value: 'endo_additional_irrigation_visit', label: 'Additional Irrigation Visit' },
+  { value: 'endo_interim_therapeutic_fill', label: 'Interim Therapeutic Filling' },
+  { value: 'endo_apicectomy_per_root', label: 'Apicectomy (per root)' },
+  { value: 'endo_extirpation_emergency', label: 'Emergency Extirpation' },
+  
   // Periodontal treatments
   { value: 'perio_scale_root_planing', label: 'Scaling & Root Planing (per quadrant)' },
   { value: 'perio_curettage', label: 'Periodontal Curettage (per quadrant)' },
@@ -364,10 +380,10 @@ export const CONDITION_TREATMENT_SUGGESTIONS: Record<string, string[]> = {
   
   // Pulp and endodontic conditions
   'reversible_pulpitis': ['endo_indirect_pulp_cap', 'resto_comp_one_surface_post'],
-  'irreversible_pulpitis': ['endo_extirpation', 'endo_rct_single', 'surg_simple_extraction'],
-  'necrotic_pulp': ['endo_rct_multi', 'surg_surgical_extraction'],
-  'periapical_abscess': ['surg_incision_drainage', 'endo_rct_multi', 'surg_surgical_extraction'],
-  'asymptomatic_apical_periodontitis': ['endo_rct_single', 'endo_retx'],
+  'irreversible_pulpitis': ['endo_extirpation_emergency', 'endo_rct_1_canal', 'endo_rct_2_canals', 'endo_rct_3_canals', 'endo_rct_4_canals', 'surg_simple_extraction'],
+  'necrotic_pulp': ['endo_rct_1_canal', 'endo_rct_2_canals', 'endo_rct_3_canals', 'endo_rct_4_canals', 'surg_surgical_extraction'],
+  'periapical_abscess': ['surg_incision_drainage', 'endo_rct_1_canal', 'endo_rct_2_canals', 'endo_rct_3_canals', 'endo_rct_4_canals', 'surg_surgical_extraction'],
+  'asymptomatic_apical_periodontitis': ['endo_rct_1_canal', 'endo_rct_2_canals', 'endo_rct_3_canals', 'endo_rct_4_canals', 'endo_retx'],
   'flare_up_post_endo': ['endo_retx', 'surg_incision_drainage'],
   
   // Periodontal conditions
@@ -593,6 +609,22 @@ export const DEFAULT_TREATMENT_PRICES: Record<string, number> = {
   'endo_rct_multi': 1600,
   'endo_retx': 1900,
   'endo_apicectomy': 950,
+  
+  // NEW: Root Canal Variants (1-4 canals)
+  'endo_rct_1_canal': 1100,
+  'endo_rct_2_canals': 1350,
+  'endo_rct_3_canals': 1650,
+  'endo_rct_4_canals': 1850,
+  
+  // NEW: Root Canal Loads/Add-ons
+  'endo_retx_load': 300,
+  'endo_calcified_per_canal': 150,
+  'endo_remove_post': 180,
+  'endo_remove_root_filling_per_canal': 120,
+  'endo_additional_irrigation_visit': 120,
+  'endo_interim_therapeutic_fill': 180,
+  'endo_apicectomy_per_root': 950,
+  'endo_extirpation_emergency': 180,
   
   // Periodontal treatments
   'perio_scale_root_planing': 280,

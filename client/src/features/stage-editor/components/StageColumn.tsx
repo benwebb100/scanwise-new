@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TreatmentStage } from '../types/stage-editor.types';
 import { TreatmentCard } from './TreatmentCard';
+import { RctTreatmentCard } from './RctTreatmentCard';
 import { formatDuration, formatCurrency, isStageOverThreshold } from '../utils/stage-calculations';
 
 interface StageColumnProps {
@@ -30,6 +31,7 @@ interface StageColumnProps {
   onDeleteStage: () => void;
   onRemoveItem: (itemId: string) => void;
   onMoveItem: (itemId: string, direction: 'left' | 'right') => void;
+  onUpdateItem: (updatedItem: any) => void;
   canDelete: boolean;
   stageIndex: number;
   totalStages: number;
@@ -40,11 +42,12 @@ export function StageColumn({
   timeThreshold,
   onUpdateStage, 
   onDeleteStage, 
-  onRemoveItem,
-  onMoveItem,
-  canDelete,
-  stageIndex,
-  totalStages
+  onRemoveItem, 
+  onMoveItem, 
+  onUpdateItem,
+  canDelete, 
+  stageIndex, 
+  totalStages 
 }: StageColumnProps) {
   const [isEditingFocus, setIsEditingFocus] = useState(false);
   const [editedFocus, setEditedFocus] = useState(stage.focus || '');
@@ -172,17 +175,36 @@ export function StageColumn({
       
       <CardContent className="flex-1 pt-0">
         <div className="min-h-[200px] space-y-2 p-2">
-          {stage.items.map((item, index) => (
-            <TreatmentCard
-              key={item.id}
-              item={item}
-              onRemove={() => onRemoveItem(item.id)}
-              onMoveLeft={stageIndex > 0 ? () => onMoveItem(item.id, 'left') : undefined}
-              onMoveRight={stageIndex < totalStages - 1 ? () => onMoveItem(item.id, 'right') : undefined}
-              canMoveLeft={stageIndex > 0}
-              canMoveRight={stageIndex < totalStages - 1}
-            />
-          ))}
+          {stage.items.map((item, index) => {
+            const isRctTreatment = item.treatment.includes('endo_rct_');
+            
+            if (isRctTreatment) {
+              return (
+                <RctTreatmentCard
+                  key={item.id}
+                  item={item}
+                  onRemove={() => onRemoveItem(item.id)}
+                  onMoveLeft={stageIndex > 0 ? () => onMoveItem(item.id, 'left') : undefined}
+                  onMoveRight={stageIndex < totalStages - 1 ? () => onMoveItem(item.id, 'right') : undefined}
+                  onUpdate={(updatedItem) => onUpdateItem(updatedItem)}
+                  canMoveLeft={stageIndex > 0}
+                  canMoveRight={stageIndex < totalStages - 1}
+                />
+              );
+            }
+            
+            return (
+              <TreatmentCard
+                key={item.id}
+                item={item}
+                onRemove={() => onRemoveItem(item.id)}
+                onMoveLeft={stageIndex > 0 ? () => onMoveItem(item.id, 'left') : undefined}
+                onMoveRight={stageIndex < totalStages - 1 ? () => onMoveItem(item.id, 'right') : undefined}
+                canMoveLeft={stageIndex > 0}
+                canMoveRight={stageIndex < totalStages - 1}
+              />
+            );
+          })}
           
           {stage.items.length === 0 && (
             <div className="flex items-center justify-center h-32 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
