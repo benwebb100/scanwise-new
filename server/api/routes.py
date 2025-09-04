@@ -2169,9 +2169,9 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         }
                     else:
                         logger.error(f"❌ Failed to create clinic folder: {create_result.get('error', 'Unknown error')}")
-            return {
-                "images": [],
-                "total": 0,
+                        return {
+                            "images": [],
+                            "total": 0,
                             "message": f"Clinic folder could not be created. Please contact support.",
                             "error": "clinic_folder_creation_failed",
                             "user_id": user_id,
@@ -2183,21 +2183,20 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         "images": [],
                         "total": 0,
                         "message": f"Clinic folder not found. Please contact support.",
-                "error": "clinic_folder_not_found",
-                "user_id": user_id,
+                        "error": "clinic_folder_not_found",
+                        "user_id": user_id,
                         "clinic_id": clinic_id
                     }
-                    
             except Exception as create_error:
                 logger.error(f"❌ Error creating clinic folder: {str(create_error)}")
                 return {
                     "images": [],
                     "total": 0,
                     "message": f"Clinic folder could not be created. Please contact support.",
-                    "error": "clinic_folder_not_found",
+                    "error": "clinic_folder_creation_failed",
                     "user_id": user_id,
                     "clinic_id": clinic_id
-            }
+                }
         
         # Get DICOM files for this clinic
         logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
