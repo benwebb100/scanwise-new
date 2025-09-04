@@ -134,68 +134,6 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
     updateTreatmentSetting(treatmentValue, { price });
   };
 
-  // Handle save
-  const handleSave = () => {
-    saveChanges();
-    toast({
-      title: "Settings Saved",
-      description: "Treatment settings have been saved successfully."
-    });
-  };
-
-  // Handle reset
-  const handleReset = () => {
-    resetToDefaults();
-    toast({
-      title: "Settings Reset",
-      description: "All treatment settings have been reset to defaults."
-    });
-  };
-
-  // Handle category reset
-  const handleCategoryReset = (category: TreatmentCategory) => {
-    resetCategoryToDefaults(category);
-    toast({
-      title: "Category Reset",
-      description: `${TREATMENT_CATEGORIES.find(c => c.id === category)?.name} settings have been reset to defaults.`
-    });
-  };
-
-  // Handle export
-  const handleExport = () => {
-    exportSettings();
-    toast({
-      title: "Settings Exported",
-      description: "Treatment settings have been exported to a JSON file."
-    });
-  };
-
-  // Handle import
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    try {
-      const success = await importSettings(file);
-      if (success) {
-        toast({
-          title: "Settings Imported",
-          description: "Treatment settings have been imported successfully."
-        });
-      } else {
-        toast({
-          title: "Import Failed",
-          description: "Failed to import settings. Please check the file format.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setIsImporting(false);
-      // Reset file input
-      event.target.value = '';
-    }
-  };
 
   return (
     <div className="space-y-6">
