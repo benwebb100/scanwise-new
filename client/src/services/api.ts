@@ -286,6 +286,11 @@ export const api = {
 
   // Treatment settings endpoints (pricing + durations)
   async saveTreatmentSettings(treatmentData: Record<string, { duration: number; price: number }>) {
+    console.log('💾 API: Saving treatment settings...', {
+      treatmentCount: Object.keys(treatmentData).length,
+      sampleData: Object.entries(treatmentData).slice(0, 3) // First 3 treatments for debugging
+    });
+    
     const token = await this.getAuthToken();
     
     const response = await fetch(`${API_BASE_URL}/treatment-settings`, {
@@ -297,8 +302,19 @@ export const api = {
       body: JSON.stringify(treatmentData),
     });
 
-    if (!response.ok) throw new Error('Failed to save treatment settings');
-    return response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API: Treatment settings save failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
+      throw new Error(`Failed to save treatment settings: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ API: Treatment settings saved successfully:', result);
+    return result;
   },
 
   async getTreatmentSettings() {
