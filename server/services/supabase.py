@@ -37,7 +37,9 @@ class SupabaseService:
             "Authorization": f"Bearer {access_token}"
         }
         
-        return create_client(self.url, self.anon_key, options)
+        # Use service key for server-side operations with user tokens
+        key_to_use = self.service_key or self.anon_key
+        return create_client(self.url, key_to_use, options)
     
     def ensure_schema(self) -> None:
         try:
