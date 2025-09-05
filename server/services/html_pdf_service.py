@@ -71,7 +71,7 @@ class HtmlPdfService:
         return pdf_path
 
     def _convert_local_images_to_data_urls(self, html: str) -> str:
-        """Convert local file paths in img src attributes to data URLs."""
+        """Convert local file paths and HTTP URLs in img src attributes to data URLs."""
         def replace_src(match):
             src_value = match.group(1)
             logger.info(f"🖼️ HTML PDF service - processing image src: {src_value}")
@@ -100,7 +100,30 @@ class HtmlPdfService:
                     # Return a placeholder image to prevent errors
                     return 'src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNmI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RXJyb3I8L3RleHQ+PC9zdmc+"'
             
-            # Return original src if it's not a local path
+            # Check if this is an HTTP/HTTPS URL (like Supabase URLs)
+            elif src_value.startswith('http://') or src_value.startswith('https://'):
+                try:
+                    import requests
+                    logger.info(f"🌐 Downloading HTTP image: {src_value}")
+                    response = requests.get(src_value, timeout=30)
+                    response.raise_for_status()
+                    
+                    # Get MIME type from response headers
+                    mime_type = response.headers.get('content-type', 'image/jpeg')
+                    if not mime_type.startswith('image/'):
+                        mime_type = 'image/jpeg'  # Default fallback
+                    
+                    # Convert to base64 data URL
+                    b64_data = base64.b64encode(response.content).decode('utf-8')
+                    logger.info(f"✅ Successfully converted HTTP image to data URL: {src_value}")
+                    return f'src="data:{mime_type};base64,{b64_data}"'
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to download HTTP image: {src_value}, error: {e}")
+                    # Return a placeholder image to prevent errors
+                    return 'src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNmI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RXJyb3I8L3RleHQ+PC9zdmc+"'
+            
+            # Return original src if it's not a local path or HTTP URL
             return match.group(0)
         
         # Find and replace src attributes in img tags
