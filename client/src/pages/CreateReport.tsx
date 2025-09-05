@@ -2326,12 +2326,19 @@ const CreateReport = () => {
     
     try {
       // Send preview report using the new API endpoint
+      // SECURITY FIX: Apply same validation as generateReportHTML to block unsafe local file paths
+      let emailImageUrl = originalImageUrl || immediateAnalysisData?.annotated_image_url;
+      if (emailImageUrl && (emailImageUrl.startsWith('/tmp/') || emailImageUrl.startsWith('file://') || !emailImageUrl.startsWith('http'))) {
+        console.warn('🚨 SECURITY: Blocking local file path from email:', emailImageUrl);
+        emailImageUrl = null; // Don't include potentially unsafe local paths
+      }
+      
       const result = await api.sendPreviewReportToPatient({
         patientEmail: patientEmail.trim(),
         patientName: patientName || 'Patient',
         reportContent: report,
         findings: findings || [],
-        annotatedImageUrl: originalImageUrl || immediateAnalysisData?.annotated_image_url
+        annotatedImageUrl: emailImageUrl
       });
       
       if (result.success) {
