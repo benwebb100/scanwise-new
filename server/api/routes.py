@@ -992,7 +992,6 @@ async def save_treatment_settings(
             try:
                 # Try to insert with treatment_settings column first
                 response = auth_client.table('clinic_pricing').insert({
-                    'user_id': user_id,
                     'treatment_settings': treatment_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
@@ -1008,7 +1007,6 @@ async def save_treatment_settings(
                 # Fallback to pricing_data column if treatment_settings doesn't exist
                 pricing_data = {k: v['price'] for k, v in treatment_data.items()}
                 response = auth_client.table('clinic_pricing').insert({
-                    'user_id': user_id,
                     'pricing_data': pricing_data,
                     'created_at': datetime.now().isoformat(),
                     'updated_at': datetime.now().isoformat()
