@@ -74,6 +74,7 @@ class HtmlPdfService:
         """Convert local file paths in img src attributes to data URLs."""
         def replace_src(match):
             src_value = match.group(1)
+            logger.info(f"🖼️ HTML PDF service - processing image src: {src_value}")
             
             # Check if this looks like a local file path (starts with / or contains /tmp/)
             if src_value.startswith('/') or '/tmp/' in src_value:
@@ -88,13 +89,18 @@ class HtmlPdfService:
                         with open(src_value, 'rb') as img_file:
                             img_data = img_file.read()
                             b64_data = base64.b64encode(img_data).decode('utf-8')
+                            logger.info(f"✅ Successfully converted local image to data URL: {src_value}")
                             return f'src="data:{mime_type};base64,{b64_data}"'
                     else:
-                        logger.warning(f"Local image file not found: {src_value}")
+                        logger.warning(f"❌ Local image file not found: {src_value}")
+                        # Return a placeholder or empty src to prevent errors
+                        return 'src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNmI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2UgTm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg=="'
                 except Exception as e:
                     logger.warning(f"Failed to convert local image to data URL: {src_value}, error: {e}")
+                    # Return a placeholder image to prevent errors
+                    return 'src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNmI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RXJyb3I8L3RleHQ+PC9zdmc+"'
             
-            # Return original src if it's not a local path or conversion failed
+            # Return original src if it's not a local path
             return match.group(0)
         
         # Find and replace src attributes in img tags

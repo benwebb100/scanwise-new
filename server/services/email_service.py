@@ -58,6 +58,10 @@ class EmailService:
                 # Build legend if available (optional list of strings)
                 legend = report_data.get('legend', [])
 
+                # Log the annotated image URL for debugging
+                annotated_url = report_data.get('annotated_image_url')
+                logger.info(f"🖼️ Email service - annotated_image_url: {annotated_url}")
+                
                 html = template.render(
                     clinic_name=clinic_branding.get('clinic_name', 'Dental Clinic'),
                     address=clinic_branding.get('address'),
@@ -68,7 +72,7 @@ class EmailService:
                     patient_name=report_data.get('patient_name', 'Patient'),
                     report_date=report_data.get('created_at', datetime.now().isoformat()),
                     report_html=report_data.get('report_html', ''),
-                    annotated_image_url=report_data.get('annotated_image_url'),
+                    annotated_image_url=annotated_url,
                     legend=legend,
                     video_url=report_data.get('video_url'),
                     consultation_url=report_data.get('consultation_url'),
