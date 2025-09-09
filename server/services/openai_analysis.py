@@ -19,10 +19,10 @@ class OpenAIService:
         self.client = OpenAI(api_key=self.api_key)
         
         # Centralized, env-driven model configuration
-        # Defaults aligned with recommendations
-        self.model_analysis = os.getenv("OPENAI_MODEL_ANALYSIS", "gpt-5")
-        self.model_html = os.getenv("OPENAI_MODEL_HTML", "gpt-5")
-        self.model_edit = os.getenv("OPENAI_MODEL_EDIT", "gpt-5")
+        # Fix: Use valid model names (gpt-5 doesn't exist yet)
+        self.model_analysis = os.getenv("OPENAI_MODEL_ANALYSIS", "gpt-4o")  # Changed from gpt-5
+        self.model_html = os.getenv("OPENAI_MODEL_HTML", "gpt-4o")  # Changed from gpt-5
+        self.model_edit = os.getenv("OPENAI_MODEL_EDIT", "gpt-4o")  # Changed from gpt-5
         self.model_summary = os.getenv("OPENAI_MODEL_SUMMARY", "gpt-4o")
         self.model_script = os.getenv("OPENAI_MODEL_SCRIPT", "gpt-4o")
     

@@ -30,6 +30,16 @@ class Detection(BaseModel):
     width: float
     height: float
 
+# class AnalyzeXrayResponse(BaseModel):
+#     status: str
+#     summary: str
+#     treatment_stages: List[TreatmentStage]
+#     ai_notes: str
+#     diagnosis_timestamp: datetime
+#     annotated_image_url: Optional[str] = None
+#     video_url: Optional[str] = None
+#     detections: Optional[List[Detection]] = None
+
 class AnalyzeXrayResponse(BaseModel):
     status: str
     summary: str
@@ -37,8 +47,10 @@ class AnalyzeXrayResponse(BaseModel):
     ai_notes: str
     diagnosis_timestamp: datetime
     annotated_image_url: Optional[str] = None
-    video_url: Optional[str] = None
+    video_url: Optional[str] = None  # Make sure this is included
     detections: Optional[List[Detection]] = None
+    diagnosis_id: Optional[str] = None  # Add this if not already present
+    report_html: Optional[str] = None  # Add this if not already present
 
 class SuggestChangesRequest(BaseModel):
     previous_report_html: str

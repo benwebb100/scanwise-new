@@ -34,9 +34,8 @@ const ViewReport = () => {
         // Check if the requested tab is available
         if (tabParam === 'video' && reportData.videoUrl) {
           tab = 'video';
-        } else if (tabParam === 'pdf') {
-          tab = 'pdf';
         }
+        // Remove pdf check since we're removing PDF tab
       }
       
       setActiveTab(tab);
@@ -57,7 +56,21 @@ const ViewReport = () => {
     try {
       setIsLoading(true);
       const data = await api.getReport(reportId!);
+      
+      // Add detailed logging
+      console.log('ViewReport: Full report data:', JSON.stringify(data, null, 2));
+      console.log('ViewReport: Video URL:', data.videoUrl);
+      console.log('ViewReport: Report HTML exists:', !!data.reportHtml);
+      console.log('ViewReport: All data keys:', Object.keys(data));
+      
       setReportData(data);
+      
+      // If video exists and URL param specifies video tab, switch to it
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam === 'video' && data.videoUrl) {
+        setActiveTab('video');
+      }
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({
@@ -205,10 +218,6 @@ const ViewReport = () => {
                     <FileText className="w-4 h-4" />
                     Written Report
                   </TabsTrigger>
-                  <TabsTrigger value="pdf" className="flex items-center gap-2">
-                    <FileIcon className="w-4 h-4" />
-                    PDF Report
-                  </TabsTrigger>
                   <TabsTrigger value="video" className="flex items-center gap-2" disabled={!reportData.videoUrl}>
                     <Video className="w-4 h-4" />
                     Patient Video {!reportData.videoUrl && "(Not Available)"}
@@ -223,46 +232,13 @@ const ViewReport = () => {
                   />
                 </TabsContent>
 
-                {/* PDF Tab - Client-side PDF generation */}
-                <TabsContent value="pdf" className="mt-4">
-                  <div className="space-y-4">
-                    <div className="bg-white border rounded p-4">
-                      <div className="text-center mb-4">
-                        <FileIcon className="w-16 h-16 text-blue-600 mx-auto mb-2" />
-                        <h3 className="text-lg font-semibold">PDF Report Ready for Download</h3>
-                        <p className="text-sm text-gray-600">
-                          Click the button below to generate and download the PDF report
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                        <h4 className="font-semibold text-blue-900 mb-2">About This PDF</h4>
-                        <p className="text-sm text-blue-700">
-                          This PDF report contains the complete dental analysis and treatment plan.
-                          You can download it for your records or print it for reference.
-                        </p>
-                      </div>
-                      
-                      <div className="flex justify-center">
-                        <Button
-                          onClick={handleDownloadPDF}
-                          className="flex items-center gap-2"
-                        >
-                          <Download className="w-4 h-4" />
-                          Generate & Download PDF
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
                 {/* Video Tab */}
                 <TabsContent value="video" className="mt-4">
                   {reportData.videoUrl ? (
                     <div className="space-y-4">
                       <div className="bg-gray-900 rounded-lg overflow-hidden">
-                        <video 
-                          controls 
+                        <video
+                          controls
                           className="w-full"
                           poster={reportData.annotatedImageUrl}
                         >
@@ -273,19 +249,19 @@ const ViewReport = () => {
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <h4 className="font-semibold text-blue-900 mb-2">About This Video</h4>
                         <p className="text-sm text-blue-700">
-                          This personalized video explains the X-ray findings in an easy-to-understand way. 
+                          This personalized video explains the X-ray findings in an easy-to-understand way.
                           It includes voice narration and subtitles to help patients understand their dental conditions and treatment options.
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => window.open(reportData.videoUrl, '_blank')}
                         >
                           <Play className="mr-2 w-4 h-4" />
                           Open in New Tab
                         </Button>
-                        <Button 
+                        <Button
                           variant="outline"
                           onClick={() => {
                             const a = document.createElement('a');
@@ -304,7 +280,28 @@ const ViewReport = () => {
                   ) : (
                     <div className="text-center py-12">
                       <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No video available for this report</p>
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">Patient Video Not Available</h3>
+                      <p className="text-gray-600 mb-4">
+                        {reportData.videoGenerationFailed
+                          ? "Video generation failed. Please try regenerating the video."
+                          : "No video has been generated for this report yet."}
+                      </p>
+                      {reportData.videoError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 max-w-md mx-auto">
+                          <p className="text-sm text-red-700">
+                            <strong>Error:</strong> {reportData.videoError}
+                          </p>
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Trigger video regeneration
+                          window.location.reload();
+                        }}
+                      >
+                        Refresh Page
+                      </Button>
                     </div>
                   )}
                 </TabsContent>
@@ -321,15 +318,6 @@ const ViewReport = () => {
                   >
                     <FileText className="w-4 h-4" />
                     Written Report
-                  </Button>
-                  
-                  <Button
-                    variant={activeTab === "pdf" ? "default" : "outline"}
-                    onClick={() => handleTabChange("pdf")}
-                    className="flex items-center gap-2"
-                  >
-                    <FileIcon className="w-4 h-4" />
-                    PDF Report
                   </Button>
                   
                   {reportData.videoUrl && (

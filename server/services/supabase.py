@@ -85,14 +85,34 @@ class SupabaseService:
     async def save_diagnosis(self, diagnosis_data: dict, access_token: str) -> dict:
         try:
             auth_client = self._create_authenticated_client(access_token)
-            response = auth_client.table('patient_diagnosis').insert({
+            
+            # Prepare the data to insert, including all available fields
+            insert_data = {
                 'patient_name': diagnosis_data['patient_name'],
                 'image_url': diagnosis_data['image_url'],
                 'annotated_image_url': diagnosis_data['annotated_image_url'],
                 'summary': diagnosis_data['summary'],
                 'ai_notes': diagnosis_data['ai_notes'],
                 'treatment_stages': diagnosis_data['treatment_stages']
-            }).execute()
+            }
+            
+            # Add optional fields if they exist
+            if 'report_html' in diagnosis_data:
+                insert_data['report_html'] = diagnosis_data['report_html']
+            if 'video_url' in diagnosis_data:
+                insert_data['video_url'] = diagnosis_data['video_url']
+            if 'video_script' in diagnosis_data:
+                insert_data['video_script'] = diagnosis_data['video_script']
+            if 'video_generated_at' in diagnosis_data:
+                insert_data['video_generated_at'] = diagnosis_data['video_generated_at']
+            if 'video_generation_failed' in diagnosis_data:
+                insert_data['video_generation_failed'] = diagnosis_data['video_generation_failed']
+            if 'video_error' in diagnosis_data:
+                insert_data['video_error'] = diagnosis_data['video_error']
+            if 'is_xray_based' in diagnosis_data:
+                insert_data['is_xray_based'] = diagnosis_data.get('is_xray_based', True)
+            
+            response = auth_client.table('patient_diagnosis').insert(insert_data).execute()
             logger.info(f"Successfully saved diagnosis for patient: {diagnosis_data['patient_name']}")
             return response.data[0] if response.data else {}
         except Exception as e:

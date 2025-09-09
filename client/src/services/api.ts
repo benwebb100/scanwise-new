@@ -117,11 +117,12 @@ export const api = {
 
     const data = await response.json();
     
-    // Transform data for frontend
-    return {
-      ...data,
-      reportHtml: data.report_html || ''
-    };
+    console.log('API getReport: Raw response data:', data);
+    console.log('API getReport: videoUrl in response:', data.videoUrl);
+    console.log('API getReport: reportHtml exists:', !!data.reportHtml);
+    
+    // The backend already transforms the data, so just return it
+    return data;
   },
 
   // Analyze without X-ray
