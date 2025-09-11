@@ -686,7 +686,7 @@ const CreateReport = () => {
           throw new Error('Failed to generate report HTML content');
         }
         
-        // Handle video generation SEPARATELY from report display
+        // Handle video generation - now synchronous
         console.log('🚀 VIDEO GENERATION: Starting video generation process...');
         if (analysisResult.video_url) {
           console.log('🚀 VIDEO GENERATION: Video URL already available:', analysisResult.video_url);
@@ -696,15 +696,8 @@ const CreateReport = () => {
             title: "Video Ready! 🎥",
             description: "Patient education video has been generated successfully!",
           });
-        } else if (analysisResult.diagnosis_id) {
-          console.log('🚀 VIDEO GENERATION: Starting video status polling for diagnosis:', analysisResult.diagnosis_id);
-          
-  
-          // Start video polling in background - don't block the UI
-          pollForVideoStatus(analysisResult.diagnosis_id);
         } else {
-          console.log('🚀 VIDEO GENERATION: No diagnosis ID available for video polling');
-  
+          console.log('🚀 VIDEO GENERATION: No video URL in response - video generation may have failed or was not requested');
         }
       } else {
         console.log('🚀 REPORT GENERATION: Processing without X-ray mode...');
@@ -1844,51 +1837,6 @@ const CreateReport = () => {
       await handleNextStep(e);
     };
     
-    // Function to poll for video status
-    const pollForVideoStatus = async (diagnosisId: string) => {
-      if (!diagnosisId) {
-        console.log('🚀 VIDEO POLLING: No diagnosis ID provided, skipping video polling');
-        return;
-      }
-      
-      console.log('🚀 VIDEO POLLING: Starting video status polling for diagnosis:', diagnosisId);
-      
-      // Check immediately first
-      console.log('🚀 VIDEO POLLING: Performing initial video status check...');
-      const hasVideo = await checkVideoStatus(diagnosisId);
-      if (hasVideo) {
-        console.log('🚀 VIDEO POLLING: Video already available, no need to poll');
-        return;
-      }
-      
-      console.log('🚀 VIDEO POLLING: Setting up polling interval (every 30 seconds)...');
-      // Then set up interval - check every 30 seconds since video takes 3-5 minutes
-      const intervalId = setInterval(async () => {
-        console.log('🚀 VIDEO POLLING: Polling for video status...');
-        const hasVideo = await checkVideoStatus(diagnosisId);
-        if (hasVideo) {
-          console.log('🚀 VIDEO POLLING: Video found, stopping polling');
-          clearInterval(intervalId);
-        }
-      }, 30000); // Check every 30 seconds (more appropriate for 3-5 min generation)
-      
-      // Clear interval after 10 minutes (20 * 30000ms = 10 minutes) to account for longer generation time
-      setTimeout(() => {
-        console.log('🚀 VIDEO POLLING: Polling timeout reached after 10 minutes, clearing interval');
-        clearInterval(intervalId);
-        // Check one more time before giving up
-        checkVideoStatus(diagnosisId).then(hasVideo => {
-          if (!hasVideo) {
-            console.log('🚀 VIDEO POLLING: Final check - video still not ready after timeout');
-            toast({
-              title: "Video Generation",
-              description: "Video generation is taking longer than expected. You can check back later or try refreshing.",
-              variant: "default"
-            });
-          }
-        });
-      }, 600000); // 10 minutes timeout
-    };
 
   const handleEditClick = () => {
     setIsEditing(true);
@@ -2410,45 +2358,6 @@ const CreateReport = () => {
     }
   };
   
-  // Helper function to check video status (extracted from pollForVideoStatus)
-  const checkVideoStatus = async (diagnosisId: string): Promise<boolean> => {
-    try {
-      const token = await api.getAuthToken();
-      console.log('🚀 VIDEO CHECK: Checking video status for diagnosis:', diagnosisId);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/diagnosis/${diagnosisId}/video-status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        console.error('🚀 VIDEO CHECK: Failed to check video status:', response.status, response.statusText);
-        throw new Error('Failed to check video status');
-      }
-      
-      const data = await response.json();
-      console.log('🚀 VIDEO CHECK: Video status response:', data);
-      
-      if (data.has_video && data.video_url) {
-        console.log('🚀 VIDEO CHECK: Video is ready! Setting video URL:', data.video_url);
-        setVideoUrl(data.video_url);
-        
-        toast({
-          title: "Video Ready! 🎥",
-          description: "Patient education video has been generated successfully!",
-        });
-        return true;
-      } else {
-        console.log('🚀 VIDEO CHECK: Video not ready yet. Status:', data.status);
-        return false;
-      }
-    } catch (error) {
-      console.error('🚀 VIDEO CHECK: Error checking video status:', error);
-      
-      return false;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -85,7 +85,7 @@ const ViewReport = () => {
   };
 
   const handleDownloadPDF = () => {
-    if (!reportData?.report_html) return;
+    if (!reportData?.reportHtml) return;
     
     const printWindow = window.open('', '', 'width=800,height=600');
     if (printWindow) {
@@ -108,7 +108,7 @@ const ViewReport = () => {
             </style>
           </head>
           <body>
-            ${reportData.report_html}
+            ${reportData.reportHtml}
           </body>
         </html>
       `);
@@ -127,7 +127,7 @@ const ViewReport = () => {
     
     try {
       // Extract treatment plan and findings from report data
-      const treatmentPlan = reportData.report_html || 'Treatment plan not available';
+      const treatmentPlan = reportData.reportHtml || 'Treatment plan not available';
       const findings = reportData.findings || 'Dental findings not available';
       
       const consultationRequest = {
@@ -176,7 +176,7 @@ const ViewReport = () => {
       return;
     }
 
-    if (!reportData?.report_html) {
+    if (!reportData?.reportHtml) {
       toast({
         title: "Report Required",
         description: "No report content available to send.",
@@ -406,7 +406,7 @@ const ViewReport = () => {
                 <TabsContent value="report" className="mt-4">
                   <div
                     className="border rounded p-4 min-h-[120px] bg-gray-50"
-                    dangerouslySetInnerHTML={{ __html: reportData.report_html }}
+                    dangerouslySetInnerHTML={{ __html: reportData.reportHtml }}
                     style={{ overflowX: 'auto', wordBreak: 'break-word' }}
                   />
                 </TabsContent>

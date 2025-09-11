@@ -296,7 +296,20 @@ async def analyze_xray(
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
         diagnosis_id = saved_diagnosis.get('id')
         
-        # Step 5: Return response immediately, start video generation in background if requested
+        # Step 5: Generate video synchronously (not in background)
+        video_url = None
+        if generate_video and diagnosis_id and annotated_url:
+            logger.info(f"Generating video for diagnosis: {diagnosis_id}")
+            try:
+                # Call the video generation function directly (not in background)
+                video_url = await generate_video_sync(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token)
+                logger.info(f"Video generated successfully: {video_url}")
+            except Exception as video_error:
+                logger.error(f"Video generation failed: {str(video_error)}")
+                # Don't fail the entire request if video fails
+                video_url = None
+        
+        # Return response with video URL
         response_data = {
             "status": "success",
             "summary": ai_analysis.get('summary', ''),
@@ -305,24 +318,10 @@ async def analyze_xray(
             "diagnosis_timestamp": datetime.now(),
             "annotated_image_url": annotated_url,
             "detections": ai_analysis.get('detections', []),
-            "report_html": html_report,  # Keep as report_html for the model
-            "diagnosis_id": diagnosis_id,  # Include diagnosis_id for video polling
-            "staging_v2_meta": ai_analysis.get('staging_v2_meta'),
-            "future_tasks": ai_analysis.get('future_tasks', [])
+            "report_html": html_report,
+            "diagnosis_id": diagnosis_id,
+            "video_url": video_url  # Include video URL directly
         }
-        
-        # Start video generation in background if requested
-        if generate_video and diagnosis_id:
-            logger.info(f"Starting video generation for diagnosis: {diagnosis_id}")
-            # Start video generation asynchronously
-            try:
-                import asyncio
-                # Call the existing video generation endpoint asynchronously
-                asyncio.create_task(generate_patient_video(diagnosis_id, token))
-            except Exception as e:
-                logger.error(f"Failed to start video generation: {str(e)}")
-        else:
-            logger.info(f"Video generation not requested or no diagnosis ID. generate_video: {generate_video}, diagnosis_id: {diagnosis_id}")
         
         response = AnalyzeXrayResponse(**response_data)
         
@@ -522,6 +521,9 @@ async def apply_suggested_changes(
         if not request.previous_report_html or not request.change_request_text:
             raise HTTPException(status_code=400, detail="Missing required fields")
         
+        # Log the request details for debugging
+        logger.info(f"Applying suggested changes. HTML length: {len(request.previous_report_html)}, Request: {request.change_request_text[:100]}...")                                                                  
+        
         system_prompt = """You are an expert dental assistant AI and HTML editor. You will receive:
 
 1. An existing HTML dental treatment plan report, already formatted with inline styles and condition blocks.
@@ -547,14 +549,32 @@ Here is the dentist's change request (typed or dictated):
 
 Please apply the change exactly as described, keeping the HTML structure intact and updating only the necessary content."""
 
-        response = openai_service.client.chat.completions.create(
-            model=openai_service.model_edit,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_completion_tokens=2000
-        )
+        # Check if the combined prompt is too long
+        total_length = len(system_prompt) + len(user_prompt)
+        logger.info(f"Total prompt length: {total_length} characters")
+        
+        # Increase max_tokens to handle larger reports
+        max_tokens_needed = min(8000, max(4000, len(request.previous_report_html) // 2))
+        
+        try:
+            response = openai_service.client.chat.completions.create(
+                model=openai_service.model_edit,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=max_tokens_needed  # Dynamic based on input size
+            )
+        except Exception as api_error:
+            logger.error(f"OpenAI API error: {str(api_error)}")
+            # Check if it's a model error
+            if "model" in str(api_error).lower():
+                raise HTTPException(
+                    status_code=500, 
+                    detail="AI model configuration error. Please check the OpenAI model settings."
+                )
+            raise
         
         updated_html = response.choices[0].message.content
         
@@ -670,6 +690,114 @@ async def generate_patient_video(
     except Exception as e:
         logger.error(f"Error generating patient video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
+    finally:
+        # Cleanup temporary files
+        for file_path in temp_files:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                logger.error(f"Error cleaning up {file_path}: {str(e)}")
+        
+        # Clean up temp directory
+        if 'temp_dir' in locals():
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"Error cleaning up temp directory: {str(e)}")
+
+
+# New synchronous video generation function
+async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str) -> Optional[str]:
+    """
+    Generate video synchronously and return the URL
+    """
+    temp_files = []
+    try:
+        logger.info(f"Starting synchronous video generation for diagnosis: {diagnosis_id}")
+        
+        # Step 1: Convert annotated image to base64
+        logger.info("Converting annotated image to base64...")
+        image_base64 = video_generator_service.image_to_base64(annotated_url)
+        
+        # Step 2: Generate video script with OpenAI
+        logger.info("Generating video script...")
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
+        
+        # Step 3: Generate voice audio with ElevenLabs
+        logger.info("Generating voice audio...")
+        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        
+        # Step 4: Save temporary files
+        temp_dir = tempfile.mkdtemp()
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Download and save annotated image
+        image_response = requests.get(annotated_url)
+        image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
+        with open(image_path, 'wb') as f:
+            f.write(image_response.content)
+        temp_files.append(image_path)
+        
+        # Save audio file
+        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+        with open(audio_path, 'wb') as f:
+            f.write(audio_bytes)
+        temp_files.append(audio_path)
+        
+        # Step 5: Create video with subtitles
+        logger.info("Creating video with subtitles...")
+        video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
+        duration = video_generator_service.create_video_with_subtitles(
+            image_path, 
+            audio_path, 
+            video_path
+        )
+        temp_files.append(video_path)
+        
+        # Step 6: Upload video to Supabase Storage
+        logger.info("Uploading video to storage...")
+        with open(video_path, 'rb') as video_file:
+            video_data = video_file.read()
+        
+        video_filename = f"patient_videos/{patient_name.replace(' ', '_')}_{unique_id}.mp4"
+        video_url = await supabase_service.upload_video(
+            video_data,
+            video_filename,
+            token
+        )
+        
+        if not video_url:
+            raise Exception("Failed to upload video to storage")
+        
+        # Step 7: Update diagnosis with video URL
+        auth_client = supabase_service._create_authenticated_client(token)
+        auth_client.table('patient_diagnosis').update({
+            'video_url': video_url,
+            'video_script': video_script,
+            'video_generated_at': datetime.now().isoformat(),
+            'video_generation_failed': False,
+            'video_error': None
+        }).eq('id', diagnosis_id).execute()
+        
+        logger.info(f"Synchronous video generation completed for diagnosis: {diagnosis_id}")
+        return video_url
+        
+    except Exception as e:
+        logger.error(f"Error in synchronous video generation: {str(e)}")
+        # Update diagnosis to indicate video generation failed
+        try:
+            auth_client = supabase_service._create_authenticated_client(token)
+            auth_client.table('patient_diagnosis').update({
+                'video_generation_failed': True,
+                'video_error': str(e)[:500],
+                'video_generated_at': datetime.now().isoformat()
+            }).eq('id', diagnosis_id).execute()
+        except Exception as update_error:
+            logger.error(f"Failed to update diagnosis with error status: {str(update_error)}")
+        
+        return None
     finally:
         # Cleanup temporary files
         for file_path in temp_files:
