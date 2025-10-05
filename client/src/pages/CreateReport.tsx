@@ -22,6 +22,7 @@ import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { api } from '@/services/api';
 import { heygenService } from '@/services/heygen';
+import { Clock, RotateCcw } from "lucide-react";
 import { generateReplacementOptionsTable } from '@/lib/replacementOptionsTemplate';
 import {
   ToothNumberingSystem,
@@ -69,7 +70,6 @@ const CreateReport = () => {
   const [report, setReport] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [originalReportBackup, setOriginalReportBackup] = useState<string | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -81,6 +81,10 @@ const CreateReport = () => {
   const [useXrayMode, setUseXrayMode] = useState(true);
   const [patientObservations, setPatientObservations] = useState("");
   const [detections, setDetections] = useState<any[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedReport, setEditedReport] = useState<string | null>(null);
+  // Add new state for cached segmentation
+  const [cachedSegmentationData, setCachedSegmentationData] = useState<any>(null);
   
   // Treatment stage editor state
   const [isStageEditorOpen, setIsStageEditorOpen] = useState(false);
@@ -130,28 +134,43 @@ const CreateReport = () => {
   // Function to refresh image with tooth number overlay
   const refreshImageWithOverlay = async (imageUrl: string) => {
     if (!showToothNumberOverlay) {
-      return imageUrl; // Return original if toggle is off
+      return imageUrl;
     }
     
     try {
       const overlayResult = await api.addToothNumberOverlay(
         imageUrl,
-        toothNumberingSystem, // Use user's preferred numbering system
+        toothNumberingSystem,
         true,
-        textSizeMultiplier, // Include text size multiplier
-        immediateAnalysisData?.detections // Use mapped detections with tooth number assignments
+        textSizeMultiplier,
+        immediateAnalysisData?.detections,
+        cachedSegmentationData  // Pass cached data
       );
       
       if (overlayResult && overlayResult.has_overlay) {
+        // Cache segmentation data for future calls
+        if (overlayResult.segmentation_data && !cachedSegmentationData) {
+          console.log('💾 Caching segmentation data for future use');
+          setCachedSegmentationData(overlayResult.segmentation_data);
+        }
+        
         return overlayResult.image_url;
       }
     } catch (error) {
       console.error('Failed to add tooth number overlay:', error);
     }
     
-    return imageUrl; // Return original if overlay fails
+    return imageUrl;
   };
-  
+
+  // Clear cache when toggle is turned off or new image is uploaded
+  useEffect(() => {
+    if (!showToothNumberOverlay) {
+      setCachedSegmentationData(null);
+    }
+  }, [showToothNumberOverlay]);
+
+
   // Function to restore original image when toggle is turned off
   const restoreOriginalImage = () => {
     if (originalImageUrl && immediateAnalysisData?.annotated_image_url !== originalImageUrl) {
@@ -234,15 +253,17 @@ const CreateReport = () => {
   useEffect(() => {
     if (!immediateAnalysisData?.annotated_image_url) return;
     
-    const currentImageUrl = immediateAnalysisData.annotated_image_url;
-    
     if (showToothNumberOverlay) {
-      // Toggle is ON - add overlay
+      // Toggle is ON - add overlay using ORIGINAL URL
       console.log('🔢 TOOTH OVERLAY: Toggle turned ON, adding overlay...');
-      refreshImageWithOverlay(currentImageUrl).then(newImageUrl => {
-        if (newImageUrl !== currentImageUrl && 
-            immediateAnalysisData?.annotated_image_url === currentImageUrl &&
-            showToothNumberOverlay) {
+      
+      // Use original URL if available, otherwise use current
+      const urlToUse = originalImageUrl || immediateAnalysisData.annotated_image_url;
+      
+      console.log('🔢 TOOTH OVERLAY: Using URL:', urlToUse.substring(0, 100));
+      
+      refreshImageWithOverlay(urlToUse).then(newImageUrl => {
+        if (newImageUrl !== urlToUse && showToothNumberOverlay) {
           setImmediateAnalysisData((prev: any) => ({
             ...prev,
             annotated_image_url: newImageUrl
@@ -265,18 +286,22 @@ const CreateReport = () => {
       console.log('🔢 TOOTH OVERLAY: Text size changed to', textSizeMultiplier, 'x, refreshing overlay...');
       setIsUpdatingTextSize(true);
       
-      const currentImageUrl = immediateAnalysisData.annotated_image_url;
-      refreshImageWithOverlay(currentImageUrl).then(newImageUrl => {
-        if (newImageUrl !== currentImageUrl && 
-            immediateAnalysisData?.annotated_image_url === currentImageUrl &&
-            showToothNumberOverlay) {
+      // FIX: Always use the original URL, not the current (possibly base64) image
+      const urlToUse = originalImageUrl || immediateAnalysisData.annotated_image_url;
+      
+      console.log('🔢 TOOTH OVERLAY: Using URL for re-overlay:', urlToUse.substring(0, 100));
+      
+      refreshImageWithOverlay(urlToUse).then(newImageUrl => {
+        // Only update if we got a new image and toggle is still on
+        if (newImageUrl !== urlToUse && showToothNumberOverlay) {
           setImmediateAnalysisData((prev: any) => ({
             ...prev,
             annotated_image_url: newImageUrl
           }));
         }
         setIsUpdatingTextSize(false);
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('🔢 TOOTH OVERLAY: Failed to update text size:', error);
         setIsUpdatingTextSize(false);
       });
     }, 300); // 300ms debounce delay
@@ -576,6 +601,7 @@ const CreateReport = () => {
             generateVideo: true
           });
           console.log('🚀 REPORT GENERATION: Analysis result received:', analysisResult);
+          console.log('🚀 REPORT GENERATION: Video URL from backend:', analysisResult.video_url);
         } catch (networkError) {
           console.error('🚀 REPORT GENERATION: Network error during API call:', networkError);
           console.log('🚀 REPORT GENERATION: Using frontend-only generation fallback');
@@ -590,14 +616,14 @@ const CreateReport = () => {
         if (analysisResult.detections) {
           console.log('🚀 REPORT GENERATION: Setting detections:', analysisResult.detections.length);
           setDetections(analysisResult.detections);
-          
-          if (analysisResult.detections.length > 0) {
-            toast({
-              title: "Analysis Complete",
-              description: "AI analysis completed successfully. Video generation in progress...",
-            });
+
           }
-        }
+        
+          // Set video URL directly from the response
+          if (analysisResult.video_url) {
+            console.log('🚀 REPORT GENERATION: Setting video URL:', analysisResult.video_url);
+            setVideoUrl(analysisResult.video_url);
+          }
         
         // Store original image URL for tooth number overlay toggle
         if (analysisResult.annotated_image_url) {
@@ -688,24 +714,8 @@ const CreateReport = () => {
         
         // Handle video generation SEPARATELY from report display
         console.log('🚀 VIDEO GENERATION: Starting video generation process...');
-        if (analysisResult.video_url) {
-          console.log('🚀 VIDEO GENERATION: Video URL already available:', analysisResult.video_url);
-          setVideoUrl(analysisResult.video_url);
-
-          toast({
-            title: "Video Ready! 🎥",
-            description: "Patient education video has been generated successfully!",
-          });
-        } else if (analysisResult.diagnosis_id) {
-          console.log('🚀 VIDEO GENERATION: Starting video status polling for diagnosis:', analysisResult.diagnosis_id);
-          
-  
-          // Start video polling in background - don't block the UI
-          pollForVideoStatus(analysisResult.diagnosis_id);
-        } else {
-          console.log('🚀 VIDEO GENERATION: No diagnosis ID available for video polling');
-  
-        }
+        // Remove polling logic - we already have the video URL
+        // No need to call pollForVideoStatus anymore
       } else {
         console.log('🚀 REPORT GENERATION: Processing without X-ray mode...');
         // New flow without X-ray
@@ -1843,52 +1853,6 @@ const CreateReport = () => {
       // This should redirect to the new workflow
       await handleNextStep(e);
     };
-    
-    // Function to poll for video status
-    const pollForVideoStatus = async (diagnosisId: string) => {
-      if (!diagnosisId) {
-        console.log('🚀 VIDEO POLLING: No diagnosis ID provided, skipping video polling');
-        return;
-      }
-      
-      console.log('🚀 VIDEO POLLING: Starting video status polling for diagnosis:', diagnosisId);
-      
-      // Check immediately first
-      console.log('🚀 VIDEO POLLING: Performing initial video status check...');
-      const hasVideo = await checkVideoStatus(diagnosisId);
-      if (hasVideo) {
-        console.log('🚀 VIDEO POLLING: Video already available, no need to poll');
-        return;
-      }
-      
-      console.log('🚀 VIDEO POLLING: Setting up polling interval (every 30 seconds)...');
-      // Then set up interval - check every 30 seconds since video takes 3-5 minutes
-      const intervalId = setInterval(async () => {
-        console.log('🚀 VIDEO POLLING: Polling for video status...');
-        const hasVideo = await checkVideoStatus(diagnosisId);
-        if (hasVideo) {
-          console.log('🚀 VIDEO POLLING: Video found, stopping polling');
-          clearInterval(intervalId);
-        }
-      }, 30000); // Check every 30 seconds (more appropriate for 3-5 min generation)
-      
-      // Clear interval after 10 minutes (20 * 30000ms = 10 minutes) to account for longer generation time
-      setTimeout(() => {
-        console.log('🚀 VIDEO POLLING: Polling timeout reached after 10 minutes, clearing interval');
-        clearInterval(intervalId);
-        // Check one more time before giving up
-        checkVideoStatus(diagnosisId).then(hasVideo => {
-          if (!hasVideo) {
-            console.log('🚀 VIDEO POLLING: Final check - video still not ready after timeout');
-            toast({
-              title: "Video Generation",
-              description: "Video generation is taking longer than expected. You can check back later or try refreshing.",
-              variant: "default"
-            });
-          }
-        });
-      }, 600000); // 10 minutes timeout
-    };
 
   const handleEditClick = () => {
     setIsEditing(true);
@@ -1897,26 +1861,28 @@ const CreateReport = () => {
     // Don't set editedReport here - let the contentEditable div work with the current report
   };
 
-  const handleSaveEdit = () => {
+    const handleSaveEdit = () => {
     setIsEditing(false);
     if (reportRef.current) {
       const newContent = reportRef.current.innerHTML;
-      setReport(newContent);
-      addVersion(newContent, "Manual Edit", "Dentist manually edited the report");
+      const oldContent = report || '';
+      
+      // Only save if content actually changed
+      if (newContent !== oldContent) {
+        setReport(newContent);
+        addVersion(newContent, "Manual Edit", "Dentist manually edited the report");
+        
+        toast({
+          title: "Success",
+          description: "Report changes saved successfully",
+        });
+      } else {
+        toast({
+          title: "Info",
+          description: "No changes were made to the report",
+        });
+      }
     }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    // Restore the original report content from backup
-    if (originalReportBackup) {
-      setReport(originalReportBackup);
-    }
-    toast({
-      title: "Changes Cancelled",
-      description: "Report reverted to its original state.",
-      variant: "default"
-    });
   };
 
   // Speech-to-text for AI suggestion
@@ -1976,43 +1942,66 @@ const CreateReport = () => {
   };
 
   const handleAiSuggest = async (e: React.FormEvent | React.MouseEvent) => {
-    e.preventDefault();
-    if (!report || !aiSuggestion.trim()) {
-      toast({ title: "Missing info", description: "Type or speak a change request." });
-      return;
+  e.preventDefault();
+  if (!report || !aiSuggestion.trim()) {
+    toast({ title: "Missing info", description: "Type or speak a change request." });
+    return;
+  }
+  setIsAiLoading(true);
+  try {
+    const token = localStorage.getItem('authToken');
+    
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/apply-suggested-changes`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        previous_report_html: report,
+        change_request_text: aiSuggestion,
+      }),
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || `Server error: ${res.status}`);
     }
-    setIsAiLoading(true);
-    try {
-      console.log('🤖 AI SUGGEST: Starting AI suggestion request...');
-      console.log('🤖 AI SUGGEST: Request payload:', {
-        previous_report_html_length: report.length,
-        change_request_text: aiSuggestion
-      });
-      
-      const data = await api.applyAiSuggestions(report, aiSuggestion);
-      
-      console.log('🤖 AI SUGGEST: Response data:', data);
-      
-      if (!data.updated_html) {
-        throw new Error('No updated HTML received from AI service');
+    
+    const data = await res.json();
+    
+    if (!data.updated_html) {
+      throw new Error('No updated HTML received from server');
+    }
+    
+    setReport(data.updated_html);
+    // setEditedReport(null);
+    setAiSuggestion("");
+    addVersion(data.updated_html, "AI Edit", aiSuggestion);
+    
+    toast({
+      title: "Success",
+      description: "AI suggestions applied successfully!",
+    });
+  } catch (error) {
+    console.error('AI suggestion error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = "Failed to apply AI suggestion.";
+    if (error instanceof Error) {
+      if (error.message.includes('model')) {
+        errorMessage = "AI model configuration error. Please contact support.";
+      } else if (error.message.includes('token')) {
+        errorMessage = "Report too large for AI editing. Try a more specific change request.";
+      } else {
+        errorMessage = error.message;
       }
-      
-      setReport(data.updated_html);
-      // Don't clear the backup - keep it as the original state for future edits
-      setAiSuggestion("");
-      addVersion(data.updated_html, "AI Edit", aiSuggestion);
-      
-      toast({
-        title: "Success",
-        description: "AI suggestions applied successfully!",
-      });
-    } catch (error) {
-      console.error('🤖 AI SUGGEST: Error details:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      toast({ 
-        title: "AI Suggestion Failed", 
-        description: `Error: ${errorMessage}`,
-        variant: "destructive"
+    }
+    
+    toast({ 
+      title: "Error", 
+      description: errorMessage,
+      variant: "destructive"
       });
     } finally {
       setIsAiLoading(false);
@@ -2020,9 +2009,12 @@ const CreateReport = () => {
   };
 
   const addVersion = (html: string, type: string, summary: string) => {
-    setHistory(prev => [...prev, { html, timestamp: new Date().toLocaleString(), type, summary }]);
+
+    const timestamp = new Date().toLocaleString();
+    setHistory(prev => [...prev, { html, timestamp, type, summary }]);
+
     setAuditTrail(prev => [
-      { action: `${type}: ${summary}`, timestamp: new Date().toLocaleString() },
+      { action: `${type}: ${summary}`, timestamp },
       ...prev
     ]);
   };
@@ -2204,6 +2196,46 @@ const CreateReport = () => {
       { action: `Restored version from ${history[idx].timestamp}`, timestamp: new Date().toLocaleString() },
       ...prevTrail
     ]);
+  };
+
+  // Add this function after the existing handleRestoreVersion function
+  const handleRevertToVersion = (auditEntry: { action: string; timestamp: string }) => {
+    // Find the corresponding history entry by timestamp
+    const historyIndex = history.findIndex(h => h.timestamp === auditEntry.timestamp);
+    
+    if (historyIndex >= 0 && historyIndex < history.length - 1) {
+      // Restore to that version
+      const versionToRestore = history[historyIndex];
+      setReport(versionToRestore.html);
+      
+      // Update history to only include up to this version
+      setHistory(h => h.slice(0, historyIndex + 1));
+      
+      // Add new audit entry for the revert action
+      setAuditTrail(prevTrail => [
+        { 
+          action: `Reverted to version from ${versionToRestore.timestamp}`, 
+          timestamp: new Date().toLocaleString() 
+        },
+        ...prevTrail
+      ]);
+      
+      toast({
+        title: "Success",
+        description: `Reverted to version from ${versionToRestore.timestamp}`,
+      });
+    }
+  };
+
+  // Add cancel functionality
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedReport(null);    
+    setEditedReport(null);
+    // Reset the report content to original
+    if (reportRef.current && report) {
+      reportRef.current.innerHTML = report;
+    }
   };
 
   const downloadFile = (content: string, type: string, filename: string) => {
@@ -3243,9 +3275,9 @@ const CreateReport = () => {
                                 <FileText className="w-4 h-4" />
                                 Written Report
                               </TabsTrigger>
-                              <TabsTrigger value="video" className="flex items-center gap-2" onClick={handleVideoTabClick}>
+                              <TabsTrigger value="video" className="flex items-center gap-2" disabled={!videoUrl}>
                                 <Video className="w-4 h-4" />
-                                Patient Video (Loading...)
+                                Patient Video {!videoUrl ? "(Generating...)" : ""}
                               </TabsTrigger>
                             </TabsList>
 
@@ -3260,42 +3292,36 @@ const CreateReport = () => {
                                 )}
                                 
                                 {isEditing ? (
-                                  <div
-                                    ref={reportRef}
-                                    className="border rounded p-4 min-h-[120px] bg-gray-50 focus:outline-blue-400 outline outline-2"
-                                    contentEditable={true}
-                                    suppressContentEditableWarning={true}
-                                    dangerouslySetInnerHTML={{ __html: report }}
-                                    style={{ overflowX: 'auto', wordBreak: 'break-word' }}
-                                  />
+                                   <>
+                                    <div
+                                      ref={reportRef}
+                                      className="border rounded p-4 min-h-[120px] bg-gray-50 focus:outline-blue-400 outline outline-2"
+                                      contentEditable={true}
+                                      suppressContentEditableWarning={true}
+                                      dangerouslySetInnerHTML={{ __html: editedReport || report }}
+                                      style={{ overflowX: 'auto', wordBreak: 'break-word' }}
+                                    />
+                                    <div className="flex gap-2 mt-3">
+                                      <Button type="button" onClick={handleSaveEdit}>
+                                        Save Changes
+                                      </Button>
+                                      <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </>
                                 ) : (
-                                  <div
-                                    ref={reportRef}
-                                    className="border rounded p-4 min-h-[120px] bg-gray-50"
-                                    dangerouslySetInnerHTML={{ __html: report }}
-                                    style={{ overflowX: 'auto', wordBreak: 'break-word' }}
-                                  />
-                                )}
-                                
-                                {/* Edit/Save buttons */}
-                                {!isEditing ? (
-                                  <div className="space-y-3 mt-3">
-                                    <Button type="button" onClick={handleEditClick} disabled={isAiLoading}>
+                                   <>
+                                    <div
+                                      ref={reportRef}
+                                      className="border rounded p-4 min-h-[120px] bg-gray-50"
+                                      dangerouslySetInnerHTML={{ __html: report }}
+                                      style={{ overflowX: 'auto', wordBreak: 'break-word' }}
+                                    />
+                                    <Button className="mt-3" type="button" onClick={handleEditClick} disabled={isAiLoading}>
                                       Edit Report
                                     </Button>
-                                    
-
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-3 mt-3">
-                                    <Button type="button" onClick={handleSaveEdit}>
-                                    Save Changes
-                                  </Button>
-                                    <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                                      <RefreshCw className="w-4 h-4 mr-2" />
-                                      Cancel Changes
-                                    </Button>
-                                  </div>
+                                  </>
                                 )}
                               </div>
                             </TabsContent>
@@ -3348,8 +3374,15 @@ const CreateReport = () => {
                               ) : (
                                 <div className="text-center py-12">
                                   <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                                  <p className="text-gray-600 mb-2">No video available</p>
-                                  <p className="text-sm text-gray-500 mb-4">Generate a report with X-ray analysis to create a patient education video.</p>
+                                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Patient Video Generating</h3>
+                                  <p className="text-gray-600 mb-2">Your personalized patient education video is being created...</p>
+                                  <p className="text-sm text-gray-500 mb-4">This usually takes 1-3 minutes</p>
+                                  <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-4" />
+                                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-md mx-auto">
+                                    <p className="text-xs text-blue-700">
+                                      <strong>What's happening:</strong> AI is generating voice narration, creating subtitles, and combining everything with your X-ray analysis.
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                             </TabsContent>
@@ -3487,56 +3520,181 @@ const CreateReport = () => {
                             </div>
                           )}
 
-                          {/* Version History Modal */}
+                          {/* Enhanced Version History Modal */}
                           {showHistory && (
                             <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-                              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 overflow-auto max-h-[80vh]">
-                                <h2 className="text-lg font-bold mb-4">Version History</h2>
-                                <ul className="space-y-3">
+                              <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6 overflow-auto max-h-[80vh]">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h2 className="text-lg font-bold">Version History</h2>
+                                  <span className="text-sm text-gray-500">{history.length} versions</span>
+                                </div>
+                                
+                                <div className="space-y-3">
                                   {history.map((v, idx) => (
-                                    <li key={idx} className="border rounded p-3 flex flex-col gap-1">
-                                      <div className="flex justify-between items-center">
-                                        <span className="font-medium">{v.type}</span>
-                                        <span className="text-xs text-gray-500">{v.timestamp}</span>
+                                    <div key={idx} className={`border rounded-lg p-4 ${idx === history.length - 1 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium">{v.type}</span>
+                                            {idx === history.length - 1 && (
+                                              <Badge variant="default" className="text-xs">Current</Badge>
+                                            )}
+                                          </div>
+                                          <span className="text-xs text-gray-500">{v.timestamp}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          {idx < history.length - 1 && (
+                                            <>
+                                              <Button 
+                                                size="sm" 
+                                                variant="outline"
+                                                onClick={() => {
+                                                  // Preview version in a modal
+                                                  const previewWindow = window.open('', '_blank', 'width=800,height=600');
+                                                  if (previewWindow) {
+                                                    previewWindow.document.write(`
+                                                      <html>
+                                                        <head>
+                                                          <title>Version Preview - ${v.timestamp}</title>
+                                                          <style>
+                                                            body { font-family: Arial, sans-serif; margin: 20px; }
+                                                          </style>
+                                                        </head>
+                                                        <body>
+                                                          <h3>Version from ${v.timestamp}</h3>
+                                                          <hr />
+                                                          ${v.html}
+                                                        </body>
+                                                      </html>
+                                                    `);
+                                                    previewWindow.document.close();
+                                                  }
+                                                }}
+                                              >
+                                                Preview
+                                              </Button>
+                                              <Button 
+                                                size="sm" 
+                                                variant="default"
+                                                onClick={() => handleRestoreVersion(idx)}
+                                              >
+                                                Restore
+                                              </Button>
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
                                       <p className="text-sm text-gray-600">{v.summary}</p>
-                                      <Button 
-                                        size="sm" 
-                                        variant="outline" 
-                                        onClick={() => handleRestoreVersion(idx)} 
-                                        className="w-full mt-2"
-                                      >
-                                        Restore this version
-                                      </Button>
-                                    </li>
+                                    </div>
                                   ))}
-                                </ul>
-                                <Button className="mt-4 w-full" onClick={() => setShowHistory(false)}>Close</Button>
+                                </div>
+                                <Button className="mt-4 w-full" onClick={() => setShowHistory(false)}>
+                                  Close
+                                </Button>
                               </div>
                             </div>
                           )}
 
-                          {/* Audit Trail */}
+                          {/* Enhanced Audit Trail with Revert Buttons */}
                           <div className="mt-8 border-t pt-6">
-                            <h3 className="font-semibold text-blue-900 mb-2">Audit Trail</h3>
-                            <ul className="text-xs text-gray-700 space-y-1 max-h-32 overflow-auto border rounded p-3 bg-gray-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-semibold text-blue-900">Audit Trail</h3>
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => setShowHistory(h => !h)} 
+                                  disabled={history.length <= 1}
+                                >
+                                  <Clock className="w-4 h-4 mr-1" />
+                                  View Full History
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    if (window.confirm("Are you sure you want to clear the audit trail? This action cannot be undone.")) {
+                                      setAuditTrail([]);
+                                      toast({
+                                        title: "Audit Trail Cleared",
+                                        description: "The audit trail has been cleared.",
+                                      });
+                                    }
+                                  }}
+                                  disabled={auditTrail.length === 0}
+                                >
+                                  Clear Trail
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="border rounded-lg bg-gray-50 max-h-64 overflow-y-auto">
                               {auditTrail.length === 0 ? (
-                                <li className="text-gray-500 italic">No changes recorded yet</li>
+                                <div className="p-4 text-center text-gray-500 italic">
+                                  No changes recorded yet
+                                </div>
                               ) : (
-                                auditTrail.map((entry, idx) => (
-                                  <li key={idx} className="border-b last:border-0 py-1 flex justify-between">
-                                    <span>{entry.action}</span>
-                                    <span className="text-gray-400">{entry.timestamp}</span>
-                                  </li>
-                                ))
+                                <div className="divide-y divide-gray-200">
+                                  {auditTrail.map((entry, idx) => {
+                                    // Check if this is a revertable action (not the current state and not a revert action itself)
+                                    const isRevertable = idx > 0 && !entry.action.startsWith("Reverted to");
+                                    const historyEntry = history.find(h => h.timestamp === entry.timestamp);
+                                    
+                                    return (
+                                      <div key={idx} className="p-3 hover:bg-gray-100 transition-colors">
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              {idx === 0 && (
+                                                <Badge variant="default" className="text-xs">Current</Badge>
+                                              )}
+                                              <span className="text-sm font-medium text-gray-900 break-words">
+                                                {entry.action}
+                                              </span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              {entry.timestamp}
+                                            </div>
+                                            {historyEntry && (
+                                              <div className="text-xs text-gray-600 mt-1">
+                                                Type: {historyEntry.type}
+                                              </div>
+                                            )}
+                                          </div>
+                                          
+                                          {isRevertable && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={() => {
+                                                if (window.confirm(`Revert to version from ${entry.timestamp}? Current changes will be lost.`)) {
+                                                  handleRevertToVersion(entry);
+                                                }
+                                              }}
+                                              className="flex-shrink-0"
+                                            >
+                                              <RotateCcw className="w-3 h-3 mr-1" />
+                                              Revert
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               )}
-                            </ul>
+                            </div>
+                            
+                            <div className="mt-3 text-xs text-gray-500">
+                              Total changes: {auditTrail.length} | 
+                              Last modified: {auditTrail.length > 0 ? auditTrail[0].timestamp : 'Never'}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                     )}
-        </div>
-      </div>
+                </div>
+              </div>
       
       {/* Stage Editor Modal - Core part of workflow */}
       <StageEditorModal

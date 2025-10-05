@@ -19,10 +19,10 @@ class OpenAIService:
         self.client = OpenAI(api_key=self.api_key)
         
         # Centralized, env-driven model configuration
-        # Defaults aligned with recommendations
-        self.model_analysis = os.getenv("OPENAI_MODEL_ANALYSIS", "gpt-5")
-        self.model_html = os.getenv("OPENAI_MODEL_HTML", "gpt-5")
-        self.model_edit = os.getenv("OPENAI_MODEL_EDIT", "gpt-5")
+        # Using valid model names (gpt-4o instead of gpt-5 which doesn't exist)
+        self.model_analysis = os.getenv("OPENAI_MODEL_ANALYSIS", "gpt-4o")
+        self.model_html = os.getenv("OPENAI_MODEL_HTML", "gpt-4o")
+        self.model_edit = os.getenv("OPENAI_MODEL_EDIT", "gpt-4o")
         self.model_summary = os.getenv("OPENAI_MODEL_SUMMARY", "gpt-4o")
         self.model_script = os.getenv("OPENAI_MODEL_SCRIPT", "gpt-4o")
     
@@ -35,7 +35,7 @@ class OpenAIService:
             system_prompt = """You are an expert dental AI assistant analyzing panoramic X-ray results. 
 Your task is to:
 1. Summarize detected dental conditions
-2. Organize treatments into a staged approach (Stage 1: Urgent, Stage 2: Preventive, Stage 3: Restorative, Stage 4: Cosmetic) — but only include the number of stages actually needed. Do not include empty stages. If there is only one stage required, use the label “Treatment Overview” instead of Stage 1.
+2. Organize treatments into a staged approach (Stage 1: Urgent, Stage 2: Preventive, Stage 3: Restorative, Stage 4: Cosmetic) — but only include the number of stages actually needed. Do not include empty stages. If there is only one stage required, use the label "Treatment Overview" instead of Stage 1.
 3. Group treatments together logically to minimize number of stages if appropriate (e.g. fillings and crown may be done in the same visit).
 4. Generate professional notes for the dentist
 5. Include pricing estimates and ADA codes where applicable
@@ -96,7 +96,7 @@ Use realistic US dental pricing:
 Also generate a detailed, patient-friendly condition explanation box for each treatment, with the following elements:
 
 1. Title: Always use the format "Treatment for Condition" (e.g. "Extraction for Periapical Lesion")
-2. Definition: Begin the paragraph with a short explanation of the condition in plain language (e.g. “A periapical lesion is an infection at the tip of a tooth root.”)
+2. Definition: Begin the paragraph with a short explanation of the condition in plain language (e.g. "A periapical lesion is an infection at the tip of a tooth root.")
 3. Status Line: Describe how many teeth are affected and that it needs attention.
 4. Recommended Treatment: Describe the procedure, what it does, estimated time, and recovery.
 5. Risks if Untreated: Use 🔴 as the emoji for this section. Clearly explain the health consequences, and also include cosmetic/aesthetic effects *if they realistically apply* (e.g. visible gaps, smile changes, discoloration). Do not exaggerate.
@@ -606,13 +606,13 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                         <p>A dental filling involves removing the decayed portion of the tooth and filling the space with a durable material like composite resin or amalgam. This treatment restores the tooth's function and prevents further decay. The procedure is typically quick, taking about 30-60 minutes per tooth, and recovery is immediate.</p>
                         
                         <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
-                        <p>⚠️ <strong>Physical Risks:</strong> Untreated cavities grow larger and can reach the nerve, causing severe pain and potential infection. The decay can spread to other teeth and may eventually require more extensive treatment like root canals or extractions.</p>
+                        <p>🔴 <strong>Physical Risks:</strong> Untreated cavities grow larger and can reach the nerve, causing severe pain and potential infection. The decay can spread to other teeth and may eventually require more extensive treatment like root canals or extractions.</p>
                     </div>
                 </div>
                 """
             elif 'periapical' in condition or 'lesion' in condition:
                 description = f"""
-                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                                <div class="condition-explanation" style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
                     <div style="background-color: #ffeb3b; padding: 15px; font-weight: bold; font-size: 18px;">
                         Root Canal Treatment for Periapical Lesion
                     </div>
@@ -627,7 +627,7 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                         <p>Root canal treatment involves removing the infected pulp from inside the tooth, cleaning and disinfecting the root canals, and sealing them to prevent future infection. This procedure saves the natural tooth and eliminates the source of pain and infection. The treatment typically takes 1-2 hours and may require multiple visits.</p>
                         
                         <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
-                        <p>⚠️ <strong>Physical Risks:</strong> Without treatment, the infection can spread to the jawbone, other teeth, and potentially to other parts of the body. Early treatment is crucial to save the tooth and prevent more serious complications.</p>
+                        <p>🔴 <strong>Physical Risks:</strong> Without treatment, the infection can spread to the jawbone, other teeth, and potentially to other parts of the body. Early treatment is crucial to save the tooth and prevent more serious complications.</p>
                     </div>
                 </div>
                 """
@@ -648,7 +648,7 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                         <p>Surgical extraction involves making a small incision in the gum to access and remove the impacted tooth. This procedure is necessary when a tooth cannot be removed using simpler extraction techniques. The surgery is performed under local anesthesia and typically takes 30-60 minutes.</p>
                         
                         <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
-                        <p>⚠️ <strong>Physical Risks:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to the jawbone. The longer you wait, the more complex the procedure becomes.</p>
+                        <p>🔴 <strong>Physical Risks:</strong> Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to the jawbone. The longer you wait, the more complex the procedure becomes.</p>
                     </div>
                 </div>
                 """
@@ -670,7 +670,7 @@ Please generate a comprehensive HTML report with treatment overview table, plan 
                         <p>The recommended treatment will be performed according to standard dental protocols to ensure the best possible outcome for your oral health.</p>
                         
                         <h4 style="color: #666; margin-top: 20px;">Urgency:</h4>
-                        <p>⚠️ <strong>Physical Risks:</strong> Delaying treatment may lead to complications and more extensive procedures. It's important to address this condition promptly.</p>
+                        <p>🔴 <strong>Physical Risks:</strong> Delaying treatment may lead to complications and more extensive procedures. It's important to address this condition promptly.</p>
                     </div>
                 </div>
                 """

@@ -6,13 +6,12 @@ class Finding(BaseModel):
     tooth: str
     condition: str
     treatment: str
-    replacement: Optional[str] = None
 
 class AnalyzeXrayRequest(BaseModel):
     patient_name: Optional[str] = None
     image_url: HttpUrl
     findings: Optional[List[Finding]] = []
-    generate_video: Optional[bool] = False
+    generate_video: Optional[bool] = True
 
 class TreatmentItem(BaseModel):
     tooth: str
@@ -32,6 +31,16 @@ class Detection(BaseModel):
     width: float
     height: float
 
+# class AnalyzeXrayResponse(BaseModel):
+#     status: str
+#     summary: str
+#     treatment_stages: List[TreatmentStage]
+#     ai_notes: str
+#     diagnosis_timestamp: datetime
+#     annotated_image_url: Optional[str] = None
+#     video_url: Optional[str] = None
+#     detections: Optional[List[Detection]] = None
+
 class AnalyzeXrayResponse(BaseModel):
     status: str
     summary: str
@@ -39,10 +48,10 @@ class AnalyzeXrayResponse(BaseModel):
     ai_notes: str
     diagnosis_timestamp: datetime
     annotated_image_url: Optional[str] = None
-    video_url: Optional[str] = None
+    video_url: Optional[str] = None  # Make sure this is included
     detections: Optional[List[Detection]] = None
-    report_html: Optional[str] = None  # Add report HTML field
-    diagnosis_id: Optional[str] = None  # Add diagnosis ID for video polling
+    diagnosis_id: Optional[str] = None  # Add this if not already present
+    report_html: Optional[str] = None  # Add this if not already present
 
 class SuggestChangesRequest(BaseModel):
     previous_report_html: str
@@ -50,4 +59,3 @@ class SuggestChangesRequest(BaseModel):
 
 class SuggestChangesResponse(BaseModel):
     updated_html: str
-

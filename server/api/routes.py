@@ -106,6 +106,7 @@ class ToothNumberOverlayRequest(BaseModel):
     show_numbers: bool = True
     text_size_multiplier: float = 1.0
     condition_data: Optional[Union[Dict, List]] = None
+    cached_segmentation_data: Optional[Dict] = None  # NEW: Allow passing cached data
 
 class TreatmentCostEstimate(BaseModel):
     treatment_code: str
@@ -214,20 +215,15 @@ async def analyze_xray_immediate(
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
 async def analyze_xray(
     request: AnalyzeXrayRequest,
-    generate_video: bool = False,  # Remove this parameter
+    generate_video: bool = True,  # Default to True for X-ray reports
     token: str = Depends(get_auth_token)
 ):
     """
-    Analyze X-ray image and generate comprehensive dental report
+    Main endpoint to analyze dental X-ray
+    Note: Supabase handles user authentication and RLS automatically
     """
     try:
-        # Extract generate_video from request body
-        generate_video = getattr(request, 'generate_video', False)
-        logger.info(f"Video generation requested: {generate_video}")
-        
         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
-        logger.info(f"Findings count: {len(request.findings) if request.findings else 0}")
-        logger.info(f"Generate video: {generate_video}")
         
         # Step 1: Send image to Roboflow for detection
         predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
@@ -250,34 +246,6 @@ async def analyze_xray(
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
         
-        # Step 3.5: Apply Staging V2 if enabled
-        staging_v2_enabled = os.getenv('STAGING_V2', 'false').lower() == 'true'
-        if staging_v2_enabled and request.findings:
-            logger.info("Staging V2 enabled - applying intelligent treatment staging")
-            try:
-                # Convert findings to staging V2 format
-                staging_treatments = []
-                for finding in request.findings:
-                    staging_treatments.append({
-                        'tooth': finding.tooth,
-                        'treatment': finding.treatment,
-                        'condition': finding.condition,
-                        'replacement': finding.replacement,
-                        'price': finding.price or 0,
-                        'stage_category': 0  # Will be classified by staging engine
-                    })
-                
-                # Apply staging V2
-                staged_plan = build_staged_plan_v2(staging_treatments)
-                ai_analysis['treatment_stages'] = staged_plan['stages']
-                ai_analysis['staging_v2_meta'] = staged_plan['meta']
-                ai_analysis['future_tasks'] = staged_plan['future_tasks']
-                
-                logger.info(f"Staging V2 applied: {len(staged_plan['stages'])} stages, {staged_plan['meta']['total_visits']} visits")
-            except Exception as e:
-                logger.error(f"Staging V2 failed, falling back to legacy staging: {str(e)}")
-                # Continue with legacy staging from AI analysis
-        
         # Step 4: Save to database (Supabase handles user_id via RLS)
         # Generate HTML report using GPT
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
@@ -290,13 +258,33 @@ async def analyze_xray(
             'summary': ai_analysis.get('summary', ''),
             'ai_notes': ai_analysis.get('ai_notes', ''),
             'treatment_stages': ai_analysis.get('treatment_stages', []),
-            'report_html': html_report
+            'report_html': html_report,
+            'is_xray_based': True
         }
         
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
         diagnosis_id = saved_diagnosis.get('id')
+
+        # Use generate_video from request body, fallback to query param
+        should_generate_video = request.generate_video if hasattr(request, 'generate_video') else generate_video
+        logger.info(f"Will generate video: {should_generate_video}")
         
-        # Step 5: Return response immediately, start video generation in background if requested
+        # Step 5: Generate video synchronously (not in background)
+        video_url = None
+        if should_generate_video and diagnosis_id and annotated_url:  # Use should_generate_video
+            logger.info(f"Generating video for diagnosis: {diagnosis_id}")
+            try:
+                # Call the video generation function directly (not in background)
+                video_url = await generate_video_sync(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token)
+                logger.info(f"Video generated successfully: {video_url}")
+            except Exception as video_error:
+                logger.error(f"Video generation failed: {str(video_error)}")
+                # Don't fail the entire request if video fails
+                video_url = None
+        else:
+            logger.info(f"Skipping video generation. Conditions: generate_video={should_generate_video}, diagnosis_id={diagnosis_id}, annotated_url={bool(annotated_url)}")
+        
+        # Return response with video URL
         response_data = {
             "status": "success",
             "summary": ai_analysis.get('summary', ''),
@@ -305,24 +293,10 @@ async def analyze_xray(
             "diagnosis_timestamp": datetime.now(),
             "annotated_image_url": annotated_url,
             "detections": ai_analysis.get('detections', []),
-            "report_html": html_report,  # Keep as report_html for the model
-            "diagnosis_id": diagnosis_id,  # Include diagnosis_id for video polling
-            "staging_v2_meta": ai_analysis.get('staging_v2_meta'),
-            "future_tasks": ai_analysis.get('future_tasks', [])
+            "report_html": html_report,
+            "diagnosis_id": diagnosis_id,
+            "video_url": video_url  # Include video URL directly
         }
-        
-        # Start video generation in background if requested
-        if generate_video and diagnosis_id:
-            logger.info(f"Starting video generation for diagnosis: {diagnosis_id}")
-            # Start video generation asynchronously
-            try:
-                import asyncio
-                # Call the existing video generation endpoint asynchronously
-                asyncio.create_task(generate_patient_video(diagnosis_id, token))
-            except Exception as e:
-                logger.error(f"Failed to start video generation: {str(e)}")
-        else:
-            logger.info(f"Video generation not requested or no diagnosis ID. generate_video: {generate_video}, diagnosis_id: {diagnosis_id}")
         
         response = AnalyzeXrayResponse(**response_data)
         
@@ -334,8 +308,112 @@ async def analyze_xray(
     except Exception as e:
         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
+    
+# New synchronous video generation function
+async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str) -> Optional[str]:
+    """
+    Generate video synchronously and return the URL
+    """
+    temp_dir = None
+    try:
+        logger.info(f"Starting synchronous video generation for diagnosis: {diagnosis_id}")
+        
+        # Convert annotated image to base64
+        logger.info(f"Converting image to base64 for diagnosis: {diagnosis_id}")
+        image_base64 = video_generator_service.image_to_base64(annotated_url)
+        
+        # Generate video script
+        logger.info(f"Generating video script for diagnosis: {diagnosis_id}")
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
+        
+        if not video_script or len(video_script.strip()) == 0:
+            raise Exception("Generated video script is empty")
+        
+        # Generate voice audio
+        logger.info(f"Generating voice audio for diagnosis: {diagnosis_id}")
+        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        
+        if not audio_bytes or len(audio_bytes) == 0:
+            raise Exception("Generated audio is empty")
+        
+        # Create temporary files
+        temp_dir = tempfile.mkdtemp()
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Save image
+        image_response = requests.get(annotated_url, timeout=30)
+        image_response.raise_for_status()
+        
+        image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
+        with open(image_path, 'wb') as f:
+            f.write(image_response.content)
+        
+        # Save audio
+        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+        with open(audio_path, 'wb') as f:
+            f.write(audio_bytes)
+        
+        # Create video
+        logger.info(f"Creating video with subtitles for diagnosis: {diagnosis_id}")
+        video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
+        duration = video_generator_service.create_video_with_subtitles(
+            image_path,
+            audio_path,
+            video_path
+        )
+        
+        # Upload video
+        logger.info(f"Uploading video to storage for diagnosis: {diagnosis_id}")
+        with open(video_path, 'rb') as video_file:
+            video_data = video_file.read()
+        
+        video_filename = f"patient_videos/{patient_name.replace(' ', '_')}_{unique_id}.mp4"
+        video_url = await supabase_service.upload_video(
+            video_data,
+            video_filename,
+            token
+        )
+        
+        # Update diagnosis with video URL
+        if video_url:
+            logger.info(f"Updating database with video URL for diagnosis: {diagnosis_id}")
+            auth_client = supabase_service._create_authenticated_client(token)
+            auth_client.table('patient_diagnosis').update({
+                'video_url': video_url,
+                'video_script': video_script,
+                'video_generated_at': datetime.now().isoformat(),
+                'video_generation_failed': False,
+                'video_error': None
+            }).eq('id', diagnosis_id).execute()
+            
+            return video_url
+        else:
+            raise Exception("Failed to upload video to storage")
+        
+    except Exception as e:
+        logger.error(f"Error in synchronous video generation: {str(e)}")
+        # Update diagnosis to indicate video generation failed
+        try:
+            auth_client = supabase_service._create_authenticated_client(token)
+            auth_client.table('patient_diagnosis').update({
+                'video_generation_failed': True,
+                'video_error': str(e)[:500],
+                'video_generated_at': datetime.now().isoformat()
+            }).eq('id', diagnosis_id).execute()
+        except Exception as update_error:
+            logger.error(f"Failed to update diagnosis with video error: {str(update_error)}")
+        
+        return None
+    
+    finally:
+        # Cleanup temporary files
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+                logger.info(f"Cleaned up temp directory: {temp_dir}")
+            except Exception as cleanup_error:
+                logger.error(f"Failed to cleanup temp directory: {str(cleanup_error)}")
 
 @router.get("/health")
 async def health_check() -> Dict:
@@ -522,6 +600,9 @@ async def apply_suggested_changes(
         if not request.previous_report_html or not request.change_request_text:
             raise HTTPException(status_code=400, detail="Missing required fields")
         
+        # Log the request details for debugging
+        logger.info(f"Applying suggested changes. HTML length: {len(request.previous_report_html)}, Request: {request.change_request_text[:100]}...")
+        
         system_prompt = """You are an expert dental assistant AI and HTML editor. You will receive:
 
 1. An existing HTML dental treatment plan report, already formatted with inline styles and condition blocks.
@@ -547,28 +628,56 @@ Here is the dentist's change request (typed or dictated):
 
 Please apply the change exactly as described, keeping the HTML structure intact and updating only the necessary content."""
 
-        response = openai_service.client.chat.completions.create(
-            model=openai_service.model_edit,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_completion_tokens=2000
-        )
+        # Check if the combined prompt is too long
+        total_length = len(system_prompt) + len(user_prompt)
+        logger.info(f"Total prompt length: {total_length} characters")
+        
+        # Increase max_tokens to handle larger reports
+        max_tokens_needed = min(8000, max(4000, len(request.previous_report_html) // 2))
+        
+        try:
+            response = openai_service.client.chat.completions.create(
+                model=openai_service.model_edit,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=max_tokens_needed  # Dynamic based on input size
+            )
+        except Exception as api_error:
+            logger.error(f"OpenAI API error: {str(api_error)}")
+            # Check if it's a model error
+            if "model" in str(api_error).lower():
+                raise HTTPException(
+                    status_code=500, 
+                    detail="AI model configuration error. Please check the OpenAI model settings."
+                )
+            raise
         
         updated_html = response.choices[0].message.content
         
         # Clean up any potential markdown formatting
         updated_html = updated_html.strip()
-        if updated_html.startswith("```"):
+        if updated_html.startswith("```html"):
             # Remove code fences if present
+            updated_html = updated_html[7:]  # Remove ```html
+            if updated_html.endswith("```"):
+                updated_html = updated_html[:-3]
+        elif updated_html.startswith("```"):
+            # Remove generic code fences
             updated_html = updated_html.split("\n", 1)[1].rsplit("\n", 1)[0]
         
-        logger.info("Successfully applied suggested changes")
+        logger.info(f"Successfully applied suggested changes. Output length: {len(updated_html)}")
         return SuggestChangesResponse(updated_html=updated_html)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error applying suggested changes: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        if hasattr(e, 'response'):
+            logger.error(f"API Response: {getattr(e.response, 'text', 'No response text')}")
         raise HTTPException(status_code=500, detail=f"Failed to apply suggested changes: {str(e)}")
     
 
@@ -1611,40 +1720,49 @@ async def add_tooth_number_overlay(
 ):
     """
     Add tooth number overlays to an X-ray image.
-    
-    Args:
-        image_url: URL of the annotated X-ray image
-        numbering_system: "FDI" or "Universal"
-        show_numbers: Whether to show tooth numbers
-        token: Authentication token
-        
-    Returns:
-        Base64 encoded image with tooth numbers, or original image URL if no overlay
     """
     try:
         if not request.show_numbers:
             return {"image_url": request.image_url, "has_overlay": False}
         
-        # Get teeth segmentation data
-        seg_json = await roboflow_service.segment_teeth(request.image_url)
+        # NEW: If cached segmentation data is provided, use it
+        seg_json = request.cached_segmentation_data
+        
+        # Otherwise, try to get fresh segmentation
+        if not seg_json:
+            # Only call Roboflow if we have a real URL (not base64)
+            if not request.image_url.startswith('data:image'):
+                seg_json = await roboflow_service.segment_teeth(request.image_url)
+            else:
+                logger.warning("Cannot segment base64 image - need cached segmentation data")
+                return {"image_url": request.image_url, "has_overlay": False}
+        
         if not seg_json:
             logger.warning("No segmentation data available for overlay")
             return {"image_url": request.image_url, "has_overlay": False}
         
         # Add tooth number overlay
         overlay_image = await image_overlay_service.add_tooth_number_overlay(
-            request.image_url, seg_json, request.numbering_system, True,  # show_numbers is always True when we reach this point
-            request.text_size_multiplier, request.condition_data
+            request.image_url, 
+            seg_json, 
+            request.numbering_system, 
+            True,
+            request.text_size_multiplier, 
+            request.condition_data
         )
         
         if overlay_image:
-            # Security check: ensure we're not returning local file paths
+            # Security check
             if overlay_image.startswith('/tmp/') or overlay_image.startswith('file://') or (not overlay_image.startswith('http') and not overlay_image.startswith('data:')):
-                logger.error(f"🚨 SECURITY: Blocking unsafe image path from overlay service: {overlay_image}")
+                logger.error(f"SECURITY: Blocking unsafe image path from overlay service: {overlay_image}")
                 return {"image_url": request.image_url, "has_overlay": False}
             
-            logger.info(f"✅ Tooth overlay successful, returning: {overlay_image[:100]}...")
-            return {"image_url": overlay_image, "has_overlay": True}
+            logger.info(f"Tooth overlay successful")
+            return {
+                "image_url": overlay_image, 
+                "has_overlay": True,
+                "segmentation_data": seg_json  # Return it so frontend can cache it
+            }
         else:
             logger.warning("Failed to create overlay image")
             return {"image_url": request.image_url, "has_overlay": False}

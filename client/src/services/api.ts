@@ -35,17 +35,13 @@ export const api = {
   },
 
   // Analyze X-ray
+  // In api.ts - the analyzeXray method
   async analyzeXray(data: {
     patientName: string;
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
-  } & { generateVideo?: boolean }) {
-    console.log('📊 API: Starting analyzeXray request...');
-    console.log('📊 API: Request data:', {
-      patientName: data.patientName,
-      imageUrl: data.imageUrl?.substring(0, 50) + '...',
-      findingsCount: data.findings?.length || 0
-    });
+    generateVideo?: boolean;  // Make sure this is included in the type
+  }) {
     
     const token = await this.getAuthToken();
     
@@ -53,13 +49,14 @@ export const api = {
       patient_name: data.patientName,
       image_url: data.imageUrl,
       findings: data.findings,
-      generate_video: data.generateVideo || false,
+      generate_video: data.generateVideo !== false,  // Default to true if not specified
     };
+    // Use query parameter for generate_video if needed (keeping both approaches for compatibility)
+    const url = `${API_BASE_URL}/analyze-xray`;
     
-    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-xray`);
-    console.log('📊 API: Request body:', requestBody);
+    console.log('📊 API: Request body with generate_video:', requestBody);
     
-    const response = await fetch(`${API_BASE_URL}/analyze-xray`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -174,6 +171,10 @@ export const api = {
     }
 
     const data = await response.json();
+    
+    console.log('API getReport: Raw response data:', data);
+    console.log('API getReport: videoUrl in response:', data.videoUrl);
+    console.log('API getReport: reportHtml exists:', !!data.reportHtml);
     
     // Return data directly since field names are now consistent
     return data;
@@ -360,6 +361,7 @@ export const api = {
     return response.json();
   },
 
+  // Dental data endpoints
   // Dental data endpoints
   async getDentalConditions() {
     const response = await fetch(`${API_BASE_URL}/dental-data/conditions`);
@@ -614,7 +616,8 @@ export const api = {
     numberingSystem: string = 'FDI', 
     showNumbers: boolean = true,
     textSizeMultiplier: number = 1.0,
-    conditionData?: any
+    conditionData?: any,
+    cachedSegmentationData?: any  // NEW: Optional cached data
   ) {
     try {
       const token = await this.getAuthToken();
@@ -632,7 +635,8 @@ export const api = {
           numbering_system: numberingSystem,
           show_numbers: showNumbers,
           text_size_multiplier: textSizeMultiplier,
-          condition_data: conditionData
+          condition_data: conditionData,
+          cached_segmentation_data: cachedSegmentationData  // NEW: Send cached data
         }),
       });
 

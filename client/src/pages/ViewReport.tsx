@@ -61,7 +61,21 @@ const ViewReport = () => {
     try {
       setIsLoading(true);
       const data = await api.getReport(reportId!);
+      
+      // Add detailed logging
+      console.log('ViewReport: Full report data:', JSON.stringify(data, null, 2));
+      console.log('ViewReport: Video URL:', data.videoUrl);
+      console.log('ViewReport: Report HTML exists:', !!data.reportHtml);
+      console.log('ViewReport: All data keys:', Object.keys(data));
+      
       setReportData(data);
+      
+      // If video exists and URL param specifies video tab, switch to it
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam === 'video' && data.videoUrl) {
+        setActiveTab('video');
+      }
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({
@@ -85,7 +99,7 @@ const ViewReport = () => {
   };
 
   const handleDownloadPDF = () => {
-    if (!reportData?.report_html) return;
+    if (!reportData?.reportHtml) return;
     
     const printWindow = window.open('', '', 'width=800,height=600');
     if (printWindow) {
@@ -108,7 +122,7 @@ const ViewReport = () => {
             </style>
           </head>
           <body>
-            ${reportData.report_html}
+            ${reportData.reportHtml}
           </body>
         </html>
       `);
@@ -127,7 +141,7 @@ const ViewReport = () => {
     
     try {
       // Extract treatment plan and findings from report data
-      const treatmentPlan = reportData.report_html || 'Treatment plan not available';
+      const treatmentPlan = reportData.reportHtml || 'Treatment plan not available';
       const findings = reportData.findings || 'Dental findings not available';
       
       const consultationRequest = {
@@ -176,7 +190,7 @@ const ViewReport = () => {
       return;
     }
 
-    if (!reportData?.report_html) {
+    if (!reportData?.reportHtml) {
       toast({
         title: "Report Required",
         description: "No report content available to send.",
@@ -320,7 +334,7 @@ const ViewReport = () => {
                       )}
                     </Button>
                   </div>
-                </div>
+                                  </div>
               </CardContent>
             </Card>
           </div>
@@ -392,10 +406,6 @@ const ViewReport = () => {
                     <FileText className="w-4 h-4" />
                     Written Report
                   </TabsTrigger>
-                  <TabsTrigger value="pdf" className="flex items-center gap-2">
-                    <FileIcon className="w-4 h-4" />
-                    PDF Report
-                  </TabsTrigger>
                   <TabsTrigger value="video" className="flex items-center gap-2" disabled={!reportData.videoUrl}>
                     <Video className="w-4 h-4" />
                     Patient Video {!reportData.videoUrl && "(Not Available)"}
@@ -405,9 +415,8 @@ const ViewReport = () => {
                 {/* Report Tab */}
                 <TabsContent value="report" className="mt-4">
                   <div
-                    className="border rounded p-4 min-h-[120px] bg-gray-50"
-                    dangerouslySetInnerHTML={{ __html: reportData.report_html }}
-                    style={{ overflowX: 'auto', wordBreak: 'break-word' }}
+                    className="border rounded p-4 bg-gray-50 max-h-[600px] overflow-y-auto"
+                    dangerouslySetInnerHTML={{ __html: reportData.reportHtml }}
                   />
                 </TabsContent>
 
@@ -528,46 +537,32 @@ const ViewReport = () => {
                   ) : (
                     <div className="text-center py-12">
                       <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No video available for this report</p>
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">Patient Video Not Available</h3>
+                      <p className="text-gray-600 mb-4">
+                        {reportData.videoGenerationFailed
+                          ? "Video generation failed. Please try regenerating the video."
+                          : "No video has been generated for this report yet."}
+                      </p>
+                      {reportData.videoError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 max-w-md mx-auto">
+                          <p className="text-sm text-red-700">
+                            <strong>Error:</strong> {reportData.videoError}
+                          </p>
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Trigger video regeneration
+                          window.location.reload();
+                        }}
+                      >
+                        Refresh Page
+                      </Button>
                     </div>
                   )}
                 </TabsContent>
               </Tabs>
-
-              {/* Tab Navigation */}
-              <div className="mt-8 border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Available Report Formats</h3>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant={activeTab === "report" ? "default" : "outline"}
-                    onClick={() => handleTabChange("report")}
-                    className="flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Written Report
-                  </Button>
-                  
-                  <Button
-                    variant={activeTab === "pdf" ? "default" : "outline"}
-                    onClick={() => handleTabChange("pdf")}
-                    className="flex items-center gap-2"
-                  >
-                    <FileIcon className="w-4 h-4" />
-                    PDF Report
-                  </Button>
-                  
-                  {reportData.videoUrl && (
-                    <Button
-                      variant={activeTab === "video" ? "default" : "outline"}
-                      onClick={() => handleTabChange("video")}
-                      className="flex items-center gap-2"
-                    >
-                      <Video className="w-4 h-4" />
-                      Patient Video
-                    </Button>
-                  )}
-                </div>
-              </div>
 
               {/* Report Details */}
               <div className="mt-8 border-t pt-6">
@@ -593,7 +588,6 @@ const ViewReport = () => {
                   </div>
                 </div>
               </div>
-
 
             </CardContent>
           </Card>
