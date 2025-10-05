@@ -35,17 +35,13 @@ export const api = {
   },
 
   // Analyze X-ray
+  // In api.ts - the analyzeXray method
   async analyzeXray(data: {
     patientName: string;
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
-  } & { generateVideo?: boolean }) {
-    console.log('📊 API: Starting analyzeXray request...');
-    console.log('📊 API: Request data:', {
-      patientName: data.patientName,
-      imageUrl: data.imageUrl?.substring(0, 50) + '...',
-      findingsCount: data.findings?.length || 0
-    });
+    generateVideo?: boolean;  // Make sure this is included in the type
+  }) {
     
     const token = await this.getAuthToken();
     
@@ -53,12 +49,14 @@ export const api = {
       patient_name: data.patientName,
       image_url: data.imageUrl,
       findings: data.findings,
+      generate_video: data.generateVideo !== false,  // Default to true if not specified
     };
+    // Use query parameter for generate_video if needed (keeping both approaches for compatibility)
+    const url = `${API_BASE_URL}/analyze-xray`;
     
-    console.log('📊 API: Making request to:', `${API_BASE_URL}/analyze-xray?generate_video=true`);
-    console.log('📊 API: Request body:', requestBody);
+    console.log('📊 API: Request body with generate_video:', requestBody);
     
-    const response = await fetch(`${API_BASE_URL}/analyze-xray?generate_video=true`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -101,6 +99,63 @@ export const api = {
     return response.json();
   },
 
+  // Send report to patient via email
+  async sendReportToPatient(reportId: string, patientEmail: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/send-report-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        report_id: reportId,
+        patient_email: patientEmail,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to send report: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  },
+
+  // Send preview report to patient via email
+  async sendPreviewReportToPatient(data: {
+    patientEmail: string;
+    patientName: string;
+    reportContent: string;
+    findings?: Array<{ tooth: string; condition: string; treatment: string }>;
+    annotatedImageUrl?: string;
+  }) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/send-preview-report-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        patient_email: data.patientEmail,
+        patient_name: data.patientName,
+        report_content: data.reportContent,
+        findings: data.findings || [],
+        annotated_image_url: data.annotatedImageUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to send preview report: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  },
+
   // Get report by ID
   async getReport(reportId: string) {
     const token = await this.getAuthToken();
@@ -121,8 +176,32 @@ export const api = {
     console.log('API getReport: videoUrl in response:', data.videoUrl);
     console.log('API getReport: reportHtml exists:', !!data.reportHtml);
     
-    // The backend already transforms the data, so just return it
+    // Return data directly since field names are now consistent
     return data;
+  },
+
+  // Apply AI suggestions to report
+  async applyAiSuggestions(previousReportHtml: string, changeRequestText: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/apply-suggested-changes`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        previous_report_html: previousReportHtml,
+        change_request_text: changeRequestText,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AI suggestion failed: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
   },
 
   // Analyze without X-ray
@@ -206,6 +285,52 @@ export const api = {
     return response.json();
   },
 
+  // Treatment settings endpoints (pricing + durations)
+  async saveTreatmentSettings(treatmentData: Record<string, { duration: number; price: number }>) {
+    console.log('💾 API: Saving treatment settings...', {
+      treatmentCount: Object.keys(treatmentData).length,
+      sampleData: Object.entries(treatmentData).slice(0, 3) // First 3 treatments for debugging
+    });
+    
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/treatment-settings`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(treatmentData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API: Treatment settings save failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
+      throw new Error(`Failed to save treatment settings: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ API: Treatment settings saved successfully:', result);
+    return result;
+  },
+
+  async getTreatmentSettings() {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/treatment-settings`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to get treatment settings');
+    return response.json();
+  },
+
   // Clinic branding endpoints
   async saveClinicBranding(brandingData: any) {
     const token = await this.getAuthToken();
@@ -236,6 +361,7 @@ export const api = {
     return response.json();
   },
 
+  // Dental data endpoints
   // Dental data endpoints
   async getDentalConditions() {
     const response = await fetch(`${API_BASE_URL}/dental-data/conditions`);
@@ -452,6 +578,24 @@ export const api = {
     }
   },
 
+  // Verify payment session for new registrations (no auth required)
+  async verifyPaymentPublic(sessionId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/billing/verify-public`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      if (!response.ok) throw new Error('Failed to verify payment');
+      return response.json() as Promise<{ success: boolean; is_new_registration?: boolean; message?: string }>;
+    } catch (error) {
+      console.error('Public payment verification failed:', error);
+      return { success: false };
+    }
+  },
+
   async createBillingPortal(customerId: string) {
     const token = await this.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/billing/portal`, {
@@ -464,5 +608,76 @@ export const api = {
     });
     if (!response.ok) throw new Error('Failed to create billing portal session');
     return response.json() as Promise<{ url: string }>
-  }
+  },
+
+  // Tooth Number Overlay
+  async addToothNumberOverlay(
+    imageUrl: string, 
+    numberingSystem: string = 'FDI', 
+    showNumbers: boolean = true,
+    textSizeMultiplier: number = 1.0,
+    conditionData?: any,
+    cachedSegmentationData?: any  // NEW: Optional cached data
+  ) {
+    try {
+      const token = await this.getAuthToken();
+      
+      console.log('🔢 API: Adding tooth number overlay:', { imageUrl, numberingSystem, showNumbers });
+      
+      const response = await fetch(`${API_BASE_URL}/image/overlay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_url: imageUrl,
+          numbering_system: numberingSystem,
+          show_numbers: showNumbers,
+          text_size_multiplier: textSizeMultiplier,
+          condition_data: conditionData,
+          cached_segmentation_data: cachedSegmentationData  // NEW: Send cached data
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🔢 API: Overlay request failed:', response.status, errorText);
+        throw new Error(`Failed to add tooth number overlay: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('🔢 API: Overlay result:', result);
+      return result;
+    } catch (error) {
+      console.error('🔢 API: Overlay error:', error);
+      throw error;
+    }
+  },
+
+  // AWS S3 Integration Methods
+  async getAwsImages() {
+    console.log('☁️ API: Getting AWS images...');
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/aws/images`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('☁️ API: Error response:', errorText);
+      throw new Error(`Failed to fetch AWS images: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('☁️ API: AWS images fetched successfully, count:', result.total);
+    return result;
+  },
+
+  // Manual processing removed - images are now processed automatically via S3 webhooks
+  // async processAwsDicom() - REMOVED
 };

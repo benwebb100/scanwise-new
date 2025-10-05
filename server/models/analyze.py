@@ -11,6 +11,7 @@ class AnalyzeXrayRequest(BaseModel):
     patient_name: Optional[str] = None
     image_url: HttpUrl
     findings: Optional[List[Finding]] = []
+    generate_video: Optional[bool] = True
 
 class TreatmentItem(BaseModel):
     tooth: str
@@ -58,4 +59,3 @@ class SuggestChangesRequest(BaseModel):
 
 class SuggestChangesResponse(BaseModel):
     updated_html: str
-

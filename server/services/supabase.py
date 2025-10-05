@@ -157,4 +157,138 @@ class SupabaseService:
             logger.error(f"Error uploading PDF report: {str(e)}")
             return None
 
+    # NEW FUNCTIONS FROM THE NEW FILE
+    async def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        """Get user data by user ID from Supabase auth"""
+        try:
+            # Use service client for admin operations
+            client = self.get_service_client()
+            if not client:
+                logger.error("No service client available for user lookup")
+                return None
+            
+            # Get user from auth.users table
+            response = client.auth.admin.get_user_by_id(user_id)
+            
+            if response.user:
+                # Extract relevant user data
+                user_data = {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'clinic_name': response.user.user_metadata.get('clinic_name') if response.user.user_metadata else None,
+                    'name': response.user.user_metadata.get('name') if response.user.user_metadata else None,
+                    'country': response.user.user_metadata.get('country') if response.user.user_metadata else None
+                }
+                return user_data
+            else:
+                logger.warning(f"User not found: {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting user by ID {user_id}: {str(e)}")
+            return None
+
+    async def save_clinic_branding(self, branding_data: dict) -> bool:
+        """Save clinic branding information to the clinic_branding table"""
+        try:
+            logger.info(f"🔍 Attempting to save clinic branding: {branding_data}")
+            
+            client = self.get_service_client()
+            if not client:
+                logger.error("❌ No service client available for clinic branding")
+                return False
+            
+            logger.info("✅ Service client obtained, inserting into clinic_branding table...")
+            
+            # Insert into clinic_branding table
+            response = client.table('clinic_branding').insert(branding_data).execute()
+            
+            logger.info(f"📊 Insert response: {response}")
+            logger.info(f"📊 Response data: {response.data}")
+            logger.info(f"📊 Response error: {getattr(response, 'error', None)}")
+            
+            if response.data:
+                logger.info(f"✅ Clinic branding saved successfully for user: {branding_data.get('user_id')}")
+                return True
+            else:
+                logger.error("❌ Failed to save clinic branding - no data returned")
+                return False
+                
+        except Exception as e:
+            logger.error(f"💥 Error saving clinic branding: {str(e)}")
+            import traceback
+            logger.error(f"📍 Traceback: {traceback.format_exc()}")
+            return False
+
+    async def get_clinic_branding_by_user_id(self, user_id: str) -> Optional[dict]:
+        """Get clinic branding information for a specific user"""
+        try:
+            logger.info(f"🔍 Fetching clinic branding for user: {user_id}")
+            
+            client = self.get_service_client()
+            if not client:
+                logger.error("❌ No service client available for clinic branding retrieval")
+                return None
+            
+            logger.info("✅ Service client obtained, querying clinic_branding table...")
+            
+            # Query clinic_branding table by user_id
+            response = client.table('clinic_branding').select('*').eq('user_id', user_id).execute()
+            
+            logger.info(f"📊 Query response: {response}")
+            logger.info(f"📊 Response data: {response.data}")
+            logger.info(f"📊 Response error: {getattr(response, 'error', None)}")
+            
+            if response.data and len(response.data) > 0:
+                clinic_branding = response.data[0]
+                logger.info(f"✅ Clinic branding retrieved successfully for user: {user_id}")
+                logger.info(f"🏥 Clinic name: {clinic_branding.get('clinic_name')}")
+                return clinic_branding
+            else:
+                logger.warning(f"⚠️ No clinic branding found for user: {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"💥 Error retrieving clinic branding: {str(e)}")
+            import traceback
+            logger.error(f"📍 Traceback: {traceback.format_exc()}")
+            return None
+
+    async def create_user_account(self, user_data: dict, password: str) -> Optional[dict]:
+        """Create a new user account in Supabase auth"""
+        try:
+            client = self.get_service_client()
+            if not client:
+                logger.error("No service client available for user creation")
+                return None
+            
+            # Create user with admin privileges
+            response = client.auth.admin.create_user({
+                'email': user_data['email'],
+                'password': password,
+                'email_confirm': True,  # Auto-confirm email
+                'user_metadata': {
+                    'name': user_data.get('name'),
+                    'clinic_name': user_data.get('clinicName'),  # Frontend sends 'clinicName'
+                    'clinic_website': user_data.get('clinicWebsite'),  # Frontend sends 'clinicWebsite'
+                    'country': user_data.get('country')
+                }
+            })
+            
+            if response.user:
+                logger.info(f"Successfully created user account: {user_data['email']}")
+                return {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'clinic_name': user_data.get('clinic_name'),
+                    'name': user_data.get('name')
+                }
+            else:
+                logger.error("Failed to create user account")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating user account: {str(e)}")
+            return None
+
 supabase_service = SupabaseService()

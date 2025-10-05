@@ -6,13 +6,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { InfoIcon, DollarSign, Edit2, Check, X } from 'lucide-react'
 import { DEFAULT_TREATMENT_PRICES } from '@/data/dental-data'
-import { api } from '@/services/api'
+import { useTreatmentSettings } from '@/hooks/useTreatmentSettings'
 
 interface PricingInputProps {
   treatment: string
   value?: number
   onChange: (price: number) => void
-  clinicPrices?: Record<string, number>
   onPriceSave?: (treatment: string, price: number) => void
   disabled?: boolean
 }
@@ -21,10 +20,10 @@ export function PricingInput({
   treatment,
   value,
   onChange,
-  clinicPrices = {},
   onPriceSave,
   disabled = false
 }: PricingInputProps) {
+  const { getTreatmentSetting, updateTreatmentSetting } = useTreatmentSettings();
   const [inputValue, setInputValue] = useState<string>('')
   const [isEditing, setIsEditing] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -32,7 +31,8 @@ export function PricingInput({
   const [isNewPrice, setIsNewPrice] = useState(false)
 
   // Check if we have a price for this treatment
-  const clinicPrice = clinicPrices[treatment]
+  const treatmentSetting = getTreatmentSetting(treatment)
+  const clinicPrice = treatmentSetting.price
   const defaultPrice = DEFAULT_TREATMENT_PRICES[treatment]
   const knownPrice = clinicPrice || defaultPrice
 
@@ -97,12 +97,15 @@ export function PricingInput({
   }
 
   const handleConfirmSave = (updateSettings: boolean) => {
-    if (pendingPrice && onPriceSave) {
+    if (pendingPrice) {
       onChange(pendingPrice)
       
       if (updateSettings) {
-        // Update clinic settings permanently
-        onPriceSave(treatment, pendingPrice)
+        // Update treatment settings permanently
+        updateTreatmentSetting(treatment, { price: pendingPrice })
+        if (onPriceSave) {
+          onPriceSave(treatment, pendingPrice)
+        }
       }
       // If updateSettings is false, just use the price for this report only
     }

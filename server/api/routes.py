@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
-from typing import Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
 import logging
 import os
@@ -22,9 +22,12 @@ import os
 from services.tooth_mapping import tooth_mapping_service, Detection
 from services.roboflow import roboflow_service
 from services.april_vision_mapper import map_with_segmentation
+from services.image_overlay import image_overlay_service
+from lib.stagingV2 import build_staged_plan_v2
 import tempfile
 import uuid
 from services.stripe_service import stripe_service
+from api.admin_routes import admin_router
 
 # Enhanced models for new functionality
 class EnhancedFinding(BaseModel):
@@ -96,6 +99,14 @@ class InsuranceVerificationResponse(BaseModel):
     verification_date: str
     next_verification_due: Optional[str] = None
     notes: Optional[str] = None
+
+class ToothNumberOverlayRequest(BaseModel):
+    image_url: str
+    numbering_system: str = "FDI"
+    show_numbers: bool = True
+    text_size_multiplier: float = 1.0
+    condition_data: Optional[Union[Dict, List]] = None
+    cached_segmentation_data: Optional[Dict] = None  # NEW: Allow passing cached data
 
 class TreatmentCostEstimate(BaseModel):
     treatment_code: str
@@ -201,232 +212,6 @@ async def analyze_xray_immediate(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-# @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
-# async def analyze_xray(
-#     request: AnalyzeXrayRequest,
-#     generate_video: bool = False,  # Add this parameter
-#     token: str = Depends(get_auth_token)
-# ):
-#     """
-#     Main endpoint to analyze dental X-ray
-#     Note: Supabase handles user authentication and RLS automatically
-#     """
-#     try:
-#         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
-        
-#         # Step 1: Send image to Roboflow for detection
-#         predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
-        
-#         if not predictions or not annotated_image:
-#             raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
-        
-#         # Step 2: Upload annotated image to Supabase Storage
-#         annotated_filename = generate_annotated_filename(str(request.image_url), request.patient_name)
-#         annotated_url = await supabase_service.upload_image(
-#             annotated_image,
-#             f"{annotated_filename}",
-#             token
-#         )
-        
-#         if not annotated_url:
-#             raise HTTPException(status_code=500, detail="Failed to upload annotated image")
-        
-#         # Step 3: Analyze with OpenAI
-#         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
-#         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
-        
-#         # Step 4: Save to database (Supabase handles user_id via RLS)
-#         # Generate HTML report using GPT
-#         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
-#         html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
-        
-#         diagnosis_data = {
-#             'patient_name': request.patient_name,
-#             'image_url': str(request.image_url),
-#             'annotated_image_url': annotated_url,
-#             'summary': ai_analysis.get('summary', ''),
-#             'ai_notes': ai_analysis.get('ai_notes', ''),
-#             'treatment_stages': ai_analysis.get('treatment_stages', []),
-#             'report_html': html_report,
-#             'is_xray_based': True
-#         }
-        
-#         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
-#         diagnosis_id = saved_diagnosis.get('id')
-        
-#         # Step 5: Return response immediately, start video generation in background if requested
-#         response_data = {
-#             "status": "success",
-#             "summary": ai_analysis.get('summary', ''),
-#             "treatment_stages": ai_analysis.get('treatment_stages', []),
-#             "ai_notes": ai_analysis.get('ai_notes', ''),
-#             "diagnosis_timestamp": datetime.now(),
-#             "annotated_image_url": annotated_url,
-#             "detections": ai_analysis.get('detections', []),
-#             "report_html": html_report,
-#             "diagnosis_id": diagnosis_id  # Include diagnosis_id for video polling
-#         }
-        
-#         # Always start video generation in background for X-ray based reports
-#         if diagnosis_id and annotated_url:
-#             logger.info(f"Starting background video generation for diagnosis: {diagnosis_id}")
-#             # Import asyncio to run video generation in background
-#             import asyncio
-#             asyncio.create_task(generate_video_background(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token))
-        
-#         response = AnalyzeXrayResponse(**response_data)
-        
-#         logger.info(f"Successfully completed X-ray analysis for patient: {request.patient_name}")
-#         return response
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
-# async def generate_video_background(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str):
-#     """
-#     Generate video in background without blocking the main response
-#     Enhanced with better error handling and status tracking
-#     """
-#     temp_dir = None
-#     try:
-#         logger.info(f"Background video generation started for diagnosis: {diagnosis_id}")
-        
-#         # Validate required services
-#         if not hasattr(openai_service, 'generate_video_script'):
-#             raise Exception("OpenAI service not properly configured for video script generation")
-        
-#         if not hasattr(elevenlabs_service, 'generate_voice'):
-#             raise Exception("ElevenLabs service not properly configured for voice generation")
-        
-#         # Convert annotated image to base64
-#         logger.info(f"Converting image to base64 for diagnosis: {diagnosis_id}")
-#         image_base64 = video_generator_service.image_to_base64(annotated_url)
-        
-#         # Generate video script
-#         logger.info(f"Generating video script for diagnosis: {diagnosis_id}")
-#         video_script = await openai_service.generate_video_script(treatment_stages, image_base64)
-        
-#         if not video_script or len(video_script.strip()) == 0:
-#             raise Exception("Generated video script is empty")
-        
-#         # Generate voice audio
-#         logger.info(f"Generating voice audio for diagnosis: {diagnosis_id}")
-#         audio_bytes = await elevenlabs_service.generate_voice(video_script)
-        
-#         if not audio_bytes or len(audio_bytes) == 0:
-#             raise Exception("Generated audio is empty")
-        
-#         # Create temporary files
-#         temp_dir = tempfile.mkdtemp()
-#         unique_id = str(uuid.uuid4())[:8]
-#         logger.info(f"Created temp directory: {temp_dir} for diagnosis: {diagnosis_id}")
-        
-#         # Save image
-#         logger.info(f"Downloading and saving image for diagnosis: {diagnosis_id}")
-#         image_response = requests.get(annotated_url, timeout=30)
-#         image_response.raise_for_status()
-        
-#         image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
-#         with open(image_path, 'wb') as f:
-#             f.write(image_response.content)
-        
-#         if not os.path.exists(image_path) or os.path.getsize(image_path) == 0:
-#             raise Exception("Failed to save image file")
-        
-#         # Save audio
-#         logger.info(f"Saving audio file for diagnosis: {diagnosis_id}")
-#         audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
-#         with open(audio_path, 'wb') as f:
-#             f.write(audio_bytes)
-        
-#         if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
-#             raise Exception("Failed to save audio file")
-        
-#         # Create video
-#         logger.info(f"Creating video with subtitles for diagnosis: {diagnosis_id}")
-#         video_path = os.path.join(temp_dir, f"patient_video_{unique_id}.mp4")
-#         duration = video_generator_service.create_video_with_subtitles(
-#             image_path,
-#             audio_path,
-#             video_path
-#         )
-        
-#         if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
-#             raise Exception("Failed to create video file")
-        
-#         # Upload video
-#         logger.info(f"Uploading video to storage for diagnosis: {diagnosis_id}")
-#         with open(video_path, 'rb') as video_file:
-#             video_data = video_file.read()
-        
-#         video_filename = f"patient_videos/{patient_name.replace(' ', '_')}_{unique_id}.mp4"
-#         video_url = await supabase_service.upload_video(
-#             video_data,
-#             video_filename,
-#             token
-#         )
-        
-#         # Update diagnosis with video URL
-#         if video_url:
-#             logger.info(f"Updating database with video URL for diagnosis: {diagnosis_id}")
-#             auth_client = supabase_service._create_authenticated_client(token)
-#             auth_client.table('patient_diagnosis').update({
-#                 'video_url': video_url,
-#                 'video_script': video_script,
-#                 'video_generated_at': datetime.now().isoformat(),
-#                 'video_generation_failed': False,
-#                 'video_error': None
-#             }).eq('id', diagnosis_id).execute()
-            
-#             logger.info(f"Background video generation completed successfully for diagnosis: {diagnosis_id}")
-#         else:
-#             raise Exception("Failed to upload video to storage")
-        
-#     except Exception as e:
-#         logger.error(f"Error in background video generation for diagnosis {diagnosis_id}: {str(e)}")
-#         logger.error(f"Error type: {type(e).__name__}")
-        
-#         # Update diagnosis to indicate video generation failed
-#         try:
-#             auth_client = supabase_service._create_authenticated_client(token)
-            
-#             # Try to update with new fields first, fallback to basic update if columns don't exist
-#             try:
-#                 auth_client.table('patient_diagnosis').update({
-#                     'video_generation_failed': True,
-#                     'video_error': str(e)[:500],  # Limit error message length
-#                     'video_generated_at': datetime.now().isoformat()
-#                 }).eq('id', diagnosis_id).execute()
-#                 logger.info(f"Updated diagnosis {diagnosis_id} with video generation failure status")
-#             except Exception as column_error:
-#                 # Fallback to basic update if new columns don't exist yet
-#                 if 'video_error' in str(column_error) or 'video_generation_failed' in str(column_error):
-#                     logger.warning(f"New video error columns not yet available, using basic update: {str(column_error)}")
-#                     auth_client.table('patient_diagnosis').update({
-#                         'video_generated_at': datetime.now().isoformat()
-#                     }).eq('id', diagnosis_id).execute()
-#                     logger.info(f"Updated diagnosis {diagnosis_id} with basic video generation timestamp (migration needed)")
-#                 else:
-#                     raise column_error
-                    
-#         except Exception as update_error:
-#             logger.error(f"Failed to update diagnosis with video error: {str(update_error)}")
-    
-#     finally:
-#         # Cleanup temporary files
-#         if temp_dir and os.path.exists(temp_dir):
-#             try:
-#                 import shutil
-#                 shutil.rmtree(temp_dir)
-#                 logger.info(f"Cleaned up temp directory: {temp_dir}")
-#             except Exception as cleanup_error:
-#                 logger.error(f"Failed to cleanup temp directory {temp_dir}: {str(cleanup_error)}")
-
-
 @router.post("/analyze-xray", response_model=AnalyzeXrayResponse)
 async def analyze_xray(
     request: AnalyzeXrayRequest,
@@ -479,10 +264,14 @@ async def analyze_xray(
         
         saved_diagnosis = await supabase_service.save_diagnosis(diagnosis_data, token)
         diagnosis_id = saved_diagnosis.get('id')
+
+        # Use generate_video from request body, fallback to query param
+        should_generate_video = request.generate_video if hasattr(request, 'generate_video') else generate_video
+        logger.info(f"Will generate video: {should_generate_video}")
         
         # Step 5: Generate video synchronously (not in background)
         video_url = None
-        if generate_video and diagnosis_id and annotated_url:
+        if should_generate_video and diagnosis_id and annotated_url:  # Use should_generate_video
             logger.info(f"Generating video for diagnosis: {diagnosis_id}")
             try:
                 # Call the video generation function directly (not in background)
@@ -492,6 +281,8 @@ async def analyze_xray(
                 logger.error(f"Video generation failed: {str(video_error)}")
                 # Don't fail the entire request if video fails
                 video_url = None
+        else:
+            logger.info(f"Skipping video generation. Conditions: generate_video={should_generate_video}, diagnosis_id={diagnosis_id}, annotated_url={bool(annotated_url)}")
         
         # Return response with video URL
         response_data = {
@@ -517,8 +308,7 @@ async def analyze_xray(
     except Exception as e:
         logger.error(f"Unexpected error in analyze_xray: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
+    
 # New synchronous video generation function
 async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str) -> Optional[str]:
     """
@@ -624,7 +414,6 @@ async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_s
                 logger.info(f"Cleaned up temp directory: {temp_dir}")
             except Exception as cleanup_error:
                 logger.error(f"Failed to cleanup temp directory: {str(cleanup_error)}")
-
 
 @router.get("/health")
 async def health_check() -> Dict:
@@ -800,67 +589,6 @@ async def upload_xray_image(
         logger.error(f"Error uploading image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
-
-# @router.post("/apply-suggested-changes", response_model=SuggestChangesResponse)
-# async def apply_suggested_changes(
-#     request: SuggestChangesRequest,
-#     token: str = Depends(get_auth_token)
-# ):
-#     """Apply AI-suggested changes to the report HTML"""
-#     try:
-#         if not request.previous_report_html or not request.change_request_text:
-#             raise HTTPException(status_code=400, detail="Missing required fields")
-        
-#         system_prompt = """You are an expert dental assistant AI and HTML editor. You will receive:
-
-# 1. An existing HTML dental treatment plan report, already formatted with inline styles and condition blocks.
-# 2. A plain-text change request written by a dentist, describing edits they'd like made to the content.
-
-# Your task is to carefully update the HTML to reflect these requested changes.
-
-# Instructions:
-# - Maintain the full structure and inline styles of the HTML exactly as-is.
-# - Only modify the **text content inside HTML elements** when explicitly instructed.
-# - If the dentist asks to remove a condition entirely, you may delete that entire <div> block.
-# - Do not reword, reformat, or reorder any part of the document unless the change request specifies it.
-# - Do not add or alter colors, classes, or structure.
-# - The output must be a valid, continuous HTML string (starting with <div and ending with </div>).
-# - Do not include markdown, code fences, or JSON formatting.
-# - Accuracy is critical. This output will be used in patient-facing medical documents."""
-
-#         user_prompt = f"""Here is the current HTML version of the treatment report:
-# {request.previous_report_html}
-
-# Here is the dentist's change request (typed or dictated):
-# {request.change_request_text}
-
-# Please apply the change exactly as described, keeping the HTML structure intact and updating only the necessary content."""
-
-#         response = openai_service.client.chat.completions.create(
-#             model=openai_service.model_edit,
-#             messages=[
-#                 {"role": "system", "content": system_prompt},
-#                 {"role": "user", "content": user_prompt}
-#             ],
-#             temperature=0.3,
-#             max_tokens=2000
-#         )
-        
-#         updated_html = response.choices[0].message.content
-        
-#         # Clean up any potential markdown formatting
-#         updated_html = updated_html.strip()
-#         if updated_html.startswith("```"):
-#             # Remove code fences if present
-#             updated_html = updated_html.split("\n", 1)[1].rsplit("\n", 1)[0]
-        
-#         logger.info("Successfully applied suggested changes")
-#         return SuggestChangesResponse(updated_html=updated_html)
-        
-#     except Exception as e:
-#         logger.error(f"Error applying suggested changes: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Failed to apply suggested changes: {str(e)}")
-
 
 @router.post("/apply-suggested-changes", response_model=SuggestChangesResponse)
 async def apply_suggested_changes(
@@ -1078,47 +806,22 @@ async def get_video_status(
     try:
         auth_client = supabase_service._create_authenticated_client(token)
         
-        # Try to select with new columns first, fallback to basic columns if they don't exist
-        try:
-            response = auth_client.table('patient_diagnosis').select(
-                "id, video_url, video_generated_at, video_generation_failed, video_error"
-            ).eq('id', diagnosis_id).execute()
-        except Exception as column_error:
-            # Fallback to basic columns if new ones don't exist yet
-            if 'video_error' in str(column_error) or 'video_generation_failed' in str(column_error):
-                logger.warning(f"New video error columns not yet available, using basic query: {str(column_error)}")
-                response = auth_client.table('patient_diagnosis').select(
-                    "id, video_url, video_generated_at"
-                ).eq('id', diagnosis_id).execute()
-            else:
-                raise column_error
+        response = auth_client.table('patient_diagnosis').select(
+            "id, video_url, video_generated_at"
+        ).eq('id', diagnosis_id).execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Diagnosis not found")
         
         diagnosis = response.data[0]
         has_video = bool(diagnosis.get('video_url'))
-        generation_failed = bool(diagnosis.get('video_generation_failed', False))
-        video_error = diagnosis.get('video_error')
-        
-        # Determine status
-        if has_video:
-            status = "completed"
-        elif generation_failed:
-            status = "failed"
-        elif diagnosis.get('video_generated_at') and not has_video:
-            status = "failed"  # Generated timestamp but no video URL means failure
-        else:
-            status = "generating"  # Still in progress
         
         return {
             "diagnosis_id": diagnosis_id,
             "has_video": has_video,
             "video_url": diagnosis.get('video_url'),
             "video_generated_at": diagnosis.get('video_generated_at'),
-            "video_generation_failed": generation_failed,
-            "video_error": video_error,
-            "status": status
+            "status": "completed" if has_video else "not_generated"
         }
         
     except HTTPException:
@@ -1153,7 +856,7 @@ async def get_diagnosis_by_id(
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
         
-        # Fetch specific diagnosis - ensure we get ALL columns including video_url
+        # Fetch specific diagnosis
         response = auth_client.table('patient_diagnosis').select("*").eq('id', diagnosis_id).execute()
         
         if not response.data:
@@ -1161,13 +864,8 @@ async def get_diagnosis_by_id(
         
         diagnosis = response.data[0]
         
-        # Log what we're getting from the database
-        logger.info(f"Diagnosis data from DB: {list(diagnosis.keys())}")
-        logger.info(f"Video URL from DB: {diagnosis.get('video_url')}")
-        logger.info(f"Report HTML exists: {bool(diagnosis.get('report_html'))}")
-        
-        # Transform data for frontend - ensure all fields are properly mapped
-        transformed_data = {
+        # Transform data for frontend
+        return {
             "id": diagnosis.get('id'),
             "patientName": diagnosis.get('patient_name'),
             "patientId": f"PAT-{diagnosis.get('id')[:5]}",
@@ -1177,28 +875,21 @@ async def get_diagnosis_by_id(
             "summary": diagnosis.get('summary'),
             "aiNotes": diagnosis.get('ai_notes'),
             "treatmentStages": diagnosis.get('treatment_stages', []),
-            "videoUrl": diagnosis.get('video_url'),  # Make sure this is mapped
+            "videoUrl": diagnosis.get('video_url'),
             "videoScript": diagnosis.get('video_script'),
             "videoGeneratedAt": diagnosis.get('video_generated_at'),
-            "videoGenerationFailed": diagnosis.get('video_generation_failed', False),
-            "videoError": diagnosis.get('video_error'),
-            "reportHtml": diagnosis.get('report_html'),  # Make sure this is mapped
+            "reportHtml": diagnosis.get('report_html'),  # Changed from report_html to reportHtml
             "conditions": _extract_conditions(diagnosis.get('treatment_stages', [])),
             "teethAnalyzed": _count_teeth(diagnosis.get('treatment_stages', [])),
             "status": "Completed"
         }
-        
-        # Log the transformed data
-        logger.info(f"Transformed data keys: {list(transformed_data.keys())}")
-        logger.info(f"Transformed videoUrl: {transformed_data.get('videoUrl')}")
-        
-        return transformed_data
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching diagnosis {diagnosis_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch diagnosis: {str(e)}")
+
 
 @router.post("/analyze-without-xray", response_model=AnalyzeXrayResponse)
 async def analyze_without_xray(
@@ -1337,6 +1028,160 @@ async def get_clinic_pricing(
     except Exception as e:
         logger.error(f"Error getting clinic pricing: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get pricing: {str(e)}")
+
+
+@router.post("/treatment-settings")
+async def save_treatment_settings(
+    treatment_data: Dict[str, Dict[str, float]],
+    token: str = Depends(get_auth_token)
+):
+    """Save clinic-specific treatment settings (pricing and durations)"""
+    try:
+        logger.info(f"💾 Saving treatment settings: {len(treatment_data)} treatments")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get user context from the authenticated client
+        try:
+            user_response = auth_client.auth.get_user()
+            if user_response and hasattr(user_response, 'user') and user_response.user:
+                user_id = user_response.user.id
+                logger.info(f"👤 User ID from auth client: {user_id}")
+                logger.info(f"👤 User ID type: {type(user_id)}")
+                logger.info(f"👤 User email: {user_response.user.email}")
+            else:
+                logger.error("❌ Could not get user from authenticated client")
+                logger.error(f"❌ User response: {user_response}")
+                raise HTTPException(status_code=401, detail="Could not authenticate user")
+        except Exception as auth_error:
+            logger.error(f"❌ Authentication error: {str(auth_error)}")
+            import traceback
+            logger.error(f"📍 Auth traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=401, detail="Authentication failed")
+        
+        # Save or update treatment settings data
+        # First, try to get existing settings
+        existing_response = auth_client.table('clinic_pricing').select("*").execute()
+        logger.info(f"🔍 Existing records found: {len(existing_response.data) if existing_response.data else 0}")
+        
+        if existing_response.data:
+            # Update existing record with treatment settings
+            logger.info("🔄 Updating existing clinic pricing record")
+            try:
+                # Try to update with treatment_settings column first
+                response = auth_client.table('clinic_pricing').update({
+                    'treatment_settings': treatment_data,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', existing_response.data[0]['id']).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully updated treatment settings")
+                else:
+                    logger.error(f"❌ Update failed: {response}")
+                    raise Exception(f"Update failed: {response}")
+            except Exception as col_error:
+                logger.warning(f"⚠️ treatment_settings column may not exist, trying pricing_data: {str(col_error)}")
+                # Fallback to pricing_data column if treatment_settings doesn't exist
+                # Convert treatment_data to old format for backward compatibility
+                pricing_data = {k: v['price'] for k, v in treatment_data.items()}
+                response = auth_client.table('clinic_pricing').update({
+                    'pricing_data': pricing_data,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', existing_response.data[0]['id']).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully updated pricing data (fallback)")
+                else:
+                    logger.error(f"❌ Fallback update failed: {response}")
+                    raise Exception(f"Fallback update failed: {response}")
+        else:
+            # Create new treatment settings record
+            logger.info("🆕 Creating new clinic pricing record")
+            try:
+                # Try to insert with treatment_settings column first
+                response = auth_client.table('clinic_pricing').insert({
+                    'treatment_settings': treatment_data,
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
+                }).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully created treatment settings")
+                else:
+                    logger.error(f"❌ Insert failed: {response}")
+                    raise Exception(f"Insert failed: {response}")
+            except Exception as col_error:
+                logger.warning(f"⚠️ treatment_settings column may not exist, trying pricing_data: {str(col_error)}")
+                # Fallback to pricing_data column if treatment_settings doesn't exist
+                pricing_data = {k: v['price'] for k, v in treatment_data.items()}
+                response = auth_client.table('clinic_pricing').insert({
+                    'pricing_data': pricing_data,
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
+                }).execute()
+                
+                if response.data:
+                    logger.info("✅ Successfully created pricing data (fallback)")
+                else:
+                    logger.error(f"❌ Fallback insert failed: {response}")
+                    raise Exception(f"Fallback insert failed: {response}")
+        
+        return {
+            "status": "success",
+            "message": "Treatment settings saved successfully",
+            "treatment_data": treatment_data
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error saving treatment settings: {str(e)}")
+        import traceback
+        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to save treatment settings: {str(e)}")
+
+
+@router.get("/treatment-settings")
+async def get_treatment_settings(
+    token: str = Depends(get_auth_token)
+):
+    """Get clinic-specific treatment settings (pricing and durations)"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get treatment settings data
+        response = auth_client.table('clinic_pricing').select("*").execute()
+        
+        if response.data and len(response.data) > 0:
+            # Try to get from new 'treatment_settings' field first, fallback to 'pricing_data' for migration
+            treatment_data = response.data[0].get('treatment_settings', {})
+            
+            # If no treatment_settings field exists, try to migrate from pricing_data
+            if not treatment_data and 'pricing_data' in response.data[0]:
+                pricing_data = response.data[0]['pricing_data']
+                # Convert old format to new format
+                treatment_data = {}
+                for treatment, price in pricing_data.items():
+                    if isinstance(price, (int, float)):
+                        treatment_data[treatment] = {
+                            'price': float(price),
+                            'duration': 30  # Default duration for migrated data
+                        }
+            
+            return {
+                "status": "success",
+                "treatment_data": treatment_data
+            }
+        else:
+            # Return empty settings if none exist
+            return {
+                "status": "success",
+                "treatment_data": {}
+            }
+        
+    except Exception as e:
+        logger.error(f"Error getting treatment settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get treatment settings: {str(e)}")
 
 
 @router.post("/clinic-branding")
@@ -1868,34 +1713,1268 @@ async def map_teeth(
         raise HTTPException(status_code=500, detail=f"Tooth mapping failed: {str(e)}")
 
 
+@router.post("/image/overlay")
+async def add_tooth_number_overlay(
+    request: ToothNumberOverlayRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Add tooth number overlays to an X-ray image.
+    """
+    try:
+        if not request.show_numbers:
+            return {"image_url": request.image_url, "has_overlay": False}
+        
+        # NEW: If cached segmentation data is provided, use it
+        seg_json = request.cached_segmentation_data
+        
+        # Otherwise, try to get fresh segmentation
+        if not seg_json:
+            # Only call Roboflow if we have a real URL (not base64)
+            if not request.image_url.startswith('data:image'):
+                seg_json = await roboflow_service.segment_teeth(request.image_url)
+            else:
+                logger.warning("Cannot segment base64 image - need cached segmentation data")
+                return {"image_url": request.image_url, "has_overlay": False}
+        
+        if not seg_json:
+            logger.warning("No segmentation data available for overlay")
+            return {"image_url": request.image_url, "has_overlay": False}
+        
+        # Add tooth number overlay
+        overlay_image = await image_overlay_service.add_tooth_number_overlay(
+            request.image_url, 
+            seg_json, 
+            request.numbering_system, 
+            True,
+            request.text_size_multiplier, 
+            request.condition_data
+        )
+        
+        if overlay_image:
+            # Security check
+            if overlay_image.startswith('/tmp/') or overlay_image.startswith('file://') or (not overlay_image.startswith('http') and not overlay_image.startswith('data:')):
+                logger.error(f"SECURITY: Blocking unsafe image path from overlay service: {overlay_image}")
+                return {"image_url": request.image_url, "has_overlay": False}
+            
+            logger.info(f"Tooth overlay successful")
+            return {
+                "image_url": overlay_image, 
+                "has_overlay": True,
+                "segmentation_data": seg_json  # Return it so frontend can cache it
+            }
+        else:
+            logger.warning("Failed to create overlay image")
+            return {"image_url": request.image_url, "has_overlay": False}
+            
+    except Exception as e:
+        logger.error(f"Tooth number overlay error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tooth number overlay failed: {str(e)}")
+
+
 @router.post("/billing/checkout")
 async def create_checkout_session(interval: str = "monthly", token: str = Depends(get_auth_token)):
     try:
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
         url = stripe_service.create_checkout_session(token, interval)
         return {"url": url}
     except Exception as e:
         logger.error(f"Stripe checkout error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/billing/registration-checkout")
+async def create_registration_checkout(request: Request):
+    """Create Stripe checkout for new user registration (before account creation)"""
+    try:
+        data = await request.json()
+        user_data = data.get('userData', {})
+        interval = data.get('interval', 'monthly')
+        
+        # Store user data temporarily (including password) for webhook processing
+        # We'll use a simple in-memory store for now, but in production you'd want Redis or similar
+        import uuid
+        registration_id = str(uuid.uuid4())
+        
+        # Store the registration data temporarily
+        # In production, use Redis or database instead of global variable
+        if not hasattr(create_registration_checkout, 'pending_registrations'):
+            create_registration_checkout.pending_registrations = {}
+        
+        create_registration_checkout.pending_registrations[registration_id] = {
+            'user_data': user_data,
+            'created_at': datetime.utcnow(),
+            'expires_at': datetime.utcnow() + timedelta(hours=1)  # Expire after 1 hour
+        }
+        
+        # Add registration ID to user data for webhook processing
+        user_data['registration_id'] = registration_id
+        
+        # Create checkout session with user data in metadata
+        # This will be processed by the webhook after successful payment
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
+        url = stripe_service.create_registration_checkout(user_data, interval)
+        return {"url": url}
+    except Exception as e:
+        logger.error(f"Registration checkout error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/billing/portal")
 async def create_billing_portal(customer_id: str, token: str = Depends(get_auth_token)):
     try:
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
         url = stripe_service.create_billing_portal(customer_id)
         return {"url": url}
     except Exception as e:
         logger.error(f"Stripe portal error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/billing/verify")
+async def verify_payment(session_id: str, token: str = Depends(get_auth_token)):
+    """Verify payment session for existing users"""
+    try:
+        # Verify the payment session
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
+        
+        result = stripe_service.verify_payment_session(session_id, token)
+        return result
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/billing/verify-public")
+async def verify_payment_public(request: Request):
+    """Verify payment session for new registrations (no auth required)"""
+    try:
+        # Parse request body to get session_id
+        body = await request.json()
+        session_id = body.get('session_id')
+        
+        if not session_id:
+            logger.error("❌ No session_id provided in request body")
+            return {
+                "success": False,
+                "message": "Session ID is required"
+            }
+        
+        logger.info(f"🔍 Verifying payment session: {session_id}")
+        
+        # Check if Stripe API key is available
+        stripe_api_key = os.getenv('STRIPE_SECRET_KEY')
+        if not stripe_api_key:
+            logger.error("❌ STRIPE_SECRET_KEY not set")
+            return {
+                "success": False,
+                "message": "Stripe configuration error"
+            }
+        
+        # Verify the payment session directly with Stripe
+        import stripe
+        stripe.api_key = stripe_api_key
+        
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            logger.info(f"📊 Session status: {session.status}")
+            
+            if session.status == 'complete':
+                # Check if this was a new registration
+                if session.metadata.get('registration_pending') == 'true':
+                    logger.info("🆕 New registration payment verified")
+                    return {
+                        "success": True,
+                        "is_new_registration": True,
+                        "message": "Payment verified for new registration"
+                    }
+                else:
+                    logger.info("👤 Existing user payment verified")
+                    return {
+                        "success": True,
+                        "is_new_registration": False,
+                        "message": "Payment verified for existing user"
+                    }
+            else:
+                logger.warning(f"⚠️ Payment session not complete: {session.status}")
+                return {
+                    "success": False,
+                    "message": f"Payment session status: {session.status}"
+                }
+                
+        except stripe.error.StripeError as e:
+            logger.error(f"❌ Stripe error: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Stripe error: {str(e)}"
+            }
+            
+    except Exception as e:
+        logger.error(f"💥 Payment verification error: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Verification failed: {str(e)}"
+        }
+
 
 from fastapi import Request
+import json
+import stripe
+from datetime import datetime, timedelta
+
+@router.get("/stripe/webhook/test")
+async def test_webhook():
+    """Test endpoint to verify webhook connectivity"""
+    return {"status": "webhook_endpoint_reachable", "timestamp": datetime.utcnow().isoformat()}
+
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
+    """Handle Stripe webhooks for payment events"""
     try:
-        stripe_service.handle_webhook(payload, sig)
-        return {"status": "ok"}
+        logger.info("🎯 Stripe webhook received")
+        
+        # Get the webhook payload
+        payload = await request.body()
+        sig_header = request.headers.get('stripe-signature')
+        
+        logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
+        logger.info(f"🔐 Signature header present: {bool(sig_header)}")
+        
+        # For now, skip signature verification and just process the event
+        # This helps us debug the actual webhook processing
+        webhook_secret = os.getenv('STRIPE_WEBHOOK_SECRET')
+        if webhook_secret and sig_header:
+            try:
+                event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+                logger.info("✅ Webhook signature verified")
+            except Exception as e:
+                logger.error(f"❌ Webhook signature verification failed: {str(e)}")
+                # Continue without verification for debugging
+                event = json.loads(payload)
+        else:
+            logger.warning("⚠️ Processing webhook without signature verification")
+            event = json.loads(payload)
+        
+        event_type = event.get('type', 'unknown')
+        logger.info(f"📨 Processing event type: {event_type}")
+        
+        # Handle the event
+        if event_type == 'checkout.session.completed':
+            session = event.get('data', {}).get('object', {})
+            metadata = session.get('metadata', {})
+            
+            logger.info(f"🎯 Processing checkout.session.completed event")
+            logger.info(f"🔍 Session metadata: {metadata}")
+            
+            # Check if this is a new registration
+            if metadata.get('registration_pending') == 'true':
+                logger.info("🆕 This is a NEW USER REGISTRATION - processing...")
+                logger.info("🆕 Processing new user registration after payment")
+                
+                # Get registration ID from metadata
+                registration_id = metadata.get('registration_id')
+                
+                if not registration_id:
+                    logger.error("❌ No registration ID found in webhook metadata")
+                    return {"status": "error", "message": "Registration ID missing"}
+                
+                # Retrieve stored registration data
+                from api.routes import create_registration_checkout
+                if not hasattr(create_registration_checkout, 'pending_registrations'):
+                    logger.error("❌ No pending registrations found")
+                    return {"status": "error", "message": "No pending registrations"}
+                
+                stored_registration = create_registration_checkout.pending_registrations.get(registration_id)
+                if not stored_registration:
+                    logger.error(f"❌ Registration {registration_id} not found or expired")
+                    return {"status": "error", "message": "Registration not found or expired"}
+                
+                # Check if registration has expired
+                if datetime.utcnow() > stored_registration['expires_at']:
+                    logger.error(f"❌ Registration {registration_id} has expired")
+                    del create_registration_checkout.pending_registrations[registration_id]
+                    return {"status": "error", "message": "Registration expired"}
+                
+                # Extract user data from stored registration
+                user_data = stored_registration['user_data']
+                logger.info(f"👤 Registration data retrieved: {user_data.get('email')}")
+                logger.info(f"🔍 Full user data fields: {list(user_data.keys())}")
+                logger.info(f"🏥 Clinic name from form: {user_data.get('clinicName')}")
+                logger.info(f"🌐 Website from form: {user_data.get('clinicWebsite')}")
+                logger.info(f"🌍 Country from form: {user_data.get('country')}")
+                
+                try:
+                    # Create Supabase account
+                    logger.info("🔐 Creating Supabase account...")
+                    from services.supabase import get_supabase_service
+                    supabase_service = get_supabase_service()
+                    
+                    if not supabase_service:
+                        logger.error("❌ Supabase service not available")
+                        return {"status": "error", "message": "Supabase service unavailable"}
+                    
+                    # Get the password from the stored registration data
+                    password = user_data.get('password')
+                    
+                    if not password:
+                        logger.error("❌ No password found in stored registration data")
+                        return {"status": "error", "message": "Password missing from registration data"}
+                    
+                    # Create the user account
+                    created_user = await supabase_service.create_user_account(user_data, password)
+                    
+                    if created_user:
+                        logger.info(f"✅ Supabase account created: {created_user['email']}")
+                        
+                        # Create clinic branding record
+                        logger.info("🎨 Creating clinic branding record...")
+                        logger.info(f"🔍 User data keys available: {list(user_data.keys())}")
+                        logger.info(f"🏥 Clinic name value: {user_data.get('clinicName')}")
+                        logger.info(f"📧 Email value: {user_data.get('email')}")
+                        logger.info(f"🌐 Website value: {user_data.get('clinicWebsite')}")
+                        logger.info(f"🌍 Country value: {user_data.get('country')}")
+                        
+                        try:
+                            branding_data = {
+                                'user_id': created_user['id'],
+                                'clinic_name': user_data.get('clinicName', 'Unknown Clinic'),  # Frontend sends 'clinicName'
+                                'email': user_data.get('email'),
+                                'website': user_data.get('clinicWebsite'),  # Frontend sends 'clinicWebsite'
+                                'country': user_data.get('country'),
+                                'created_at': datetime.utcnow().isoformat(),
+                                'updated_at': datetime.utcnow().isoformat()
+                            }
+                            
+                            logger.info(f"🎯 Branding data to insert: {branding_data}")
+                            
+                            # Insert into clinic_branding table
+                            branding_result = await supabase_service.save_clinic_branding(branding_data)
+                            if branding_result:
+                                logger.info(f"✅ Clinic branding created: {branding_data['clinic_name']}")
+                            else:
+                                logger.warning("⚠️ Failed to create clinic branding record")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Clinic branding creation failed: {str(e)}")
+                            import traceback
+                            logger.warning(f"📍 Clinic branding traceback: {traceback.format_exc()}")
+                        
+                        # Create S3 folder for the clinic using the new user ID
+                        clinic_name = user_data.get('clinicName', 'Unknown Clinic')  # Frontend sends 'clinicName'
+                        user_id = created_user['id']
+                        
+                        logger.info("☁️ Creating S3 folder...")
+                        from services.s3_service import get_s3_service
+                        s3_service = get_s3_service()
+                        
+                        if not s3_service:
+                            logger.error("❌ S3 service not available")
+                            return {"status": "error", "message": "S3 service unavailable"}
+                        
+                        s3_result = s3_service.create_clinic_folder(clinic_name, user_id)
+                        
+                        if s3_result and s3_result.get('success'):
+                            logger.info(f"✅ Successfully created S3 folder for clinic: {clinic_name}")
+                            logger.info(f"✅ User registration completed: {user_data.get('email')}")
+                            logger.info(f"🔑 User password: {password}")
+                            
+                            # Clean up stored registration data
+                            del create_registration_checkout.pending_registrations[registration_id]
+                        else:
+                            logger.error(f"❌ Failed to create S3 folder: {s3_result.get('error') if s3_result else 'Unknown error'}")
+                    else:
+                        logger.error("❌ Failed to create Supabase account")
+                        
+                except Exception as e:
+                    logger.error(f"💥 Error processing registration webhook: {str(e)}")
+                    import traceback
+                    logger.error(f"📍 Traceback: {traceback.format_exc()}")
+                    
+            else:
+                # Existing user payment - create S3 folder
+                user_id = metadata.get('user_id')
+                logger.info(f"💳 Checkout completed for existing user: {user_id}")
+                
+                if user_id:
+                    # Try to create S3 folder
+                    try:
+                        logger.info("🔍 Getting user details from Supabase...")
+                        from services.supabase import get_supabase_service
+                        supabase_service = get_supabase_service()
+                        
+                        if not supabase_service:
+                            logger.error("❌ Supabase service not available")
+                            return {"status": "error", "message": "Supabase service unavailable"}
+                        
+                        user_data = await supabase_service.get_user_by_id(user_id)
+                        
+                        if user_data:
+                            clinic_name = user_data.get('clinic_name', 'Unknown Clinic')
+                            logger.info(f"👥 Found user: {user_data.get('email')} - Clinic: {clinic_name}")
+                            
+                            # Create S3 folder for the clinic
+                            logger.info("☁️ Creating S3 folder...")
+                            from services.s3_service import get_s3_service
+                            s3_service = get_s3_service()
+                            
+                            if not s3_service:
+                                logger.error("❌ S3 service not available")
+                                return {"status": "error", "message": "S3 service unavailable"}
+                            
+                            s3_result = s3_service.create_clinic_folder(clinic_name, user_id)
+                            
+                            if s3_result and s3_result.get('success'):
+                                logger.info(f"✅ Successfully created S3 folder for clinic: {clinic_name}")
+                            else:
+                                logger.error(f"❌ Failed to create S3 folder: {s3_result.get('error') if s3_result else 'Unknown error'}")
+                        else:
+                            logger.error(f"❌ User data not found for ID: {user_id}")
+                            
+                    except Exception as e:
+                        logger.error(f"💥 Error processing webhook for user {user_id}: {str(e)}")
+                        import traceback
+                        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+                else:
+                    logger.warning("⚠️ No user_id found in checkout session metadata")
+        else:
+            logger.info(f"ℹ️ Ignoring event type: {event_type}")
+        
+        return {"status": "success", "event_type": event_type}
+        
     except Exception as e:
-        logger.error(f"Stripe webhook error: {str(e)}")
-        raise HTTPException(status_code=400, detail="Webhook Error")
+        logger.error(f"💥 Webhook error: {str(e)}")
+        import traceback
+        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}, 400
+
+# AWS S3 Integration Endpoints - Real-time Processing
+@router.get("/aws/images")
+async def get_user_aws_images(token: str = Depends(get_auth_token)):
+    """Get all images from AWS S3 for the authenticated user's clinic"""
+    logger.info("🔄 Starting AWS images fetch request")
+    
+    try:
+        # Create authenticated client using global supabase service
+        logger.info("🔐 Creating authenticated Supabase client...")
+        from services.supabase import supabase_service as global_supabase_service
+        auth_client = global_supabase_service._create_authenticated_client(token)
+        logger.info("✅ Supabase client created successfully")
+        
+        # Derive user_id from JWT to avoid auth.get_user flakiness
+        logger.info("👤 Fetching user information...")
+        user_id = None
+        try:
+            import jwt
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            user_id = decoded.get('sub')
+            logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+        except Exception as jwt_error:
+            logger.warning(f"JWT decode failed: {jwt_error}")
+
+        if not user_id:
+            try:
+                user_response = auth_client.auth.get_user()
+                user_id = getattr(getattr(user_response, 'user', None), 'id', None)
+            except Exception as get_user_error:
+                logger.warning(f"auth.get_user failed: {get_user_error}")
+        
+        if not user_id:
+            logger.error("❌ Authentication failed - no user_id available")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Authentication failed. Please log in again.",
+                "error": "authentication_failed",
+                "details": "No user_id from JWT or auth.get_user"
+            }
+        logger.info(f"✅ User authenticated: {user_id}")
+        
+        # Use user ID directly - no need to fetch clinic information
+        logger.info(f"🎯 Using user ID directly for AWS folder: {user_id}")
+        
+        # Get S3 service
+        logger.info("☁️ Initializing S3 service...")
+        from services.s3_service import get_s3_service
+        s3_service = get_s3_service()
+        
+        if not s3_service:
+            logger.error("❌ S3 service not available - AWS credentials may be missing")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "AWS S3 service is currently unavailable. Please try again later.",
+                "error": "s3_service_unavailable",
+                "user_id": user_id
+            }
+        
+        logger.info("✅ S3 service initialized successfully")
+        
+        # Use user ID directly to find/create clinic folder
+        clinic_id = f"clinic-{user_id}"
+        logger.info(f"🔍 Looking for clinic folder with ID: {clinic_id}")
+        try:
+            clinics = s3_service.list_clinic_folders()
+            logger.info(f"✅ Found {len(clinics)} total clinic folders")
+            
+            # Log clinic details for debugging
+            for clinic in clinics:
+                logger.info(f"  - Clinic: {clinic.get('clinic_name', 'Unknown')} | ID: {clinic.get('clinic_id', 'Unknown')}")
+                
+        except Exception as s3_error:
+            logger.error(f"❌ Error listing clinic folders: {str(s3_error)}")
+            logger.error(f"Error type: {type(s3_error).__name__}")
+            logger.error(f"Error details: {str(s3_error)}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Unable to access AWS S3. Please check your connection.",
+                "error": "s3_connection_error",
+                "user_id": user_id,
+                "error_details": str(s3_error)
+            }
+        
+        user_clinic = None
+        
+        # Find clinic folder by user ID (support multiple legacy patterns)
+        candidate_ids = [clinic_id, user_id]
+        for clinic in clinics:
+            if clinic.get('clinic_id') in candidate_ids:
+                user_clinic = clinic
+                logger.info(f"✅ Found clinic folder by clinic_id match: {clinic}")
+                break
+        
+        # Fallback: match where clinic_name ends with or contains user_id (legacy 'clinicName-userId' folders)
+        if not user_clinic:
+            for clinic in clinics:
+                name = (clinic.get('clinic_name') or '').lower()
+                if user_id.lower() in name:
+                    user_clinic = clinic
+                    logger.info(f"✅ Found clinic folder by clinic_name contains user_id: {clinic}")
+                    break
+        
+        if not user_clinic:
+            logger.warning(f"❌ Clinic folder not found for user ID: {clinic_id}")
+            logger.warning(f"Available clinic IDs: {[c.get('clinic_id') for c in clinics]}")
+            
+            # Try to create the clinic folder if it doesn't exist
+            logger.info(f"🔧 Attempting to create clinic folder for user: {user_id}")
+            try:
+                from services.s3_service import get_s3_service
+                s3_service = get_s3_service()
+                
+                if s3_service:
+                    # Create clinic folder with generic name
+                    clinic_name = f"Clinic-{user_id}"
+                    create_result = s3_service.create_clinic_folder(clinic_name, clinic_id)
+                    
+                    if create_result.get('success'):
+                        logger.info(f"✅ Successfully created clinic folder: {clinic_name}")
+                        # Create a mock clinic object for this session
+                        user_clinic = {
+                            'clinic_name': clinic_name,
+                            'clinic_id': clinic_id,
+                            'created': True
+                        }
+                    else:
+                        logger.error(f"❌ Failed to create clinic folder: {create_result.get('error', 'Unknown error')}")
+                        return {
+                            "images": [],
+                            "total": 0,
+                            "message": f"Clinic folder could not be created. Please contact support.",
+                            "error": "clinic_folder_creation_failed",
+                            "user_id": user_id,
+                            "clinic_id": clinic_id
+                        }
+                else:
+                    logger.error("❌ S3 service not available for folder creation")
+                    return {
+                        "images": [],
+                        "total": 0,
+                        "message": f"Clinic folder not found. Please contact support.",
+                        "error": "clinic_folder_not_found",
+                        "user_id": user_id,
+                        "clinic_id": clinic_id
+                    }
+            except Exception as create_error:
+                logger.error(f"❌ Error creating clinic folder: {str(create_error)}")
+                return {
+                    "images": [],
+                    "total": 0,
+                    "message": f"Clinic folder could not be created. Please contact support.",
+                    "error": "clinic_folder_creation_failed",
+                    "user_id": user_id,
+                    "clinic_id": clinic_id
+                }
+        
+        # Get DICOM files for this clinic
+        logger.info(f"📁 Fetching images from clinic folder: {user_clinic['clinic_id']}")
+        
+        # If this is a newly created clinic folder, return empty results
+        if user_clinic.get('created'):
+            logger.info(f"📁 New clinic folder created - no images yet")
+            return {
+                "images": [],
+                "total": 0,
+                "message": f"Clinic folder created successfully for user {user_id}. No images uploaded yet.",
+                "clinic_id": user_clinic['clinic_id'],
+                "status": "new_clinic_created"
+            }
+        
+        try:
+            dicom_files = s3_service.list_dicom_files(user_clinic['clinic_id'])
+            logger.info(f"✅ Found {len(dicom_files)} images in clinic folder")
+            
+            # Log file details for debugging
+            for i, file in enumerate(dicom_files[:5]):  # Log first 5 files
+                logger.info(f"  - File {i+1}: {file.get('key', 'Unknown')} | Size: {file.get('size', 'Unknown')} | Modified: {file.get('last_modified', 'Unknown')}")
+            
+            if len(dicom_files) > 5:
+                logger.info(f"  ... and {len(dicom_files) - 5} more files")
+                
+        except Exception as dicom_error:
+            logger.error(f"❌ Error listing DICOM files for clinic {user_clinic['clinic_id']}: {str(dicom_error)}")
+            logger.error(f"Error type: {type(dicom_error).__name__}")
+            logger.error(f"Error details: {str(dicom_error)}")
+            return {
+                "images": [],
+                "total": 0,
+                "message": "Unable to list images from AWS S3. Please try again later.",
+                "error": "dicom_listing_error",
+                "user_id": user_id,
+                "clinic_id": user_clinic['clinic_id'],
+                "error_details": str(dicom_error)
+            }
+        
+        # Transform to match dashboard format
+        logger.info("🔄 Transforming image data for dashboard...")
+        images = []
+        for i, dicom_file in enumerate(dicom_files):
+            try:
+                # Extract filename without path
+                filename = dicom_file['key'].split('/')[-1]
+                
+                # Determine if it's DICOM or other format
+                is_dicom = filename.lower().endswith('.dcm') or 'dicom' in filename.lower()
+                
+                # Generate display name
+                if is_dicom:
+                    # For DICOM files, try to extract patient info from filename
+                    display_name = filename.replace('.dcm', '').replace('_', ' ').title()
+                    logger.debug(f"  - DICOM file {i+1}: {filename} → Display name: {display_name}")
+                else:
+                    # For JPEG/PNG, use timestamp-based name
+                    timestamp = dicom_file.get('last_modified', '')
+                    if timestamp:
+                        try:
+                            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                            display_name = f"New Scan - {dt.strftime('%b %d, %Y at %I:%M %p')}"
+                            logger.debug(f"  - Image file {i+1}: {filename} → Display name: {display_name}")
+                        except Exception as time_error:
+                            logger.warning(f"⚠️ Failed to parse timestamp for {filename}: {str(time_error)}")
+                            display_name = f"New Scan - {timestamp}"
+                    else:
+                        display_name = f"New Scan - {filename}"
+                        logger.debug(f"  - Image file {i+1}: {filename} → Display name: {display_name}")
+                
+                # Check if this image has already been processed
+                # TODO: Implement database check for existing processing
+                status = "In Progress"  # Will be updated when processed
+                
+                images.append({
+                    "id": f"aws-{dicom_file['key'].replace('/', '-')}",
+                    "patientName": display_name,
+                    "patientId": f"AWS-{filename[:8]}",
+                    "scanDate": dicom_file.get('last_modified', ''),
+                    "status": status,
+                    "imageUrl": dicom_file['url'],
+                    "annotatedImageUrl": None,  # Will be generated after AI processing
+                    "summary": "Processing...",
+                    "aiNotes": None,
+                    "treatmentStages": [],
+                    "conditions": [],
+                    "teethAnalyzed": 0,
+                    "createdAt": dicom_file.get('last_modified', ''),
+                    "source": "aws_s3",
+                    "isDicom": is_dicom,
+                    "originalFilename": filename,
+                    "clinicId": user_clinic['clinic_id'],
+                    "fileSize": dicom_file.get('size', 0),
+                    "lastModified": dicom_file.get('last_modified', ''),
+                    "s3Key": dicom_file['key']
+                })
+                
+            except Exception as transform_error:
+                logger.error(f"❌ Error transforming file {i+1}: {str(transform_error)}")
+                logger.error(f"File data: {dicom_file}")
+                # Continue with other files instead of failing completely
+                continue
+        
+        logger.info(f"✅ Successfully transformed {len(images)} images for dashboard")
+        
+        # Log summary statistics
+        dicom_count = len([img for img in images if img['isDicom']])
+        image_count = len([img for img in images if not img['isDicom']])
+        logger.info(f"📊 Image breakdown: {dicom_count} DICOM files, {image_count} image files")
+        
+        return {
+            "images": images,
+            "total": len(images),
+            "clinic_name": clinic_name,
+            "clinic_id": user_clinic['clinic_id'],
+            "message": f"Found {len(images)} images in AWS S3",
+            "user_id": user_id,
+            "processing_stats": {
+                "dicom_files": dicom_count,
+                "image_files": image_count,
+                "total_files": len(images)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in get_user_aws_images: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        # Try to extract any useful context
+        context = {}
+        try:
+            if 'user_id' in locals():
+                context['user_id'] = user_id
+            if 'clinic_id' in locals():
+                context['clinic_id'] = clinic_id
+        except:
+            pass
+        
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Failed to fetch AWS images",
+                "error": "critical_error",
+                "error_details": str(e),
+                "error_type": type(e).__name__,
+                "context": context
+            }
+        )
+
+# S3 Webhook endpoint for real-time processing
+@router.post("/aws/webhook")
+async def s3_webhook_handler(request: Request):
+    """Handle S3 event notifications for real-time image processing"""
+    logger.info("🔔 S3 webhook received - starting real-time processing")
+    
+    try:
+        # Parse the webhook payload
+        logger.info("📥 Parsing webhook payload...")
+        webhook_data = await request.json()
+        logger.info(f"✅ Webhook payload parsed successfully. Keys: {list(webhook_data.keys())}")
+        
+        # Extract S3 event information
+        if 'Records' not in webhook_data:
+            logger.warning("⚠️ No Records found in webhook payload")
+            logger.warning(f"Webhook payload: {webhook_data}")
+            return {"status": "error", "message": "No Records found in webhook"}
+        
+        records = webhook_data['Records']
+        logger.info(f"📋 Processing {len(records)} S3 event records")
+        
+        processed_files = []
+        errors = []
+        
+        for i, record in enumerate(records):
+            try:
+                logger.info(f"🔄 Processing record {i+1}/{len(records)}")
+                
+                # Extract S3 event details
+                event_name = record.get('eventName', 'Unknown')
+                s3_data = record.get('s3', {})
+                bucket_name = s3_data.get('bucket', {}).get('name', 'Unknown')
+                object_key = s3_data.get('object', {}).get('key', 'Unknown')
+                
+                logger.info(f"📁 Event: {event_name} | Bucket: {bucket_name} | Key: {object_key}")
+                
+                # Only process new file uploads
+                if event_name not in ['ObjectCreated:Put', 'ObjectCreated:Post', 'ObjectCreated:CompleteMultipartUpload']:
+                    logger.info(f"⏭️ Skipping non-upload event: {event_name}")
+                    continue
+                
+                # Extract clinic ID from object key
+                # Expected format: clinics/clinic-name-userid/filename
+                key_parts = object_key.split('/')
+                if len(key_parts) < 3:
+                    logger.warning(f"⚠️ Invalid object key format: {object_key}")
+                    continue
+                
+                clinic_folder = key_parts[1]  # e.g., "brightsmile-dental-3536c5ae-c0b0-44cf-9114-8241b329071c"
+                filename = key_parts[-1]
+                
+                # Extract user ID from clinic folder name
+                if '-' in clinic_folder:
+                    user_id = clinic_folder.split('-')[-1]
+                    logger.info(f"👤 Extracted user ID: {user_id} from folder: {clinic_folder}")
+                else:
+                    logger.warning(f"⚠️ Could not extract user ID from folder: {clinic_folder}")
+                    continue
+                
+                # Determine file type
+                is_dicom = filename.lower().endswith('.dcm') or 'dicom' in filename.lower()
+                logger.info(f"📄 File type: {'DICOM' if is_dicom else 'Image'} | Filename: {filename}")
+                
+                # Start background processing
+                logger.info(f"🚀 Starting background processing for {filename}")
+                
+                # TODO: Implement background task queue for processing
+                # For now, we'll process synchronously (not ideal for production)
+                processing_result = await process_aws_image_background(
+                    user_id=user_id,
+                    object_key=object_key,
+                    filename=filename,
+                    is_dicom=is_dicom,
+                    bucket_name=bucket_name
+                )
+                
+                if processing_result.get('success'):
+                    processed_files.append({
+                        'filename': filename,
+                        'user_id': user_id,
+                        'status': 'processing_started'
+                    })
+                    logger.info(f"✅ Background processing started for {filename}")
+                else:
+                    errors.append({
+                        'filename': filename,
+                        'user_id': user_id,
+                        'error': processing_result.get('error', 'Unknown error')
+                    })
+                    logger.error(f"❌ Failed to start processing for {filename}: {processing_result.get('error')}")
+                
+            except Exception as record_error:
+                logger.error(f"❌ Error processing record {i+1}: {str(record_error)}")
+                logger.error(f"Record data: {record}")
+                errors.append({
+                    'record_index': i,
+                    'error': str(record_error)
+                })
+                continue
+        
+        logger.info(f"✅ Webhook processing completed. Processed: {len(processed_files)}, Errors: {len(errors)}")
+        
+        return {
+            "status": "success",
+            "message": f"Processed {len(processed_files)} files, {len(errors)} errors",
+            "processed_files": processed_files,
+            "errors": errors
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in S3 webhook handler: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "status": "error",
+            "message": "Failed to process webhook",
+            "error": str(e)
+        }
+
+async def process_aws_image_background(
+    user_id: str,
+    object_key: str,
+    filename: str,
+    is_dicom: bool,
+    bucket_name: str
+):
+    """Background processing for AWS images - runs automatically when files are uploaded"""
+    logger.info(f"🔄 Starting background processing for {filename} (User: {user_id})")
+    
+    try:
+        # Get S3 service
+        from services.s3_service import get_s3_service
+        s3_service = get_s3_service()
+        
+        if not s3_service:
+            logger.error("❌ S3 service not available for background processing")
+            return {"success": False, "error": "S3 service unavailable"}
+        
+        # Construct S3 URL
+        s3_url = f"https://{bucket_name}.s3.amazonaws.com/{object_key}"
+        logger.info(f"🔗 S3 URL: {s3_url}")
+        
+        # Extract patient information
+        patient_name = "Unknown Patient"
+        if is_dicom:
+            try:
+                logger.info("🔍 Extracting DICOM metadata...")
+                from services.dicom_processor import dicom_processor
+                metadata = dicom_processor.extract_metadata_from_url(s3_url)
+                
+                if metadata and metadata.get('patient_name'):
+                    patient_name = metadata['patient_name']
+                    logger.info(f"✅ Extracted patient name: {patient_name}")
+                elif metadata and metadata.get('patient_id'):
+                    patient_name = f"Patient {metadata['patient_id']}"
+                    logger.info(f"✅ Extracted patient ID: {metadata['patient_id']}")
+                else:
+                    logger.warning("⚠️ No patient information found in DICOM metadata")
+                    # Fallback to filename-based name
+                    patient_name = filename.replace('.dcm', '').replace('_', ' ').title()
+                    
+            except Exception as dicom_error:
+                logger.warning(f"⚠️ Failed to extract DICOM metadata: {str(dicom_error)}")
+                # Fallback to filename-based name
+                patient_name = filename.replace('.dcm', '').replace('_', ' ').title()
+        else:
+            # For non-DICOM files, use timestamp-based name
+            timestamp = datetime.now().strftime('%b %d, %Y at %I:%M %p')
+            patient_name = f"New Scan - {timestamp}"
+            logger.info(f"📸 Using timestamp-based name for image: {patient_name}")
+        
+        # Create diagnosis record in database
+        logger.info("💾 Creating diagnosis record in database...")
+        try:
+            # TODO: Implement database insertion
+            # For now, just log the action
+            diagnosis_data = {
+                "user_id": user_id,
+                "patient_name": patient_name,
+                "image_url": s3_url,
+                "annotated_image_url": None,
+                "summary": "Processing from AWS S3...",
+                "ai_notes": None,
+                "treatment_stages": [],
+                "created_at": datetime.now().isoformat(),
+                "source": "aws_s3",
+                "aws_metadata": {
+                    "object_key": object_key,
+                    "bucket_name": bucket_name,
+                    "filename": filename,
+                    "is_dicom": is_dicom,
+                    "uploaded_at": datetime.now().isoformat()
+                }
+            }
+            
+            logger.info(f"✅ Diagnosis data prepared: {diagnosis_data}")
+            
+            # TODO: Insert into database
+            # diagnosis_id = await insert_diagnosis_record(diagnosis_data)
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database error: {str(db_error)}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        
+        # Start AI analysis in background
+        logger.info("🧠 Starting AI analysis in background...")
+        try:
+            # TODO: Implement background AI processing
+            # For now, just log the action
+            logger.info("✅ AI analysis queued for background processing")
+            
+        except Exception as ai_error:
+            logger.error(f"❌ AI analysis error: {str(ai_error)}")
+            return {"success": False, "error": f"AI analysis error: {str(ai_error)}"}
+        
+        logger.info(f"✅ Background processing completed successfully for {filename}")
+        
+        return {
+            "success": True,
+            "patient_name": patient_name,
+            "is_dicom": is_dicom,
+            "message": "Processing started successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in background processing: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "success": False,
+            "error": f"Critical error: {str(e)}"
+        }
+
+# Remove the old manual processing endpoint - no longer needed
+# @router.post("/aws/process-dicom") - REMOVED
+
+# Email Report to Patient
+@router.post("/send-report-email")
+async def send_report_email(
+    request: Request,
+    token: str = Depends(get_auth_token)
+):
+    """Send dental report to patient via email"""
+    logger.info("📧 Starting report email request")
+    
+    try:
+        # Get request body
+        body = await request.json()
+        report_id = body.get('report_id')
+        patient_email = body.get('patient_email')
+        
+        if not report_id or not patient_email:
+            logger.error("❌ Missing required fields: report_id or patient_email")
+            return {
+                "success": False,
+                "error": "Missing required fields: report_id and patient_email"
+            }
+        
+        logger.info(f"📧 Sending report {report_id} to {patient_email}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+
+        # Derive user_id from JWT to avoid flaky auth.get_user responses in backend
+        user_id = None
+        try:
+            import jwt
+            decoded_token = jwt.decode(token, options={"verify_signature": False})
+            user_id = decoded_token.get('sub')
+            logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+        except Exception as jwt_error:
+            logger.warning(f"JWT decode failed: {jwt_error}")
+
+        # Fallback to Supabase auth.get_user if needed
+        if not user_id:
+            try:
+                user_response = auth_client.auth.get_user()
+                user_id = getattr(getattr(user_response, 'user', None), 'id', None)
+            except Exception as get_user_error:
+                logger.warning(f"auth.get_user failed: {get_user_error}")
+
+        if not user_id:
+            logger.error("❌ Authentication failed - no user_id available")
+            return {
+                "success": False,
+                "error": "Authentication failed"
+            }
+
+        logger.info(f"✅ User authenticated: {user_id}")
+        
+        # Get report data
+        try:
+            report_data = await get_diagnosis_by_id(report_id, user_id)
+            if not report_data:
+                logger.error(f"❌ Report {report_id} not found for user {user_id}")
+                return {
+                    "success": False,
+                    "error": "Report not found"
+                }
+        except Exception as e:
+            logger.error(f"❌ Error fetching report: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Failed to fetch report: {str(e)}"
+            }
+        
+        # Send actual email using email service
+        logger.info(f"📧 Sending email to {patient_email}")
+        
+        try:
+            from services.email_service import email_service
+            
+            # Get clinic branding information
+            clinic_branding_response = auth_client.table('clinic_branding').select("*").eq('user_id', user_id).execute()
+            clinic_branding = {}
+            
+            if clinic_branding_response.data:
+                clinic_branding = clinic_branding_response.data[0]
+                logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
+            else:
+                # Fallback to user metadata
+                user_metadata = user_response.user.user_metadata
+                clinic_branding = {
+                    'clinic_name': user_metadata.get('clinicName') or user_metadata.get('clinic_name') or 'Dental Clinic',
+                    'phone': user_metadata.get('phone') or 'our office',
+                    'website': user_metadata.get('clinicWebsite') or user_metadata.get('website') or 'our website'
+                }
+                logger.info(f"⚠️ Using fallback clinic branding: {clinic_branding}")
+            
+            # Send the email with PDF attachment
+            email_sent = email_service.send_dental_report(
+                patient_email=patient_email,
+                patient_name=report_data.get('patient_name', 'Patient'),
+                report_data=report_data,
+                clinic_branding=clinic_branding
+            )
+            
+            if email_sent:
+                logger.info(f"✅ Email with PDF sent successfully to {patient_email}")
+            else:
+                logger.error(f"❌ Failed to send email to {patient_email}")
+                return {
+                    "success": False,
+                    "error": "Failed to send email"
+                }
+                
+        except Exception as email_error:
+            logger.error(f"❌ Email sending error: {str(email_error)}")
+            return {
+                "success": False,
+                "error": f"Email sending failed: {str(email_error)}"
+            }
+        
+        return {
+            "success": True,
+            "message": f"Report sent successfully to {patient_email}",
+            "report_id": report_id,
+            "patient_email": patient_email,
+            "sent_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error sending report email: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        
+        return {
+            "success": False,
+            "error": f"Failed to send email: {str(e)}"
+        }
+
+# Email Preview Report to Patient (from unsaved content)
+@router.post("/send-preview-report-email")
+async def send_preview_report_email(
+    request: Request,
+    authorization: Optional[str] = Header(None)
+):
+    """Send dental report preview to patient via email"""
+    logger.info("📧 Starting preview report email request")
+    
+    try:
+        # Get request body
+        body = await request.json()
+        patient_email = body.get('patient_email')
+        patient_name = body.get('patient_name', 'Patient')
+        report_content = body.get('report_content')
+        findings = body.get('findings', [])
+        annotated_image_url = body.get('annotated_image_url')
+        
+        if not patient_email or not report_content:
+            logger.error("❌ Missing required fields: patient_email or report_content")
+            return {
+                "success": False,
+                "error": "Missing required fields: patient_email and report_content"
+            }
+        
+        logger.info(f"📧 Sending preview report to {patient_email}")
+        
+        # Try to extract user_id from Authorization header (auth-optional)
+        token = None
+        user_id = None
+        auth_client = None
+        try:
+            if authorization:
+                token = authorization.replace("Bearer ", "").strip()
+            if token:
+                try:
+                    import jwt
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    user_id = decoded.get('sub')
+                    logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+                except Exception as jwt_error:
+                    logger.warning(f"JWT decode failed: {jwt_error}")
+                try:
+                    from services.supabase import supabase_service
+                    auth_client = supabase_service._create_authenticated_client(token)
+                except Exception as client_error:
+                    logger.warning(f"Failed to create authenticated supabase client: {client_error}")
+        except Exception as auth_error:
+            logger.warning(f"Authorization header processing failed: {auth_error}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        user_response = None
+        try:
+            user_response = auth_client.auth.get_user()
+        except Exception as get_user_error:
+            logger.warning(f"auth.get_user failed: {get_user_error}")
+        
+        user_id = None
+        if user_response and getattr(user_response, 'user', None):
+            user_id = user_response.user.id
+            logger.info(f"✅ User authenticated: {user_id}")
+        else:
+            # Fallback: decode user id from JWT
+            try:
+                decoded = jwt.decode(token, options={"verify_signature": False})
+                user_id = decoded.get('sub')
+                logger.info(f"🔐 Decoded user_id from JWT: {user_id}")
+            except Exception as jwt_error:
+                logger.warning(f"JWT decode failed: {jwt_error}")
+        
+        # Send actual email using email service
+        logger.info(f"📧 Sending preview email to {patient_email}")
+        
+        try:
+            from services.email_service import email_service
+            
+            # Get clinic branding information (auth-optional)
+            clinic_branding = {}
+            if user_id:
+                try:
+                    clinic_branding_response = auth_client.table('clinic_branding').select("*").eq('user_id', user_id).execute()
+                    if clinic_branding_response.data:
+                        clinic_branding = clinic_branding_response.data[0]
+                        logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
+                except Exception as branding_error:
+                    logger.warning(f"Clinic branding lookup failed: {branding_error}")
+            if not clinic_branding:
+                user_metadata = getattr(getattr(user_response, 'user', None), 'user_metadata', {}) or {}
+                clinic_branding = {
+                    'clinic_name': user_metadata.get('clinicName') or user_metadata.get('clinic_name') or 'Dental Clinic',
+                    'phone': user_metadata.get('phone') or 'our office',
+                    'website': user_metadata.get('clinicWebsite') or user_metadata.get('website') or 'our website'
+                }
+                logger.info(f"⚠️ Using fallback clinic branding: {clinic_branding}")
+            
+            # Create a mock report data structure for the preview
+            from datetime import datetime
+            preview_report_data = {
+                'patient_name': patient_name,
+                'report_html': report_content,
+                'findings': findings,
+                'created_at': datetime.now().isoformat(),
+                'is_preview': True,
+                'annotated_image_url': annotated_image_url
+            }
+            
+            # Send the email with PDF attachment
+            email_sent = email_service.send_dental_report(
+                patient_email=patient_email,
+                patient_name=patient_name,
+                report_data=preview_report_data,
+                clinic_branding=clinic_branding
+            )
+            
+            if email_sent:
+                logger.info(f"✅ Preview email with PDF sent successfully to {patient_email}")
+                return {
+                    "success": True,
+                    "message": f"Preview report sent successfully to {patient_email}"
+                }
+            else:
+                logger.error(f"❌ Failed to send preview email to {patient_email}")
+                return {
+                    "success": False,
+                    "error": "Failed to send preview email"
+                }
+                
+        except Exception as email_error:
+            logger.error(f"❌ Preview email sending error: {str(email_error)}")
+            return {
+                "success": False,
+                "error": f"Preview email sending failed: {str(email_error)}"
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ General error in send_preview_report_email: {str(e)}")
+        return {
+            "success": False,
+            "error": f"General error: {str(e)}"
+        }

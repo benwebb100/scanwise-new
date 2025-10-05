@@ -45,6 +45,14 @@ interface AIAnalysisSectionProps {
   annotatedImageUrl: string;
   onAcceptFinding?: (detection: Detection, toothMapping?: {tooth: string, confidence: number, reasoning: string}) => void;
   onRejectFinding?: (detection: Detection) => void;
+  // Tooth numbering overlay props
+  showToothNumberOverlay?: boolean;
+  setShowToothNumberOverlay?: (show: boolean) => void;
+  textSizeMultiplier?: number;
+  setTextSizeMultiplier?: (size: number) => void;
+  isUpdatingTextSize?: boolean;
+  originalImageUrl?: string | null;
+  setImmediateAnalysisData?: (data: any) => void;
 }
 
 // Define active conditions vs existing dental work
@@ -68,7 +76,15 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   detections,
   annotatedImageUrl,
   onAcceptFinding,
-  onRejectFinding
+  onRejectFinding,
+  // Tooth numbering overlay props
+  showToothNumberOverlay = false,
+  setShowToothNumberOverlay,
+  textSizeMultiplier = 1.2,
+  setTextSizeMultiplier,
+  isUpdatingTextSize = false,
+  originalImageUrl,
+  setImmediateAnalysisData
 }) => {
   const { toast } = useToast();
   const { t, translateCondition } = useTranslation();
@@ -148,6 +164,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   };
 
   const [addedDetections, setAddedDetections] = useState<Set<number>>(new Set());
+  const [isAddingAll, setIsAddingAll] = useState(false);
 
   // Helper to normalize missing tooth variants
   const normalizeMissingToGeneric = (detection: Detection): Detection => {
@@ -347,6 +364,82 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     }
                     return null;
                   })()}
+
+                  {/* Tooth Number Overlay Toggle - Positioned below legend, above active conditions */}
+                  {setShowToothNumberOverlay && setTextSizeMultiplier && setImmediateAnalysisData && (
+                    <div className="mt-4 mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex-1 text-left">
+                          <label className="text-sm font-medium text-green-900 block">
+                            Tooth Number Overlay
+                          </label>
+                          <p className="text-xs text-green-700 mt-1 block">
+                            Show tooth numbers on the annotated X-ray for easier reference
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <Switch
+                            id="tooth-number-overlay-toggle"
+                            checked={showToothNumberOverlay || false}
+                            onCheckedChange={(checked) => {
+                              if (setShowToothNumberOverlay) {
+                                setShowToothNumberOverlay(checked);
+                              }
+                              localStorage.setItem('showToothNumberOverlay', checked.toString());
+                              
+                              // Immediately handle the toggle change
+                              if (!checked && originalImageUrl && setImmediateAnalysisData) {
+                                // Toggle turned OFF - immediately restore original image
+                                setImmediateAnalysisData((prev: any) => ({
+                                  ...prev,
+                                  annotated_image_url: originalImageUrl
+                                }));
+                              }
+                            }}
+                            className="data-[state=checked]:bg-green-600"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Text Size Slider - Only show when toggle is ON */}
+                      {showToothNumberOverlay && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-green-800">
+                              Text Size: {(textSizeMultiplier || 1.0).toFixed(1)}x
+                              {isUpdatingTextSize && (
+                                <span className="ml-2 text-xs text-orange-600 animate-pulse">
+                                  Updating...
+                                </span>
+                              )}
+                            </label>
+                            <span className="text-xs text-green-600">
+                              {Math.round(32 * (textSizeMultiplier || 1.0))}px
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-green-600">Small</span>
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="1.5"
+                              step="0.1"
+                              value={textSizeMultiplier || 1.0}
+                              onChange={(e) => {
+                                const newValue = parseFloat(e.target.value);
+                                if (setTextSizeMultiplier) {
+                                  setTextSizeMultiplier(newValue);
+                                }
+                                localStorage.setItem('toothNumberTextSize', newValue.toString());
+                              }}
+                              className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <span className="text-xs text-green-600">Large</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -376,31 +469,39 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                         size="sm"
                         variant="outline"
                         className="bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700 hover:text-blue-800"
+                        disabled={isAddingAll}
                         onClick={async () => {
-                          let removedPlaceholder = false;
-                          const mappings = await handleMapTeeth();
-                          let addedCount = 0;
-                          activeConditions.forEach((detection) => {
-                            const originalIndex = detections.indexOf(detection);
-                            if (!addedDetections.has(originalIndex)) {
-                              if (!removedPlaceholder) {
-                                window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
-                                removedPlaceholder = true;
+                          if (isAddingAll) return; // Prevent double-clicks
+                          
+                          setIsAddingAll(true);
+                          try {
+                            let removedPlaceholder = false;
+                            let addedCount = 0;
+                            activeConditions.forEach((detection) => {
+                              const originalIndex = detections.indexOf(detection);
+                              if (!addedDetections.has(originalIndex)) {
+                                if (!removedPlaceholder) {
+                                  window.dispatchEvent(new CustomEvent('remove-empty-finding-placeholder'));
+                                  removedPlaceholder = true;
+                                }
+                                // Use existing tooth mappings instead of re-mapping
+                                const mapData = toothMappings[originalIndex]
+                                  ? { tooth: toothMappings[originalIndex].tooth, confidence: toothMappings[originalIndex].confidence, reasoning: toothMappings[originalIndex].reasoning }
+                                  : undefined;
+                                // Normalize missing tooth variants before adding
+                                const normalizedDetection = normalizeMissingToGeneric(detection);
+                                onAcceptFinding?.(normalizedDetection as any, mapData as any);
+                                setAddedDetections(prev => new Set([...prev, originalIndex]));
+                                addedCount++;
                               }
-                              const mapData = mappings && mappings[originalIndex]
-                                ? { tooth: mappings[originalIndex].tooth, confidence: mappings[originalIndex].confidence, reasoning: mappings[originalIndex].reasoning }
-                                : undefined;
-                              // Normalize missing tooth variants before adding
-                              const normalizedDetection = normalizeMissingToGeneric(detection);
-                              onAcceptFinding?.(normalizedDetection as any, mapData as any);
-                              setAddedDetections(prev => new Set([...prev, originalIndex]));
-                              addedCount++;
+                            });
+                            if (addedCount > 0) {
+                              toast({ title: 'Findings Added', description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.` });
+                            } else {
+                              toast({ title: 'No New Findings', description: 'All active conditions have already been added to dental findings.' });
                             }
-                          });
-                          if (addedCount > 0) {
-                            toast({ title: 'Findings Added', description: `${addedCount} active condition${addedCount === 1 ? '' : 's'} added to dental findings.` });
-                          } else {
-                            toast({ title: 'No New Findings', description: 'All active conditions have already been added to dental findings.' });
+                          } finally {
+                            setIsAddingAll(false);
                           }
                         }}
                       >

@@ -3,9 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
+import { heygenService } from '@/services/heygen';
 
 const ViewReport = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -15,6 +16,9 @@ const ViewReport = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>("report");
+  const [patientEmail, setPatientEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isGeneratingConsultation, setIsGeneratingConsultation] = useState(false);
   
   useEffect(() => {
     fetchReport();
@@ -34,8 +38,9 @@ const ViewReport = () => {
         // Check if the requested tab is available
         if (tabParam === 'video' && reportData.videoUrl) {
           tab = 'video';
+        } else if (tabParam === 'pdf') {
+          tab = 'pdf';
         }
-        // Remove pdf check since we're removing PDF tab
       }
       
       setActiveTab(tab);
@@ -129,6 +134,96 @@ const ViewReport = () => {
     }
   };
 
+  const handleGenerateConsultation = async () => {
+    if (!reportData) return;
+    
+    setIsGeneratingConsultation(true);
+    
+    try {
+      // Extract treatment plan and findings from report data
+      const treatmentPlan = reportData.reportHtml || 'Treatment plan not available';
+      const findings = reportData.findings || 'Dental findings not available';
+      
+      const consultationRequest = {
+        reportId: reportId!,
+        patientName: reportData.patientName || 'Patient',
+        treatmentPlan,
+        findings
+      };
+      
+      console.log('🎭 Generating consultation for:', consultationRequest);
+      
+      // Generate consultation URL using Heygen service
+      const result = await heygenService.generateConsultationUrl(consultationRequest);
+      
+      if (result.success && result.consultationUrl) {
+        // Open consultation in new tab
+        window.open(result.consultationUrl, '_blank');
+        
+        toast({
+          title: "Consultation Ready!",
+          description: "Your personalized consultation has been generated and opened in a new tab.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate consultation');
+      }
+      
+    } catch (error) {
+      console.error('Error generating consultation:', error);
+      toast({
+        title: "Consultation Failed",
+        description: "Failed to generate consultation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConsultation(false);
+    }
+  };
+
+  const handleSendReportToPatient = async () => {
+    if (!patientEmail.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter the patient's email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!reportData?.reportHtml) {
+      toast({
+        title: "Report Required",
+        description: "No report content available to send.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      // Call the backend API to send the email
+      await api.sendReportToPatient(reportId!, patientEmail);
+      
+      toast({
+        title: "Report Sent!",
+        description: `Dental report has been sent to ${patientEmail}`,
+      });
+      
+      setPatientEmail(''); // Clear the email input
+      
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast({
+        title: "Send Failed",
+        description: "Failed to send report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -196,6 +291,99 @@ const ViewReport = () => {
             </p>
           </div>
 
+          {/* Send Report to Patient - Prominent Section */}
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <Mail className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-900">Ready to Send to Patient?</h3>
+                      <p className="text-sm text-green-700">
+                        Send this completed dental report directly to your patient's email
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="email"
+                      value={patientEmail}
+                      onChange={(e) => setPatientEmail(e.target.value)}
+                      placeholder="patient@example.com"
+                      className="px-4 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-64"
+                    />
+                    <Button
+                      onClick={handleSendReportToPatient}
+                      disabled={isSendingEmail || !patientEmail.trim()}
+                      className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6"
+                    >
+                      {isSendingEmail ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send Report
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                                  </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Interactive Avatar Consultation - New Section */}
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <MessageCircle className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Interactive AI Consultation</h3>
+                      <p className="text-sm text-blue-700">
+                        Let patients ask questions about their treatment plan with our AI dentist avatar
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right mr-4">
+                      <p className="text-sm text-blue-600 font-medium">Available 24/7</p>
+                      <p className="text-xs text-blue-500">Personalized responses</p>
+                    </div>
+                    <Button
+                      onClick={handleGenerateConsultation}
+                      disabled={isGeneratingConsultation}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 px-6"
+                    >
+                      {isGeneratingConsultation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <MessageCircle className="w-4 h-4" />
+                          Start Consultation
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Report/Video Display */}
           <Card className="bg-white border-blue-200">
             <CardHeader>
@@ -232,13 +420,64 @@ const ViewReport = () => {
                   />
                 </TabsContent>
 
+                {/* PDF Tab - Client-side PDF generation */}
+                <TabsContent value="pdf" className="mt-4">
+                  <div className="space-y-4">
+                    <div className="bg-white border rounded p-4">
+                      <div className="text-center mb-4">
+                        <FileIcon className="w-16 h-16 text-blue-600 mx-auto mb-2" />
+                        <h3 className="text-lg font-semibold">PDF Report Ready for Download</h3>
+                        <p className="text-sm text-gray-600">
+                          Click the button below to generate and download the PDF report
+                        </p>
+                      </div>
+                      
+                      <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                        <h4 className="font-semibold text-blue-900 mb-2">About This PDF</h4>
+                        <p className="text-sm text-blue-700">
+                          This PDF report contains the complete dental analysis and treatment plan.
+                          You can download it for your records or print it for reference.
+                        </p>
+                      </div>
+                      
+                      <div className="flex justify-center gap-3">
+                        <Button
+                          onClick={handleDownloadPDF}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Generate & Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleGenerateConsultation}
+                          disabled={isGeneratingConsultation}
+                          className="flex items-center gap-2"
+                        >
+                          {isGeneratingConsultation ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="w-4 h-4" />
+                              Ask Questions
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
                 {/* Video Tab */}
                 <TabsContent value="video" className="mt-4">
                   {reportData.videoUrl ? (
                     <div className="space-y-4">
                       <div className="bg-gray-900 rounded-lg overflow-hidden">
-                        <video
-                          controls
+                        <video 
+                          controls 
                           className="w-full"
                           poster={reportData.annotatedImageUrl}
                         >
@@ -249,19 +488,19 @@ const ViewReport = () => {
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <h4 className="font-semibold text-blue-900 mb-2">About This Video</h4>
                         <p className="text-sm text-blue-700">
-                          This personalized video explains the X-ray findings in an easy-to-understand way.
+                          This personalized video explains the X-ray findings in an easy-to-understand way. 
                           It includes voice narration and subtitles to help patients understand their dental conditions and treatment options.
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
+                        <Button 
+                          variant="outline" 
                           onClick={() => window.open(reportData.videoUrl, '_blank')}
                         >
                           <Play className="mr-2 w-4 h-4" />
                           Open in New Tab
                         </Button>
-                        <Button
+                        <Button 
                           variant="outline"
                           onClick={() => {
                             const a = document.createElement('a');
@@ -274,6 +513,24 @@ const ViewReport = () => {
                         >
                           <Download className="mr-2 w-4 h-4" />
                           Download Video
+                        </Button>
+                        <Button 
+                          variant="default"
+                          onClick={handleGenerateConsultation}
+                          disabled={isGeneratingConsultation}
+                          className="bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700"
+                        >
+                          {isGeneratingConsultation ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="w-4 h-4" />
+                              Ask Questions
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -307,32 +564,6 @@ const ViewReport = () => {
                 </TabsContent>
               </Tabs>
 
-              {/* Tab Navigation */}
-              <div className="mt-8 border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Available Report Formats</h3>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant={activeTab === "report" ? "default" : "outline"}
-                    onClick={() => handleTabChange("report")}
-                    className="flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Written Report
-                  </Button>
-                  
-                  {reportData.videoUrl && (
-                    <Button
-                      variant={activeTab === "video" ? "default" : "outline"}
-                      onClick={() => handleTabChange("video")}
-                      className="flex items-center gap-2"
-                    >
-                      <Video className="w-4 h-4" />
-                      Patient Video
-                    </Button>
-                  )}
-                </div>
-              </div>
-
               {/* Report Details */}
               <div className="mt-8 border-t pt-6">
                 <h3 className="font-semibold text-gray-900 mb-4">Report Details</h3>
@@ -357,6 +588,7 @@ const ViewReport = () => {
                   </div>
                 </div>
               </div>
+
             </CardContent>
           </Card>
         </div>
