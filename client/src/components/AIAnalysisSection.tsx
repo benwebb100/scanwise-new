@@ -11,6 +11,7 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { useToast } from '@/hooks/use-toast';
 import { NoTranslateTooth } from '@/components/NoTranslate';
 import { api } from '@/services/api';
+import { getSuggestedTreatments } from '@/data/dental-data';
 
 interface DetailedFinding {
   condition: string;
@@ -219,26 +220,16 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     setAddedDetections(prev => new Set([...prev, index]));
   };
 
-  // Add this helper function to suggest treatments based on conditions:
+  // Helper function to get suggested treatment using the comprehensive mapping from dental-data.ts
   const getSuggestedTreatmentForCondition = (condition: string): string => {
     const normalized = condition.toLowerCase().replace(/\s+/g, '-');
     
-    const treatmentMap: Record<string, string> = {
-      'periapical-lesion': 'root-canal-treatment',
-      'caries': 'filling',
-      'cavity': 'filling',
-      'impacted-tooth': 'surgical-extraction',
-      'missing-tooth': 'implant-placement',
-      'missing-tooth-between': 'bridge',
-      'missing-teeth-no-distal': 'partial-denture',
-      'root-piece': 'extraction',
-      'fracture': 'crown',
-      'root-fracture': 'extraction',
-      'crown-fracture': 'crown',
-      'bone-loss': 'deep-cleaning',
-    };
+    // Use the comprehensive mapping from dental-data.ts
+    const suggestions = getSuggestedTreatments(normalized);
     
-    return treatmentMap[normalized] || '';
+    // Get the first pinned (suggested) treatment, or empty string if none
+    const firstSuggested = suggestions.find(s => s.pinned);
+    return firstSuggested ? firstSuggested.value : '';
   };
 
   const handleMapTeeth = async (): Promise<{[key: number]: {tooth: string, confidence: number, reasoning: string}} | undefined> => {
