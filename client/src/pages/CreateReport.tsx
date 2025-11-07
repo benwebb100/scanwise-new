@@ -3503,7 +3503,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Brain, ArrowLeft, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
@@ -3530,6 +3530,7 @@ import './CreateReport.css';
 
 const CreateReport = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { t } = useTranslation();
   const { 
@@ -3604,6 +3605,42 @@ const CreateReport = () => {
   const savePrice = async (treatment: string, price: number) => {
     updateTreatmentSetting(treatment, { price });
   };
+
+  // Check for AWS pre-analyzed data on mount
+  useEffect(() => {
+    const awsPreAnalyzed = (location.state as any)?.awsPreAnalyzed;
+    
+    if (awsPreAnalyzed) {
+      console.log('🔬 Loading pre-analyzed AWS data:', awsPreAnalyzed);
+      
+      // Set patient name if provided
+      if (awsPreAnalyzed.patientName) {
+        setPatientName(awsPreAnalyzed.patientName);
+      }
+      
+      // Load the pre-analyzed data
+      const analysisData = {
+        annotated_image_url: awsPreAnalyzed.annotatedImageUrl,
+        detections: awsPreAnalyzed.detections || [],
+        findings_summary: awsPreAnalyzed.findingsSummary,
+        original_image_url: awsPreAnalyzed.imageUrl,
+        s3_key: awsPreAnalyzed.s3Key,
+        analysis_id: awsPreAnalyzed.analysisId
+      };
+      
+      setImmediateAnalysisData(analysisData);
+      setOriginalImageUrl(awsPreAnalyzed.annotatedImageUrl);
+      
+      // Show success toast
+      toast({
+        title: "AWS Image Loaded",
+        description: `Analysis complete with ${awsPreAnalyzed.detections?.length || 0} conditions detected.`,
+        duration: 4000,
+      });
+      
+      console.log('✅ Pre-analyzed AWS data loaded successfully');
+    }
+  }, [location.state]);
 
   // File upload handlers
   const handleFileUploaded = (file: File, analysisData: any) => {

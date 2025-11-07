@@ -723,4 +723,38 @@ export const api = {
       };
     }
   },
+
+  // Trigger AI analysis for an AWS image
+  async analyzeAwsImage(s3Key: string, imageUrl: string, filename: string) {
+    console.log('🔬 API: Triggering AWS image analysis...', { s3Key, filename });
+    const token = await this.getAuthToken();
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/aws/analyze`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          s3_key: s3Key,
+          image_url: imageUrl,
+          filename: filename
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('🔬 API: Analysis error:', result);
+        throw new Error(result.detail || 'Analysis failed');
+      }
+
+      console.log('🔬 API: Analysis triggered successfully:', result.status);
+      return result;
+    } catch (error) {
+      console.error('🔬 API: Analysis request failed:', error);
+      throw error;
+    }
+  },
 };

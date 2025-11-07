@@ -30,6 +30,12 @@ interface Report {
   isDicom?: boolean;
   originalFilename?: string;
   clinicId?: string;
+  // AWS analysis fields
+  analysisComplete?: boolean;
+  analysisId?: string;
+  detections?: any[];
+  findingsSummary?: string;
+  s3Key?: string;
 }
 
 interface Stats {
@@ -65,13 +71,25 @@ const Dashboard = () => {
 
   // Check AWS processing status periodically
   useEffect(() => {
-    if (reports.some(r => r.source === 'aws_s3' && r.status === 'In Progress')) {
+    // Poll for AWS images with Processing or Pending status
+    const hasProcessingImages = reports.some(r => 
+      r.source === 'aws_s3' && 
+      (r.status === 'Processing' || r.status === 'processing' || 
+       r.status === 'Pending' || r.status === 'pending' ||
+       r.status === 'In Progress')
+    );
+    
+    if (hasProcessingImages) {
+      console.log('⏳ AWS images are processing, starting polling...');
       const interval = setInterval(() => {
-        // Refresh AWS images to check processing status
+        console.log('🔄 Polling for AWS processing status...');
         fetchAwsImages();
-      }, 10000); // Check every 10 seconds
+      }, 5000); // Check every 5 seconds for faster updates
       
-      return () => clearInterval(interval);
+      return () => {
+        console.log('✅ Stopping AWS polling');
+        clearInterval(interval);
+      };
     }
   }, [reports]);
 
@@ -250,7 +268,13 @@ const Dashboard = () => {
         source: 'aws_s3' as const,
         isDicom: image.isDicom,
         originalFilename: image.originalFilename,
-        clinicId: image.clinicId
+        clinicId: image.clinicId,
+        // New fields for AWS analysis
+        analysisComplete: image.analysisComplete,
+        analysisId: image.analysisId,
+        detections: image.detections,
+        findingsSummary: image.findingsSummary,
+        s3Key: image.s3Key
       }));
       
       // Update only AWS reports in the existing reports array
@@ -263,6 +287,22 @@ const Dashboard = () => {
         });
         return allReports;
       });
+
+      // Auto-trigger analysis for pending images
+      const pendingImages = awsReports.filter(img => img.status === 'Pending');
+      if (pendingImages.length > 0) {
+        console.log(`🔬 Found ${pendingImages.length} pending AWS images, triggering analysis...`);
+        pendingImages.forEach(async (img) => {
+          try {
+            await api.analyzeAwsImage(img.s3Key!, img.imageUrl!, img.originalFilename!);
+            console.log(`✅ Analysis triggered for ${img.originalFilename}`);
+            // Refresh after a short delay
+            setTimeout(() => fetchAwsImages(), 2000);
+          } catch (error) {
+            console.error(`❌ Failed to trigger analysis for ${img.originalFilename}:`, error);
+          }
+        });
+      }
       
       // Show result toast
       if (awsReports.length > 0) {
@@ -304,9 +344,20 @@ const Dashboard = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Completed":
+      case "completed":
         return "bg-green-100 text-green-700 border-green-200";
       case "In Progress":
+      case "Processing":
+      case "processing":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "Pending":
+      case "pending":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "Failed":
+      case "failed":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "Ready":
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -324,22 +375,66 @@ const Dashboard = () => {
   // };
 
     const handleViewReport = async (report: Report) => {
-    // Check if this is an unprocessed AWS image
-    if (report.source === 'aws_s3' && (!report.status || report.status === 'Ready' || report.status === 'In Progress')) {
-      // Navigate to CreateReport with the AWS image data
-      navigate('/create-report', { 
-        state: { 
-          awsImage: {
-            imageUrl: report.imageUrl,
-            patientName: report.patientName,
-            patientId: report.patientId,
-            reportId: report.id,
-            originalFilename: report.originalFilename
+    // Check if this is an AWS image
+    if (report.source === 'aws_s3') {
+      // Check if analysis is complete
+      if (report.analysisComplete && report.detections) {
+        // Navigate to CreateReport with pre-analyzed AWS data
+        navigate('/create-report', { 
+          state: { 
+            awsPreAnalyzed: {
+              imageUrl: report.imageUrl,
+              annotatedImageUrl: report.annotatedImageUrl,
+              patientName: report.patientName,
+              patientId: report.patientId,
+              reportId: report.id,
+              originalFilename: report.originalFilename,
+              detections: report.detections,
+              findingsSummary: report.findingsSummary,
+              s3Key: report.s3Key,
+              analysisId: report.analysisId
+            }
           }
-        }
-      });
+        });
+      } else if (report.status === 'Processing' || report.status === 'processing') {
+        // Still processing, show toast
+        toast({
+          title: "Analysis in Progress",
+          description: "This image is still being analyzed. Please wait...",
+          duration: 3000,
+        });
+      } else if (report.status === 'Failed' || report.status === 'failed') {
+        // Failed, allow retry
+        navigate('/create-report', { 
+          state: { 
+            awsImage: {
+              imageUrl: report.imageUrl,
+              patientName: report.patientName,
+              patientId: report.patientId,
+              reportId: report.id,
+              originalFilename: report.originalFilename,
+              s3Key: report.s3Key,
+              retry: true
+            }
+          }
+        });
+      } else {
+        // Not analyzed yet, go to upload page (will trigger analysis)
+        navigate('/create-report', { 
+          state: { 
+            awsImage: {
+              imageUrl: report.imageUrl,
+              patientName: report.patientName,
+              patientId: report.patientId,
+              reportId: report.id,
+              originalFilename: report.originalFilename,
+              s3Key: report.s3Key
+            }
+          }
+        });
+      }
     } else {
-      // For completed reports, view normally
+      // For completed manual reports, view normally
       navigate(`/report/${report.id}`, { state: { report } });
     }
   };

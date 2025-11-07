@@ -2236,6 +2236,45 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         
         logger.info(f"✅ Found {len(images)} images for user {user_id}")
         
+        # Check for existing analysis in Supabase for each image
+        for img in images:
+            try:
+                # Query Supabase for analysis results linked to this S3 key
+                analysis_response = supabase_service.client.table('aws_image_analysis')\
+                    .select('*')\
+                    .eq('s3_key', img['s3Key'])\
+                    .eq('user_id', user_id)\
+                    .execute()
+                
+                if analysis_response.data and len(analysis_response.data) > 0:
+                    analysis = analysis_response.data[0]
+                    img['status'] = analysis.get('status', 'Ready')
+                    img['analysisComplete'] = analysis.get('status') == 'completed'
+                    img['analysisId'] = analysis.get('id')
+                    
+                    if analysis.get('status') == 'completed':
+                        img['annotatedImageUrl'] = analysis.get('annotated_image_url')
+                        img['detections'] = analysis.get('detections', [])
+                        img['findingsSummary'] = analysis.get('findings_summary')
+                        img['summary'] = f"Ready - {len(analysis.get('detections', []))} conditions detected"
+                    elif analysis.get('status') == 'processing':
+                        img['status'] = 'Processing'
+                        img['summary'] = 'AI analysis in progress...'
+                    elif analysis.get('status') == 'failed':
+                        img['status'] = 'Failed'
+                        img['summary'] = 'Analysis failed - click to retry'
+                else:
+                    # No analysis found - trigger it automatically
+                    img['status'] = 'Pending'
+                    img['analysisComplete'] = False
+                    img['summary'] = 'Ready for analysis'
+            except Exception as e:
+                logger.warning(f"Could not check analysis status for {img['originalFilename']}: {e}")
+                img['status'] = 'Ready'
+                img['analysisComplete'] = False
+        
+        logger.info(f"✅ Found {len(images)} images for user {user_id}")
+        
         return {
             "images": images,
             "total": len(images),
@@ -2245,6 +2284,154 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
             
     except Exception as e:
         logger.error(f"❌ Critical error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Trigger AI analysis for an AWS image
+@router.post("/aws/analyze")
+async def analyze_aws_image(
+    request: Request,
+    token: str = Depends(get_auth_token)
+):
+    """Trigger AI analysis for an AWS S3 image"""
+    logger.info("🔬 Starting AWS image analysis request")
+    
+    try:
+        # Get user ID from token
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded.get('sub')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid authentication")
+        
+        # Parse request body
+        body = await request.json()
+        s3_key = body.get('s3_key')
+        image_url = body.get('image_url')
+        filename = body.get('filename')
+        
+        if not s3_key or not image_url:
+            raise HTTPException(status_code=400, detail="s3_key and image_url are required")
+        
+        logger.info(f"📋 Analysis request - User: {user_id}, S3 Key: {s3_key}")
+        
+        # Check if analysis already exists
+        existing = supabase_service.client.table('aws_image_analysis')\
+            .select('*')\
+            .eq('s3_key', s3_key)\
+            .eq('user_id', user_id)\
+            .execute()
+        
+        if existing.data and len(existing.data) > 0:
+            analysis_record = existing.data[0]
+            if analysis_record.get('status') == 'completed':
+                logger.info(f"✅ Analysis already completed for {s3_key}")
+                return {
+                    "success": True,
+                    "status": "completed",
+                    "message": "Analysis already completed",
+                    "analysis_id": analysis_record['id'],
+                    "detections": analysis_record.get('detections'),
+                    "annotated_image_url": analysis_record.get('annotated_image_url'),
+                    "findings_summary": analysis_record.get('findings_summary')
+                }
+            elif analysis_record.get('status') == 'processing':
+                logger.info(f"⏳ Analysis already in progress for {s3_key}")
+                return {
+                    "success": True,
+                    "status": "processing",
+                    "message": "Analysis already in progress",
+                    "analysis_id": analysis_record['id']
+                }
+        
+        # Create new analysis record with 'processing' status
+        analysis_record = {
+            'user_id': user_id,
+            's3_key': s3_key,
+            'filename': filename or s3_key.split('/')[-1],
+            'original_image_url': image_url,
+            'status': 'processing',
+            'created_at': datetime.now().isoformat()
+        }
+        
+        insert_response = supabase_service.client.table('aws_image_analysis')\
+            .insert(analysis_record)\
+            .execute()
+        
+        if not insert_response.data:
+            raise Exception("Failed to create analysis record")
+        
+        analysis_id = insert_response.data[0]['id']
+        logger.info(f"📝 Created analysis record: {analysis_id}")
+        
+        # Run AI analysis
+        try:
+            logger.info("🤖 Running Roboflow detection...")
+            predictions, annotated_image = await roboflow_service.detect_conditions(image_url)
+            
+            if not predictions or not annotated_image:
+                raise Exception("Roboflow analysis failed")
+            
+            # Upload annotated image to Supabase
+            logger.info("📤 Uploading annotated image...")
+            annotated_filename = f"aws_annotated/{user_id}/{filename or 'image'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            annotated_url = await supabase_service.upload_image(
+                annotated_image,
+                annotated_filename,
+                token
+            )
+            
+            if not annotated_url:
+                raise Exception("Failed to upload annotated image")
+            
+            # Generate findings summary with OpenAI
+            logger.info("🧠 Generating AI findings summary...")
+            findings_summary = await openai_service.generate_immediate_findings_summary(predictions)
+            
+            # Update analysis record with results
+            update_data = {
+                'status': 'completed',
+                'annotated_image_url': annotated_url,
+                'detections': predictions.get('predictions', []),
+                'findings_summary': findings_summary,
+                'completed_at': datetime.now().isoformat()
+            }
+            
+            supabase_service.client.table('aws_image_analysis')\
+                .update(update_data)\
+                .eq('id', analysis_id)\
+                .execute()
+            
+            logger.info(f"✅ Analysis completed successfully for {s3_key}")
+            
+            return {
+                "success": True,
+                "status": "completed",
+                "message": "Analysis completed successfully",
+                "analysis_id": analysis_id,
+                "detections": predictions.get('predictions', []),
+                "annotated_image_url": annotated_url,
+                "findings_summary": findings_summary
+            }
+            
+        except Exception as analysis_error:
+            logger.error(f"❌ Analysis failed: {str(analysis_error)}")
+            
+            # Update record with failed status
+            supabase_service.client.table('aws_image_analysis')\
+                .update({
+                    'status': 'failed',
+                    'error_message': str(analysis_error),
+                    'completed_at': datetime.now().isoformat()
+                })\
+                .eq('id', analysis_id)\
+                .execute()
+            
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(analysis_error)}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Critical error in AWS analysis: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Health check endpoint to verify S3 configuration
