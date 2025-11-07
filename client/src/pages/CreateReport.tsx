@@ -3500,7 +3500,7 @@
 // ------------------------------------------------------------------------
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -3585,6 +3585,10 @@ const CreateReport = () => {
   // Price validation state
   const [showPriceValidation, setShowPriceValidation] = useState(false);
   const [missingPrices, setMissingPrices] = useState<string[]>([]);
+  
+  // Patient name validation state
+  const patientNameRef = useRef<HTMLInputElement>(null);
+  const [patientNameError, setPatientNameError] = useState(false);
 
   // Helper functions
   const getPrice = (treatment: string): number => {
@@ -3709,20 +3713,47 @@ const CreateReport = () => {
   const handleNextStep = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
+    // Clear previous errors
+    setPatientNameError(false);
+    
     // Validation
     if (useXrayMode) {
-      if (!uploadedImage || !patientName.trim()) {
+      if (!uploadedImage) {
         toast({ 
-          title: "Missing info", 
-          description: "Please upload an OPG and enter patient name." 
+          title: "Missing X-ray", 
+          description: "Please upload an OPG image." 
+        });
+        return;
+      }
+      if (!patientName.trim()) {
+        setPatientNameError(true);
+        patientNameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          patientNameRef.current?.focus();
+        }, 300);
+        toast({ 
+          title: "Patient name required", 
+          description: "Please enter the patient's name before continuing." 
         });
         return;
       }
     } else {
-      if (!patientName.trim() || (!patientObservations.trim() && findings.filter(f => f.tooth && f.condition && f.treatment).length === 0)) {
+      if (!patientName.trim()) {
+        setPatientNameError(true);
+        patientNameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          patientNameRef.current?.focus();
+        }, 300);
+        toast({ 
+          title: "Patient name required", 
+          description: "Please enter the patient's name before continuing." 
+        });
+        return;
+      }
+      if (!patientObservations.trim() && findings.filter(f => f.tooth && f.condition && f.treatment).length === 0) {
         toast({ 
           title: "Missing info", 
-          description: "Please enter patient name and either observations or findings." 
+          description: "Please enter either observations or findings." 
         });
         return;
       }
@@ -3960,8 +3991,6 @@ const CreateReport = () => {
                 <FileUploadSection
                   onFileUploaded={handleFileUploaded}
                   onAnalysisComplete={handleAnalysisComplete}
-                  patientName={patientName}
-                  onPatientNameChange={setPatientName}
                   isProcessing={isProcessing}
                 />
 
@@ -3983,91 +4012,146 @@ const CreateReport = () => {
                 )}
 
                 {!report && immediateAnalysisData && (
-                  <FindingsManagement
-                    findings={findings}
-                    onFindingsChange={setFindings}
-                    toothNumberingSystem={toothNumberingSystem}
-                    showTreatmentPricing={showTreatmentPricing}
-                    onShowPricingChange={(value) => {
-                      setShowTreatmentPricing(value);
-                      localStorage.setItem('showTreatmentPricing', value.toString());
-                    }}
-                    isProcessing={isProcessing}
-                    onPriceSave={savePrice}
-                    getPrice={getPrice}
-                    onNextStep={handleNextStep}
-                    onContinueEditingStages={handleContinueEditingStages}
-                    onGenerateFromSavedStages={handleGenerateFromSavedStages}
-                    currentTreatmentStages={currentTreatmentStages}
-                  />
+                  <>
+                    {/* Patient Name Section - Above Findings */}
+                    <Card className={`mb-6 ${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
+                      <CardContent className="pt-6">
+                        <div>
+                          <Label htmlFor="patient-name-xray" className="block font-medium text-blue-900 mb-2 text-base">
+                            Patient Name *
+                          </Label>
+                          {patientNameError && (
+                            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                              <p className="text-sm text-yellow-800 font-medium">
+                                ⚠️ Patient name is required to continue
+                              </p>
+                            </div>
+                          )}
+                          <Input
+                            ref={patientNameRef}
+                            id="patient-name-xray"
+                            value={patientName}
+                            onChange={(e) => {
+                              setPatientName(e.target.value);
+                              if (patientNameError && e.target.value.trim()) {
+                                setPatientNameError(false);
+                              }
+                            }}
+                            placeholder="Enter patient name"
+                            required
+                            disabled={isProcessing}
+                            className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <FindingsManagement
+                      findings={findings}
+                      onFindingsChange={setFindings}
+                      toothNumberingSystem={toothNumberingSystem}
+                      showTreatmentPricing={showTreatmentPricing}
+                      onShowPricingChange={(value) => {
+                        setShowTreatmentPricing(value);
+                        localStorage.setItem('showTreatmentPricing', value.toString());
+                      }}
+                      isProcessing={isProcessing}
+                      onPriceSave={savePrice}
+                      getPrice={getPrice}
+                      onNextStep={handleNextStep}
+                      onContinueEditingStages={handleContinueEditingStages}
+                      onGenerateFromSavedStages={handleGenerateFromSavedStages}
+                      currentTreatmentStages={currentTreatmentStages}
+                    />
+                  </>
                 )}
               </>
             )}
 
             {/* Non X-ray Mode Content */}
             {!useXrayMode && !report && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="mr-2 h-5 w-5" />
-                    Patient Observations
-                  </CardTitle>
-                  <CardDescription>
-                    Enter your clinical observations and notes about the patient's dental condition
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className={`space-y-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div>
-                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-1">
-                        Patient Name
-                      </Label>
-// CreateReport.tsx (continued)
+              <>
+                <Card className="mb-8">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <FileText className="mr-2 h-5 w-5" />
+                      Patient Observations
+                    </CardTitle>
+                    <CardDescription>
+                      Enter your clinical observations and notes about the patient's dental condition
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`space-y-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <div>
+                        <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
+                          Clinical Observations
+                        </Label>
+                        <Textarea
+                          id="observations"
+                          value={patientObservations}
+                          onChange={e => setPatientObservations(e.target.value)}
+                          placeholder="Enter your clinical observations..."
+                          rows={6}
+                          className="w-full"
+                          disabled={isProcessing}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
+                {/* Patient Name Section - Above Findings */}
+                <Card className={`mb-6 ${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
+                  <CardContent className="pt-6">
+                    <div>
+                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-2 text-base">
+                        Patient Name *
+                      </Label>
+                      {patientNameError && (
+                        <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                          <p className="text-sm text-yellow-800 font-medium">
+                            ⚠️ Patient name is required to continue
+                          </p>
+                        </div>
+                      )}
                       <Input
+                        ref={patientNameRef}
                         id="patient-name-no-xray"
                         value={patientName}
-                        onChange={e => setPatientName(e.target.value)}
+                        onChange={(e) => {
+                          setPatientName(e.target.value);
+                          if (patientNameError && e.target.value.trim()) {
+                            setPatientNameError(false);
+                          }
+                        }}
                         placeholder="Enter patient name"
                         required
                         disabled={isProcessing}
+                        className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
-                        Clinical Observations
-                      </Label>
-                      <Textarea
-                        id="observations"
-                        value={patientObservations}
-                        onChange={e => setPatientObservations(e.target.value)}
-                        placeholder="Enter your clinical observations..."
-                        rows={6}
-                        className="w-full"
-                        disabled={isProcessing}
-                      />
-                    </div>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <FindingsManagement
-                    findings={findings}
-                    onFindingsChange={setFindings}
-                    toothNumberingSystem={toothNumberingSystem}
-                    showTreatmentPricing={showTreatmentPricing}
-                    onShowPricingChange={(value) => {
-                      setShowTreatmentPricing(value);
-                      localStorage.setItem('showTreatmentPricing', value.toString());
-                    }}
-                    isProcessing={isProcessing}
-                    onPriceSave={savePrice}
-                    getPrice={getPrice}
-                    onNextStep={handleNextStep}
-                    onContinueEditingStages={handleContinueEditingStages}
-                    onGenerateFromSavedStages={handleGenerateFromSavedStages}
-                    currentTreatmentStages={currentTreatmentStages}
-                  />
-                </CardContent>
-              </Card>
+                <FindingsManagement
+                  findings={findings}
+                  onFindingsChange={setFindings}
+                  toothNumberingSystem={toothNumberingSystem}
+                  showTreatmentPricing={showTreatmentPricing}
+                  onShowPricingChange={(value) => {
+                    setShowTreatmentPricing(value);
+                    localStorage.setItem('showTreatmentPricing', value.toString());
+                  }}
+                  isProcessing={isProcessing}
+                  onPriceSave={savePrice}
+                  getPrice={getPrice}
+                  onNextStep={handleNextStep}
+                  onContinueEditingStages={handleContinueEditingStages}
+                  onGenerateFromSavedStages={handleGenerateFromSavedStages}
+                  currentTreatmentStages={currentTreatmentStages}
+                />
+              </>
             )}
 
             {/* Replacement Options Toggle */}

@@ -8,16 +8,12 @@ import { api } from '@/services/api';
 interface FileUploadSectionProps {
   onFileUploaded: (file: File, analysisData: any) => void;
   onAnalysisComplete: (data: any) => void;
-  patientName: string;
-  onPatientNameChange: (name: string) => void;
   isProcessing?: boolean;
 }
 
 export const FileUploadSection = ({
   onFileUploaded,
   onAnalysisComplete,
-  patientName,
-  onPatientNameChange,
   isProcessing = false
 }: FileUploadSectionProps) => {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -139,19 +135,6 @@ export const FileUploadSection = ({
                     ✓ Uploaded
                   </Badge>
                 </div>
-              </div>
-              
-              <div className={`mt-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
-                <label className="block font-medium text-blue-900 mb-1">Patient Name *</label>
-                <input
-                  type="text"
-                  value={patientName}
-                  onChange={e => onPatientNameChange(e.target.value)}
-                  placeholder="Enter patient name"
-                  required
-                  disabled={isProcessing}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
               </div>
             </div>
           )}
