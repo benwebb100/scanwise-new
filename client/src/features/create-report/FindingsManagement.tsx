@@ -7,8 +7,14 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PricingInput } from '@/components/PricingInput';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info, Edit3, ArrowRight, Loader2 } from 'lucide-react';
-import { getToothOptions, getReplacementOptions, getSuggestedTreatments, ToothNumberingSystem } from '@/data/dental-data';
-import { useDentalData } from '@/hooks/useDentalData';
+import { 
+  getToothOptions, 
+  getReplacementOptions, 
+  getSuggestedTreatments, 
+  ToothNumberingSystem,
+  ALL_CONDITIONS,
+  ALL_TREATMENTS
+} from '@/data/dental-data';
 import { useTranslation } from '@/contexts/TranslationContext';
 
 export interface Finding {
@@ -50,7 +56,6 @@ export const FindingsManagement = ({
   currentTreatmentStages
 }: FindingsManagementProps) => {
   const { t } = useTranslation();
-  const { conditions: ALL_CONDITIONS, treatments: ALL_TREATMENTS, isLoading: dentalDataLoading } = useDentalData();
 
   const handleFindingChange = (idx: number, field: string, value: string | number) => {
     const updated = [...findings];
@@ -153,9 +158,9 @@ export const FindingsManagement = ({
                   options={ALL_CONDITIONS}
                   value={f.condition}
                   onValueChange={(value) => handleFindingChange(idx, "condition", value)}
-                  placeholder={dentalDataLoading ? "Loading..." : "Select condition"}
+                  placeholder="Select condition"
                   searchPlaceholder="Search conditions..."
-                  disabled={isProcessing || dentalDataLoading}
+                  disabled={isProcessing}
                 />
               </div>
 
@@ -166,9 +171,9 @@ export const FindingsManagement = ({
                   options={ALL_TREATMENTS}
                   value={f.treatment}
                   onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
-                  placeholder={dentalDataLoading ? "Loading..." : "Select treatment"}
+                  placeholder="Select treatment"
                   searchPlaceholder="Search treatments..."
-                  disabled={isProcessing || dentalDataLoading}
+                  disabled={isProcessing}
                 />
               </div>
 
