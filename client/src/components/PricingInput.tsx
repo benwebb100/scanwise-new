@@ -24,7 +24,7 @@ export function PricingInput({
   onPriceSave,
   disabled = false
 }: PricingInputProps) {
-  const { getTreatmentSetting, updateTreatmentSetting } = useTreatmentSettings();
+  const { getTreatmentSetting, updateTreatmentSetting, saveChanges } = useTreatmentSettings();
   const [inputValue, setInputValue] = useState<string>('')
   const [isEditing, setIsEditing] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -97,13 +97,22 @@ export function PricingInput({
     setInputValue(value?.toString() || '')
   }
 
-  const handleConfirmSave = (updateSettings: boolean) => {
+  const handleConfirmSave = async (updateSettings: boolean) => {
     if (pendingPrice) {
       onChange(pendingPrice)
       
       if (updateSettings) {
         // Update treatment settings permanently
         updateTreatmentSetting(treatment, { price: pendingPrice })
+        
+        // Save changes to backend immediately
+        try {
+          await saveChanges()
+          console.log(`✅ Successfully saved price for ${treatment}: $${pendingPrice}`)
+        } catch (error) {
+          console.error(`❌ Failed to save price for ${treatment}:`, error)
+        }
+        
         if (onPriceSave) {
           onPriceSave(treatment, pendingPrice)
         }
