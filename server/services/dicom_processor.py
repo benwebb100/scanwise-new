@@ -1,10 +1,12 @@
 import pydicom
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import tempfile
 import os
 import requests
 from io import BytesIO
+import numpy as np
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +199,173 @@ class DICOMProcessor:
         except Exception as e:
             self.logger.error(f"Error validating DICOM: {str(e)}")
             return False
+    
+    def convert_dicom_to_image(self, dicom_url: str) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        """
+        Convert a DICOM file to JPEG/PNG image format suitable for AI analysis
+        
+        Args:
+            dicom_url: URL to the DICOM file
+            
+        Returns:
+            Tuple of (image_bytes, metadata) or None if conversion failed
+        """
+        try:
+            logger.info(f"🔄 Converting DICOM from URL: {dicom_url}")
+            
+            # Download DICOM file
+            response = requests.get(dicom_url, timeout=30)
+            response.raise_for_status()
+            
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.dcm') as temp_file:
+                temp_file.write(response.content)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Read DICOM file
+                ds = pydicom.dcmread(temp_file_path)
+                
+                # Extract metadata
+                metadata = self._extract_metadata(ds)
+                logger.info(f"✅ Extracted metadata: {metadata.get('patient_name', 'Unknown')}")
+                
+                # Get pixel array
+                if not hasattr(ds, 'pixel_array'):
+                    logger.error("❌ DICOM file has no pixel data")
+                    return None
+                
+                pixel_array = ds.pixel_array
+                logger.info(f"📊 Pixel array shape: {pixel_array.shape}, dtype: {pixel_array.dtype}")
+                
+                # Normalize pixel values to 0-255 range
+                pixel_array = pixel_array.astype(np.float32)
+                
+                # Handle different photometric interpretations
+                if hasattr(ds, 'PhotometricInterpretation'):
+                    photo_interp = ds.PhotometricInterpretation
+                    logger.info(f"📷 Photometric Interpretation: {photo_interp}")
+                    
+                    # Invert if MONOCHROME1 (where 0 is white, max is black)
+                    if photo_interp == 'MONOCHROME1':
+                        pixel_array = np.max(pixel_array) - pixel_array
+                
+                # Normalize to 0-255
+                pixel_min = np.min(pixel_array)
+                pixel_max = np.max(pixel_array)
+                
+                if pixel_max > pixel_min:
+                    pixel_array = ((pixel_array - pixel_min) / (pixel_max - pixel_min)) * 255.0
+                else:
+                    pixel_array = np.zeros_like(pixel_array)
+                
+                pixel_array = pixel_array.astype(np.uint8)
+                
+                # Convert to PIL Image
+                if len(pixel_array.shape) == 2:
+                    # Grayscale image - convert to RGB for consistency
+                    image = Image.fromarray(pixel_array, mode='L')
+                    image = image.convert('RGB')
+                elif len(pixel_array.shape) == 3:
+                    # Already RGB/color image
+                    image = Image.fromarray(pixel_array, mode='RGB')
+                else:
+                    logger.error(f"❌ Unsupported pixel array shape: {pixel_array.shape}")
+                    return None
+                
+                logger.info(f"🖼️ Image created: {image.size}, mode: {image.mode}")
+                
+                # Convert to JPEG bytes
+                buffer = BytesIO()
+                image.save(buffer, format='JPEG', quality=95)
+                image_bytes = buffer.getvalue()
+                
+                logger.info(f"✅ DICOM converted to JPEG: {len(image_bytes)} bytes")
+                
+                return (image_bytes, metadata)
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"❌ Error converting DICOM to image: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
+    
+    def convert_dicom_bytes_to_image(self, dicom_bytes: bytes) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        """
+        Convert DICOM bytes to JPEG/PNG image format
+        
+        Args:
+            dicom_bytes: Raw DICOM file bytes
+            
+        Returns:
+            Tuple of (image_bytes, metadata) or None if conversion failed
+        """
+        try:
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.dcm') as temp_file:
+                temp_file.write(dicom_bytes)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Read DICOM file
+                ds = pydicom.dcmread(temp_file_path)
+                
+                # Extract metadata
+                metadata = self._extract_metadata(ds)
+                
+                # Get pixel array
+                if not hasattr(ds, 'pixel_array'):
+                    logger.error("DICOM file has no pixel data")
+                    return None
+                
+                pixel_array = ds.pixel_array
+                
+                # Normalize pixel values to 0-255 range
+                pixel_array = pixel_array.astype(np.float32)
+                
+                # Handle photometric interpretation
+                if hasattr(ds, 'PhotometricInterpretation') and ds.PhotometricInterpretation == 'MONOCHROME1':
+                    pixel_array = np.max(pixel_array) - pixel_array
+                
+                # Normalize to 0-255
+                pixel_min = np.min(pixel_array)
+                pixel_max = np.max(pixel_array)
+                
+                if pixel_max > pixel_min:
+                    pixel_array = ((pixel_array - pixel_min) / (pixel_max - pixel_min)) * 255.0
+                else:
+                    pixel_array = np.zeros_like(pixel_array)
+                
+                pixel_array = pixel_array.astype(np.uint8)
+                
+                # Convert to PIL Image
+                if len(pixel_array.shape) == 2:
+                    image = Image.fromarray(pixel_array, mode='L').convert('RGB')
+                elif len(pixel_array.shape) == 3:
+                    image = Image.fromarray(pixel_array, mode='RGB')
+                else:
+                    logger.error(f"Unsupported pixel array shape: {pixel_array.shape}")
+                    return None
+                
+                # Convert to JPEG bytes
+                buffer = BytesIO()
+                image.save(buffer, format='JPEG', quality=95)
+                image_bytes = buffer.getvalue()
+                
+                return (image_bytes, metadata)
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            self.logger.error(f"Error converting DICOM bytes to image: {str(e)}")
+            return None
 
 # Create global instance
 dicom_processor = DICOMProcessor()

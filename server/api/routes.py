@@ -2418,8 +2418,43 @@ async def analyze_aws_image(
         
         # Run AI analysis
         try:
-            logger.info("🤖 Running Roboflow detection...")
-            predictions, annotated_image = await roboflow_service.detect_conditions(image_url)
+            # Check if this is a DICOM file
+            is_dicom = filename and filename.lower().endswith('.dcm')
+            
+            if is_dicom:
+                logger.info("🏥 Detected DICOM file - converting to JPEG first...")
+                from services.dicom_processor import dicom_processor
+                
+                # Convert DICOM to JPEG
+                conversion_result = dicom_processor.convert_dicom_to_image(image_url)
+                
+                if not conversion_result:
+                    raise Exception("Failed to convert DICOM to image format")
+                
+                image_bytes, dicom_metadata = conversion_result
+                logger.info(f"✅ DICOM converted: {len(image_bytes)} bytes, Patient: {dicom_metadata.get('patient_name', 'Unknown')}")
+                
+                # Upload converted JPEG to Supabase for Roboflow processing
+                converted_filename = f"dicom_converted/{user_id}/{filename.replace('.dcm', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                converted_url = await supabase_service.upload_image(
+                    image_bytes,
+                    converted_filename,
+                    token
+                )
+                
+                if not converted_url:
+                    raise Exception("Failed to upload converted DICOM image")
+                
+                logger.info(f"✅ Converted image uploaded: {converted_url}")
+                
+                # Use converted image for Roboflow analysis
+                roboflow_input_url = converted_url
+            else:
+                # Regular image file (JPEG, PNG)
+                roboflow_input_url = image_url
+            
+            logger.info(f"🤖 Running Roboflow detection on: {roboflow_input_url}")
+            predictions, annotated_image = await roboflow_service.detect_conditions(roboflow_input_url)
             
             if not predictions or not annotated_image:
                 raise Exception("Roboflow analysis failed")
