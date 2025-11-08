@@ -373,42 +373,56 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
       ) : (
         // Category Tabs
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          <TabsList className="flex flex-wrap gap-2 h-auto p-2 bg-gray-50 rounded-lg">
             {categories.map((category) => (
-              <TabsTrigger key={category.id} value={category.id} className="text-xs">
+              <TabsTrigger 
+                key={category.id} 
+                value={category.id} 
+                className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap"
+              >
                 {category.name}
               </TabsTrigger>
             ))}
           </TabsList>
 
           {categories.map((category) => (
-            <TabsContent key={category.id} value={category.id} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">{category.name}</h3>
-                  <p className="text-sm text-muted-foreground">{category.description}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => resetCategoryToDefaults(category.id)}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Reset Category
-                </Button>
-              </div>
-
-              <div className="grid gap-4">
-                {category.treatments.map((treatment) => (
-                  <TreatmentSettingCard
-                    key={treatment.value}
-                    treatment={treatment}
-                    setting={settings[treatment.value]}
-                    onDurationChange={(duration) => updateTreatmentSetting(treatment.value, { duration })}
-                    onPriceChange={(price) => updateTreatmentSetting(treatment.value, { price })}
-                  />
-                ))}
-              </div>
+            <TabsContent key={category.id} value={category.id} className="mt-6 space-y-6">
+              <Card className="border-l-4 border-l-blue-500">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl font-semibold text-blue-900">
+                        {category.name}
+                      </CardTitle>
+                      <CardDescription className="text-gray-600 mt-1">
+                        {category.description}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => resetCategoryToDefaults(category.id)}
+                      className="shrink-0"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset Category
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {category.treatments.map((treatment) => (
+                      <TreatmentSettingCard
+                        key={treatment.value}
+                        treatment={treatment}
+                        setting={settings[treatment.value]}
+                        onDurationChange={(duration) => updateTreatmentSetting(treatment.value, { duration })}
+                        onPriceChange={(price) => updateTreatmentSetting(treatment.value, { price })}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           ))}
         </Tabs>
