@@ -3874,10 +3874,11 @@ const CreateReport = () => {
     
     // Validation
     if (useXrayMode) {
-      if (!uploadedImage) {
+      // Accept either uploaded image OR immediate analysis data (from AWS)
+      if (!uploadedImage && !immediateAnalysisData) {
         toast({ 
           title: "Missing X-ray", 
-          description: "Please upload an OPG image." 
+          description: "Please upload an OPG image or load from AWS." 
         });
         return;
       }
