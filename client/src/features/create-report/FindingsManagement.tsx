@@ -166,7 +166,7 @@ export const FindingsManagement = ({
               {/* Tooth Number */}
               <div className="space-y-2">
                 <div className="flex items-center space-x-1">
-                  <Label className="text-sm font-medium">Tooth ({toothNumberingSystem})</Label>
+                  <Label className="text-sm font-medium">Tooth ({toothNumberingSystem === 'Universal' ? 'US' : toothNumberingSystem})</Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-gray-400 cursor-help" />
