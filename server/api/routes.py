@@ -2240,7 +2240,8 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
         for img in images:
             try:
                 # Query Supabase for analysis results linked to this S3 key
-                analysis_response = supabase_service.client.table('aws_image_analysis')\
+                # Use service client to bypass RLS
+                analysis_response = supabase_service.get_service_client().table('aws_image_analysis')\
                     .select('*')\
                     .eq('s3_key', img['s3Key'])\
                     .eq('user_id', user_id)\
@@ -2315,7 +2316,8 @@ async def analyze_aws_image(
         logger.info(f"📋 Analysis request - User: {user_id}, S3 Key: {s3_key}")
         
         # Check if analysis already exists
-        existing = supabase_service.client.table('aws_image_analysis')\
+        # Use service client to bypass RLS
+        existing = supabase_service.get_service_client().table('aws_image_analysis')\
             .select('*')\
             .eq('s3_key', s3_key)\
             .eq('user_id', user_id)\
@@ -2353,7 +2355,8 @@ async def analyze_aws_image(
             'created_at': datetime.now().isoformat()
         }
         
-        insert_response = supabase_service.client.table('aws_image_analysis')\
+        # Use service client to bypass RLS for insert
+        insert_response = supabase_service.get_service_client().table('aws_image_analysis')\
             .insert(analysis_record)\
             .execute()
         
@@ -2396,7 +2399,8 @@ async def analyze_aws_image(
                 'completed_at': datetime.now().isoformat()
             }
             
-            supabase_service.client.table('aws_image_analysis')\
+            # Use service client to bypass RLS for update
+            supabase_service.get_service_client().table('aws_image_analysis')\
                 .update(update_data)\
                 .eq('id', analysis_id)\
                 .execute()
@@ -2417,7 +2421,8 @@ async def analyze_aws_image(
             logger.error(f"❌ Analysis failed: {str(analysis_error)}")
             
             # Update record with failed status
-            supabase_service.client.table('aws_image_analysis')\
+            # Use service client to bypass RLS for update
+            supabase_service.get_service_client().table('aws_image_analysis')\
                 .update({
                     'status': 'failed',
                     'error_message': str(analysis_error),
