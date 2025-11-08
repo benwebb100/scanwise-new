@@ -7,7 +7,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PricingInput } from '@/components/PricingInput';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info, Edit3, ArrowRight, Loader2 } from 'lucide-react';
-import { getToothOptions, getReplacementOptions, ToothNumberingSystem } from '@/data/dental-data';
+import { getToothOptions, getReplacementOptions, getSuggestedTreatments, ToothNumberingSystem } from '@/data/dental-data';
 import { useDentalData } from '@/hooks/useDentalData';
 import { useTranslation } from '@/contexts/TranslationContext';
 
