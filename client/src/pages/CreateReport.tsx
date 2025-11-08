@@ -3511,7 +3511,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useTreatmentSettings } from "@/hooks/useTreatmentSettings";
-import { PriceValidationDialog } from "@/components/PriceValidationDialog";
 import { AIAnalysisSection } from '@/components/AIAnalysisSection';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ViewInBulgarian } from '@/components/ViewInBulgarian';
@@ -3582,10 +3581,6 @@ const CreateReport = () => {
   // Progress state
   const [reportProgress, setReportProgress] = useState(0);
   const [reportProgressText, setReportProgressText] = useState('');
-  
-  // Price validation state
-  const [showPriceValidation, setShowPriceValidation] = useState(false);
-  const [missingPrices, setMissingPrices] = useState<string[]>([]);
   
   // Patient name validation state
   const patientNameRef = useRef<HTMLInputElement>(null);
@@ -3939,19 +3934,8 @@ const CreateReport = () => {
       return;
     }
 
-    // Check for missing prices
-    const treatments = validFindings.map(f => f.treatment);
-    const missingPrices = treatments.filter(treatment => {
-      const setting = getTreatmentSetting(treatment);
-      return !setting.price || setting.price === 0;
-    });
-    
-    if (missingPrices.length > 0) {
-      setMissingPrices(missingPrices);
-      setPendingSubmitData({ validFindings, useXrayMode, patientName, patientObservations });
-      setShowPriceValidation(true);
-      return;
-    }
+    // Note: Price validation removed - default prices from database are used automatically
+    // Users can update prices in treatment settings if needed, but it's not required to proceed
     
     await openStageEditorWithFindings({ validFindings, useXrayMode, patientName, patientObservations });
   };
@@ -4049,27 +4033,6 @@ const CreateReport = () => {
       title: "Stages Saved",
       description: "Your treatment stages have been saved.",
     });
-  };
-
-  const handlePricesProvided = async (prices: Record<string, number>) => {
-    Object.entries(prices).forEach(([treatment, price]) => {
-      updateTreatmentSetting(treatment, { price });
-    });
-    
-    setShowPriceValidation(false);
-    
-    if (pendingSubmitData) {
-      await openStageEditorWithFindings(pendingSubmitData);
-    }
-    
-    setPendingSubmitData(null);
-    setMissingPrices([]);
-  };
-
-  const handlePriceValidationCancel = () => {
-    setShowPriceValidation(false);
-    setPendingSubmitData(null);
-    setMissingPrices([]);
   };
 
   return (
@@ -4383,15 +4346,6 @@ const CreateReport = () => {
         initialStages={currentTreatmentStages}
         onSave={handleSaveStageEdits}
         onGenerateReport={handleGenerateFromEditor}
-      />
-      
-      {/* Price Validation Dialog */}
-      <PriceValidationDialog
-        open={showPriceValidation}
-        onOpenChange={setShowPriceValidation}
-        missingPrices={missingPrices}
-        onPricesProvided={handlePricesProvided}
-        onCancel={handlePriceValidationCancel}
       />
     </div>
   );
