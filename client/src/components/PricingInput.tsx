@@ -35,7 +35,16 @@ export function PricingInput({
   const treatmentSetting = getTreatmentSetting(treatment)
   const clinicPrice = treatmentSetting.price
   const defaultPrice = DEFAULT_TREATMENT_PRICES[treatment]
-  const knownPrice = clinicPrice || defaultPrice
+  // Use clinic price if it's greater than 0, otherwise use default price
+  const knownPrice = (clinicPrice && clinicPrice > 0) ? clinicPrice : defaultPrice
+  
+  // Debug logging
+  console.log(`💰 PricingInput for ${treatment}:`, {
+    clinicPrice,
+    defaultPrice,
+    knownPrice,
+    treatmentSetting
+  })
 
   useEffect(() => {
     if (treatment && !disabled) {
@@ -240,7 +249,7 @@ export function PricingInput({
               ${value !== undefined ? value : knownPrice}
             </span>
             <span className="text-xs text-green-600">
-              {clinicPrice ? '(Clinic price)' : '(Default price)'}
+              {(clinicPrice && clinicPrice > 0) ? '(Clinic price)' : '(Default price)'}
             </span>
           </div>
           
