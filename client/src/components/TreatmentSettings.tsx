@@ -373,7 +373,7 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
       ) : (
         // Category Tabs
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="flex flex-wrap gap-2 h-auto p-2 bg-gray-50 rounded-lg">
+          <TabsList className="grid grid-cols-5 gap-2 h-auto p-2 bg-gray-50 rounded-lg">
             {categories.map((category) => (
               <TabsTrigger 
                 key={category.id} 
