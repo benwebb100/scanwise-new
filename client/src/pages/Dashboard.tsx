@@ -84,7 +84,7 @@ const Dashboard = () => {
       const interval = setInterval(() => {
         console.log('🔄 Polling for AWS processing status...');
         fetchAwsImages();
-      }, 5000); // Check every 5 seconds for faster updates
+      }, 60000); // Check every 60 seconds (1 minute) to reduce AWS API costs
       
       return () => {
         console.log('✅ Stopping AWS polling');
