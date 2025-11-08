@@ -4173,39 +4173,6 @@ const CreateReport = () => {
 
                 {!report && immediateAnalysisData && (
                   <>
-                    {/* Patient Name Section - Right after AI Analysis */}
-                    <Card className={`${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
-                      <CardContent className="pt-6">
-                        <div>
-                          <Label htmlFor="patient-name-xray" className="block font-medium text-blue-900 mb-2 text-base">
-                            Patient Name *
-                          </Label>
-                          {patientNameError && (
-                            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-                              <p className="text-sm text-yellow-800 font-medium">
-                                ⚠️ Patient name is required to continue
-                              </p>
-                            </div>
-                          )}
-                          <Input
-                            ref={patientNameRef}
-                            id="patient-name-xray"
-                            value={patientName}
-                            onChange={(e) => {
-                              setPatientName(e.target.value);
-                              if (patientNameError && e.target.value.trim()) {
-                                setPatientNameError(false);
-                              }
-                            }}
-                            placeholder="Enter patient name"
-                            required
-                            disabled={isProcessing}
-                            className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-
                     <FindingsManagement
                       findings={findings}
                       onFindingsChange={setFindings}
@@ -4222,6 +4189,15 @@ const CreateReport = () => {
                       onContinueEditingStages={handleContinueEditingStages}
                       onGenerateFromSavedStages={handleGenerateFromSavedStages}
                       currentTreatmentStages={currentTreatmentStages}
+                      patientName={patientName}
+                      onPatientNameChange={(value) => {
+                        setPatientName(value);
+                        if (patientNameError && value.trim()) {
+                          setPatientNameError(false);
+                        }
+                      }}
+                      patientNameError={patientNameError}
+                      patientNameRef={patientNameRef}
                     />
                   </>
                 )}
@@ -4261,39 +4237,6 @@ const CreateReport = () => {
                   </CardContent>
                 </Card>
 
-                {/* Patient Name Section - Above Findings */}
-                <Card className={`mb-6 ${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
-                  <CardContent className="pt-6">
-                    <div>
-                      <Label htmlFor="patient-name-no-xray" className="block font-medium text-blue-900 mb-2 text-base">
-                        Patient Name *
-                      </Label>
-                      {patientNameError && (
-                        <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-                          <p className="text-sm text-yellow-800 font-medium">
-                            ⚠️ Patient name is required to continue
-                          </p>
-                        </div>
-                      )}
-                      <Input
-                        ref={patientNameRef}
-                        id="patient-name-no-xray"
-                        value={patientName}
-                        onChange={(e) => {
-                          setPatientName(e.target.value);
-                          if (patientNameError && e.target.value.trim()) {
-                            setPatientNameError(false);
-                          }
-                        }}
-                        placeholder="Enter patient name"
-                        required
-                        disabled={isProcessing}
-                        className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <FindingsManagement
                   findings={findings}
                   onFindingsChange={setFindings}
@@ -4310,6 +4253,15 @@ const CreateReport = () => {
                   onContinueEditingStages={handleContinueEditingStages}
                   onGenerateFromSavedStages={handleGenerateFromSavedStages}
                   currentTreatmentStages={currentTreatmentStages}
+                  patientName={patientName}
+                  onPatientNameChange={(value) => {
+                    setPatientName(value);
+                    if (patientNameError && value.trim()) {
+                      setPatientNameError(false);
+                    }
+                  }}
+                  patientNameError={patientNameError}
+                  patientNameRef={patientNameRef}
                 />
               </>
             )}

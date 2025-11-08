@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PricingInput } from '@/components/PricingInput';
@@ -39,6 +40,10 @@ interface FindingsManagementProps {
   onContinueEditingStages: () => void;
   onGenerateFromSavedStages: () => void;
   currentTreatmentStages: any[];
+  patientName: string;
+  onPatientNameChange: (value: string) => void;
+  patientNameError: boolean;
+  patientNameRef: React.RefObject<HTMLInputElement>;
 }
 
 export const FindingsManagement = ({
@@ -53,7 +58,11 @@ export const FindingsManagement = ({
   onNextStep,
   onContinueEditingStages,
   onGenerateFromSavedStages,
-  currentTreatmentStages
+  currentTreatmentStages,
+  patientName,
+  onPatientNameChange,
+  patientNameError,
+  patientNameRef
 }: FindingsManagementProps) => {
   const { t } = useTranslation();
 
@@ -103,28 +112,54 @@ export const FindingsManagement = ({
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <span className="font-medium text-blue-900">Manual Findings Entry</span>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="show-pricing" className="text-sm font-medium text-gray-700">
-              Show Treatment Pricing
-            </Label>
-            <Switch
-              id="show-pricing"
-              checked={showTreatmentPricing}
-              onCheckedChange={onShowPricingChange}
-              className="data-[state=checked]:bg-blue-600"
-            />
-          </div>
-          <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
-            + Add Finding
-          </Button>
+    <Card className={`${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
+      <CardContent className="pt-6">
+        {/* Patient Name Section */}
+        <div className="mb-6">
+          <Label htmlFor="patient-name" className="block font-medium text-blue-900 mb-2 text-base">
+            Patient Name *
+          </Label>
+          {patientNameError && (
+            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+              <p className="text-sm text-yellow-800 font-medium">
+                ⚠️ Patient name is required to continue
+              </p>
+            </div>
+          )}
+          <Input
+            ref={patientNameRef}
+            id="patient-name"
+            value={patientName}
+            onChange={(e) => onPatientNameChange(e.target.value)}
+            placeholder="Enter patient name"
+            required
+            disabled={isProcessing}
+            className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
+          />
         </div>
-      </div>
-      
-      <div id="findings-list" className="space-y-4">
+
+        {/* Manual Findings Entry Header */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-medium text-blue-900">Manual Findings Entry</span>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="show-pricing" className="text-sm font-medium text-gray-700">
+                Show Treatment Pricing
+              </Label>
+              <Switch
+                id="show-pricing"
+                checked={showTreatmentPricing}
+                onCheckedChange={onShowPricingChange}
+                className="data-[state=checked]:bg-blue-600"
+              />
+            </div>
+            <Button type="button" variant="outline" onClick={addFinding} size="sm" disabled={isProcessing}>
+              + Add Finding
+            </Button>
+          </div>
+        </div>
+        
+        <div id="findings-list" className="space-y-4">
         {findings.map((f, idx) => (
           <Card key={idx} id={`finding-${idx}`} className="p-4 finding-card relative">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
@@ -260,7 +295,8 @@ export const FindingsManagement = ({
           )}
         </Button>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
