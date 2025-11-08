@@ -98,7 +98,7 @@ export const FindingsManagement = ({
   };
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="flex items-center justify-between mb-4">
         <span className="font-medium text-blue-900">Manual Findings Entry</span>
         <div className="flex items-center space-x-4">

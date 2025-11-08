@@ -4172,6 +4172,39 @@ const CreateReport = () => {
 
                 {!report && immediateAnalysisData && (
                   <>
+                    {/* Patient Name Section - Right after AI Analysis */}
+                    <Card className={`${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
+                      <CardContent className="pt-6">
+                        <div>
+                          <Label htmlFor="patient-name-xray" className="block font-medium text-blue-900 mb-2 text-base">
+                            Patient Name *
+                          </Label>
+                          {patientNameError && (
+                            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                              <p className="text-sm text-yellow-800 font-medium">
+                                ⚠️ Patient name is required to continue
+                              </p>
+                            </div>
+                          )}
+                          <Input
+                            ref={patientNameRef}
+                            id="patient-name-xray"
+                            value={patientName}
+                            onChange={(e) => {
+                              setPatientName(e.target.value);
+                              if (patientNameError && e.target.value.trim()) {
+                                setPatientNameError(false);
+                              }
+                            }}
+                            placeholder="Enter patient name"
+                            required
+                            disabled={isProcessing}
+                            className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
                     <FindingsManagement
                       findings={findings}
                       onFindingsChange={setFindings}
@@ -4305,44 +4338,9 @@ const CreateReport = () => {
               </div>
             )}
 
-            {/* Patient Name Section - Above Upload Guidelines */}
-            {!report && useXrayMode && immediateAnalysisData && (
-              <Card className={`mb-6 ${patientNameError ? 'border-2 border-yellow-400 shadow-lg' : ''}`}>
-                <CardContent className="pt-6">
-                  <div>
-                    <Label htmlFor="patient-name-xray" className="block font-medium text-blue-900 mb-2 text-base">
-                      Patient Name *
-                    </Label>
-                    {patientNameError && (
-                      <div className="mb-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-                        <p className="text-sm text-yellow-800 font-medium">
-                          ⚠️ Patient name is required to continue
-                        </p>
-                      </div>
-                    )}
-                    <Input
-                      ref={patientNameRef}
-                      id="patient-name-xray"
-                      value={patientName}
-                      onChange={(e) => {
-                        setPatientName(e.target.value);
-                        if (patientNameError && e.target.value.trim()) {
-                          setPatientNameError(false);
-                        }
-                      }}
-                      placeholder="Enter patient name"
-                      required
-                      disabled={isProcessing}
-                      className={patientNameError ? 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500' : ''}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Upload Guidelines */}
+            {/* Upload Guidelines - With extra spacing above */}
             {!report && useXrayMode && (
-              <Card className="mb-8 mt-6">
+              <Card className="mb-8 mt-12">
                 <CardHeader>
                   <CardTitle>Upload Guidelines</CardTitle>
                 </CardHeader>
