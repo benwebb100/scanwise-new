@@ -36,6 +36,7 @@ interface Report {
   detections?: any[];
   findingsSummary?: string;
   s3Key?: string;
+  patientEmail?: string;  // DICOM metadata
 }
 
 interface Stats {
@@ -274,7 +275,8 @@ const Dashboard = () => {
         analysisId: image.analysisId,
         detections: image.detections,
         findingsSummary: image.findingsSummary,
-        s3Key: image.s3Key
+        s3Key: image.s3Key,
+        patientEmail: image.patientEmail  // DICOM metadata
       }));
       
       // Update only AWS reports in the existing reports array
@@ -387,6 +389,7 @@ const Dashboard = () => {
               annotatedImageUrl: report.annotatedImageUrl,
               patientName: report.patientName,
               patientId: report.patientId,
+              patientEmail: report.patientEmail,  // DICOM metadata email
               reportId: report.id,
               originalFilename: report.originalFilename,
               detections: report.detections,

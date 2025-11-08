@@ -2303,6 +2303,24 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                     img['analysisComplete'] = analysis.get('status') == 'completed'
                     img['analysisId'] = analysis.get('id')
                     
+                    # Fetch DICOM metadata if metadata_id exists
+                    metadata_id = analysis.get('metadata_id')
+                    if metadata_id:
+                        try:
+                            metadata_response = supabase_service.get_service_client().table('dicom_metadata')\
+                                .select('patient_name, patient_id, patient_email')\
+                                .eq('id', metadata_id)\
+                                .execute()
+                            
+                            if metadata_response.data and len(metadata_response.data) > 0:
+                                metadata = metadata_response.data[0]
+                                img['patientName'] = metadata.get('patient_name') or img['patientName']
+                                img['patientId'] = metadata.get('patient_id') or img['patientId']
+                                img['patientEmail'] = metadata.get('patient_email')
+                                logger.info(f"📋 Loaded metadata for {img['originalFilename']}: {metadata.get('patient_name')}")
+                        except Exception as meta_error:
+                            logger.warning(f"⚠️ Could not load metadata: {str(meta_error)}")
+                    
                     if analysis.get('status') == 'completed':
                         img['annotatedImageUrl'] = analysis.get('annotated_image_url')
                         img['detections'] = analysis.get('detections', [])
@@ -2420,6 +2438,7 @@ async def analyze_aws_image(
         try:
             # Check if this is a DICOM file
             is_dicom = filename and filename.lower().endswith('.dcm')
+            metadata_id = None  # Initialize for later use
             
             if is_dicom:
                 logger.info("🏥 Detected DICOM file - converting to JPEG first...")
@@ -2433,6 +2452,55 @@ async def analyze_aws_image(
                 
                 image_bytes, dicom_metadata = conversion_result
                 logger.info(f"✅ DICOM converted: {len(image_bytes)} bytes, Patient: {dicom_metadata.get('patient_name', 'Unknown')}")
+                
+                # Save DICOM metadata to database
+                try:
+                    logger.info("💾 Saving DICOM metadata to database...")
+                    metadata_record = {
+                        'user_id': user_id,
+                        's3_key': s3_key,
+                        'filename': filename,
+                        'patient_name': dicom_metadata.get('patient_name'),
+                        'patient_id': dicom_metadata.get('patient_id'),
+                        'patient_email': dicom_metadata.get('patient_email'),
+                        'patient_birth_date': dicom_metadata.get('patient_birth_date'),
+                        'patient_sex': dicom_metadata.get('patient_sex'),
+                        'study_date': dicom_metadata.get('study_date'),
+                        'study_time': dicom_metadata.get('study_time'),
+                        'study_description': dicom_metadata.get('study_description'),
+                        'study_id': dicom_metadata.get('study_id'),
+                        'series_date': dicom_metadata.get('series_date'),
+                        'series_time': dicom_metadata.get('series_time'),
+                        'series_description': dicom_metadata.get('series_description'),
+                        'series_number': dicom_metadata.get('series_number'),
+                        'image_type': dicom_metadata.get('image_type'),
+                        'modality': dicom_metadata.get('modality'),
+                        'manufacturer': dicom_metadata.get('manufacturer'),
+                        'manufacturer_model': dicom_metadata.get('manufacturer_model'),
+                        'image_rows': dicom_metadata.get('image_rows'),
+                        'image_columns': dicom_metadata.get('image_columns'),
+                        'bits_allocated': dicom_metadata.get('bits_allocated'),
+                        'pixel_spacing': dicom_metadata.get('pixel_spacing'),
+                        'raw_metadata': dicom_metadata,
+                        'extracted_at': dicom_metadata.get('extracted_at'),
+                        'created_at': datetime.now().isoformat()
+                    }
+                    
+                    # Use service client to bypass RLS
+                    metadata_insert = supabase_service.get_service_client().table('dicom_metadata')\
+                        .insert(metadata_record)\
+                        .execute()
+                    
+                    if metadata_insert.data:
+                        metadata_id = metadata_insert.data[0]['id']
+                        logger.info(f"✅ DICOM metadata saved: {metadata_id}")
+                    else:
+                        logger.warning("⚠️ Failed to save DICOM metadata")
+                        metadata_id = None
+                        
+                except Exception as metadata_error:
+                    logger.error(f"❌ Error saving DICOM metadata: {str(metadata_error)}")
+                    metadata_id = None
                 
                 # Upload converted JPEG to Supabase for Roboflow processing
                 converted_filename = f"dicom_converted/{user_id}/{filename.replace('.dcm', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
@@ -2483,6 +2551,11 @@ async def analyze_aws_image(
                 'findings_summary': findings_summary,
                 'completed_at': datetime.now().isoformat()
             }
+            
+            # Link metadata_id if we saved DICOM metadata
+            if is_dicom and 'metadata_id' in locals() and metadata_id:
+                update_data['metadata_id'] = metadata_id
+                logger.info(f"🔗 Linking metadata_id {metadata_id} to analysis {analysis_id}")
             
             # Use service client to bypass RLS for update
             supabase_service.get_service_client().table('aws_image_analysis')\
