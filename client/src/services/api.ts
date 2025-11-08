@@ -372,8 +372,40 @@ export const api = {
 
 
   // Clinic branding endpoints
+  async uploadClinicLogo(file: File) {
+    const token = await this.getAuthToken();
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/clinic-branding/logo`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to upload logo');
+    return response.json();
+  },
+
   async saveClinicBranding(brandingData: any) {
     const token = await this.getAuthToken();
+    
+    // Transform camelCase to snake_case for backend
+    const backendData = {
+      clinic_name: brandingData.clinicName,
+      address: brandingData.address,
+      phone: brandingData.phone,
+      email: brandingData.email,
+      website: brandingData.website,
+      logo_url: brandingData.logoUrl,
+      header_template: brandingData.headerTemplate,
+      footer_template: brandingData.footerTemplate,
+      primary_color: brandingData.primaryColor,
+      secondary_color: brandingData.secondaryColor,
+    };
     
     const response = await fetch(`${API_BASE_URL}/clinic-branding`, {
       method: 'POST',
@@ -381,7 +413,7 @@ export const api = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(brandingData),
+      body: JSON.stringify(backendData),
     });
 
     if (!response.ok) throw new Error('Failed to save branding');
@@ -398,7 +430,26 @@ export const api = {
     });
 
     if (!response.ok) throw new Error('Failed to get branding');
-    return response.json();
+    const result = await response.json();
+    
+    // Transform snake_case to camelCase for frontend
+    if (result.branding_data) {
+      const data = result.branding_data;
+      result.branding_data = {
+        clinicName: data.clinic_name,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        website: data.website,
+        logoUrl: data.logo_url,
+        headerTemplate: data.header_template,
+        footerTemplate: data.footer_template,
+        primaryColor: data.primary_color,
+        secondaryColor: data.secondary_color,
+      };
+    }
+    
+    return result;
   },
 
   // Dental data endpoints

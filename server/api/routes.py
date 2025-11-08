@@ -1208,6 +1208,48 @@ async def get_dental_conditions():
             detail=f"Failed to fetch dental conditions: {str(e)}"
         )
 
+@router.post("/clinic-branding/logo")
+async def upload_clinic_logo(
+    file: UploadFile,
+    token: str = Depends(get_auth_token)
+):
+    """Upload clinic logo to Supabase storage"""
+    try:
+        # Decode JWT to get user_id
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded.get('sub')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid authentication")
+        
+        # Read file contents
+        file_contents = await file.read()
+        
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'png'
+        filename = f"clinic_logo_{user_id}_{int(datetime.now().timestamp())}.{file_extension}"
+        
+        # Upload to Supabase storage
+        logo_url = await supabase_service.upload_image(
+            file_contents,
+            f"clinic_logos/{filename}",
+            token
+        )
+        
+        if not logo_url:
+            raise HTTPException(status_code=500, detail="Failed to upload logo")
+        
+        logger.info(f"✅ Logo uploaded successfully: {logo_url}")
+        
+        return {
+            "status": "success",
+            "logo_url": logo_url
+        }
+        
+    except Exception as e:
+        logger.error(f"Error uploading clinic logo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {str(e)}")
+
 @router.post("/clinic-branding")
 async def save_clinic_branding(
     branding_data: ClinicBrandingData,

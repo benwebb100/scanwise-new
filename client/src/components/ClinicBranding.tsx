@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Upload, Building2, Phone, Mail, MapPin, FileImage } from 'lucide-react'
+import { Upload, Building2, Phone, Mail, MapPin, FileImage, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { api } from '@/services/api'
 
 interface ClinicBrandingData {
   clinicName: string
@@ -42,6 +43,8 @@ export function ClinicBranding({ onSave, initialData }: ClinicBrandingProps) {
   })
 
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     // Load saved branding data from localStorage
@@ -54,7 +57,21 @@ export function ClinicBranding({ onSave, initialData }: ClinicBrandingProps) {
         console.error('Error loading clinic branding:', error)
       }
     }
+    
+    // Also load from backend
+    loadBrandingFromBackend()
   }, [])
+  
+  const loadBrandingFromBackend = async () => {
+    try {
+      const response = await api.getClinicBranding()
+      if (response.branding_data && Object.keys(response.branding_data).length > 0) {
+        setBrandingData(prev => ({ ...prev, ...response.branding_data }))
+      }
+    } catch (error) {
+      console.error('Error loading branding from backend:', error)
+    }
+  }
 
   useEffect(() => {
     // Generate templates when basic info changes
@@ -117,34 +134,67 @@ export function ClinicBranding({ onSave, initialData }: ClinicBrandingProps) {
     setBrandingData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
       setLogoFile(file)
-      // Create a temporary URL for preview
-      const logoUrl = URL.createObjectURL(file)
-      handleInputChange('logoUrl', logoUrl)
+      setIsUploadingLogo(true)
       
-      toast({
-        title: "Logo uploaded",
-        description: "Logo preview updated. Save to apply changes.",
-      })
+      try {
+        // Upload logo to Supabase storage
+        console.log('📤 Uploading logo to Supabase...')
+        const response = await api.uploadClinicLogo(file)
+        
+        if (response.logo_url) {
+          // Update brandingData with the permanent Supabase URL
+          handleInputChange('logoUrl', response.logo_url)
+          
+          toast({
+            title: "Logo uploaded",
+            description: "Logo uploaded successfully. Click Save to apply changes.",
+          })
+          
+          console.log('✅ Logo uploaded successfully:', response.logo_url)
+        }
+      } catch (error) {
+        console.error('❌ Failed to upload logo:', error)
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload logo. Please try again.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsUploadingLogo(false)
+      }
     }
   }
 
-  const handleSave = () => {
-    // Save to localStorage
-    localStorage.setItem('clinic-branding', JSON.stringify(brandingData))
+  const handleSave = async () => {
+    setIsSaving(true)
     
-    // Call parent callback
-    if (onSave) {
-      onSave(brandingData)
-    }
+    try {
+      // Save to localStorage
+      localStorage.setItem('clinic-branding', JSON.stringify(brandingData))
+      
+      // Call parent callback (which saves to backend)
+      if (onSave) {
+        await onSave(brandingData)
+      }
 
-    toast({
-      title: "Branding saved",
-      description: "Your clinic branding has been saved successfully.",
-    })
+      toast({
+        title: "Branding saved",
+        description: "Your clinic branding has been saved successfully.",
+      })
+    } catch (error) {
+      console.error('❌ Failed to save branding:', error)
+      toast({
+        title: "Save failed",
+        description: "Failed to save branding. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -237,9 +287,19 @@ export function ClinicBranding({ onSave, initialData }: ClinicBrandingProps) {
                 variant="outline"
                 onClick={() => document.getElementById('logo-upload')?.click()}
                 className="flex items-center gap-2"
+                disabled={isUploadingLogo}
               >
-                <Upload className="h-4 w-4" />
-                Upload Logo
+                {isUploadingLogo ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload Logo
+                  </>
+                )}
               </Button>
               {brandingData.logoUrl && (
                 <div className="mt-2">
@@ -321,8 +381,19 @@ export function ClinicBranding({ onSave, initialData }: ClinicBrandingProps) {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-          Save Clinic Branding
+        <Button 
+          onClick={handleSave} 
+          className="bg-blue-600 hover:bg-blue-700"
+          disabled={isSaving || isUploadingLogo}
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Saving...
+            </>
+          ) : (
+            'Save Clinic Branding'
+          )}
         </Button>
       </div>
     </div>
