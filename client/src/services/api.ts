@@ -41,16 +41,27 @@ export const api = {
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
     generateVideo?: boolean;  // Make sure this is included in the type
+    // Optional pre-analyzed data for AWS images
+    preAnalyzedDetections?: any[];
+    preAnalyzedAnnotatedUrl?: string;
   }) {
     
     const token = await this.getAuthToken();
     
-    const requestBody = {
+    const requestBody: any = {
       patient_name: data.patientName,
       image_url: data.imageUrl,
       findings: data.findings,
       generate_video: data.generateVideo !== false,  // Default to true if not specified
     };
+    
+    // Include pre-analyzed data if provided (for AWS images)
+    if (data.preAnalyzedDetections && data.preAnalyzedAnnotatedUrl) {
+      requestBody.pre_analyzed_detections = data.preAnalyzedDetections;
+      requestBody.pre_analyzed_annotated_url = data.preAnalyzedAnnotatedUrl;
+      console.log('📊 API: Including pre-analyzed AWS data in request');
+    }
+    
     // Use query parameter for generate_video if needed (keeping both approaches for compatibility)
     const url = `${API_BASE_URL}/analyze-xray`;
     

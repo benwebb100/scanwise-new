@@ -221,26 +221,34 @@ async def analyze_xray(
     """
     Main endpoint to analyze dental X-ray
     Note: Supabase handles user authentication and RLS automatically
+    Supports pre-analyzed AWS images via pre_analyzed_detections and pre_analyzed_annotated_url
     """
     try:
         logger.info(f"Starting X-ray analysis for patient: {request.patient_name}")
         
-        # Step 1: Send image to Roboflow for detection
-        predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
-        
-        if not predictions or not annotated_image:
-            raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
-        
-        # Step 2: Upload annotated image to Supabase Storage
-        annotated_filename = generate_annotated_filename(str(request.image_url), request.patient_name)
-        annotated_url = await supabase_service.upload_image(
-            annotated_image,
-            f"{annotated_filename}",
-            token
-        )
-        
-        if not annotated_url:
-            raise HTTPException(status_code=500, detail="Failed to upload annotated image")
+        # Check if we have pre-analyzed data (for AWS images)
+        if request.pre_analyzed_detections and request.pre_analyzed_annotated_url:
+            logger.info("🔄 Using pre-analyzed AWS data, skipping Roboflow detection")
+            predictions = {"predictions": request.pre_analyzed_detections}
+            annotated_url = request.pre_analyzed_annotated_url
+        else:
+            # Step 1: Send image to Roboflow for detection (for manual uploads)
+            logger.info("🤖 Running Roboflow detection for manual upload")
+            predictions, annotated_image = await roboflow_service.detect_conditions(str(request.image_url))
+            
+            if not predictions or not annotated_image:
+                raise HTTPException(status_code=500, detail="Failed to process image with Roboflow")
+            
+            # Step 2: Upload annotated image to Supabase Storage
+            annotated_filename = generate_annotated_filename(str(request.image_url), request.patient_name)
+            annotated_url = await supabase_service.upload_image(
+                annotated_image,
+                f"{annotated_filename}",
+                token
+            )
+            
+            if not annotated_url:
+                raise HTTPException(status_code=500, detail="Failed to upload annotated image")
         
         # Step 3: Analyze with OpenAI
         findings_dict = [f.model_dump() for f in request.findings] if request.findings else []

@@ -46,6 +46,7 @@ interface ReportGenerationData {
       useXrayMode, 
       uploadedImage,
       patientObservations,
+      immediateAnalysisData,
       treatmentSettings,
       showReplacementOptionsTable,
       organizedStages
@@ -54,14 +55,39 @@ interface ReportGenerationData {
     let analysisResult;
     let videoUrl = null;
 
-    if (useXrayMode && uploadedImage) {
+    // Check if we have an X-ray (either manual upload OR AWS pre-analyzed)
+    const hasXrayImage = uploadedImage || (immediateAnalysisData && immediateAnalysisData.annotated_image_url);
+
+    if (useXrayMode && hasXrayImage) {
       try {
-        const uploadResult = await api.uploadImage(uploadedImage);
+        let imageUrl;
+        let preAnalyzedDetections;
+        let preAnalyzedAnnotatedUrl;
+        
+        // For manual uploads, upload the file first
+        if (uploadedImage) {
+          const uploadResult = await api.uploadImage(uploadedImage);
+          imageUrl = uploadResult.url;
+        } 
+        // For AWS images, use the original or annotated image URL and pass pre-analyzed data
+        else if (immediateAnalysisData) {
+          imageUrl = immediateAnalysisData.original_image_url || immediateAnalysisData.annotated_image_url;
+          
+          // Pass pre-analyzed detections and annotated URL to skip redundant Roboflow processing
+          if (immediateAnalysisData.detections && immediateAnalysisData.annotated_image_url) {
+            preAnalyzedDetections = immediateAnalysisData.detections;
+            preAnalyzedAnnotatedUrl = immediateAnalysisData.annotated_image_url;
+            console.log('🔄 Using pre-analyzed AWS data for report generation');
+          }
+        }
+        
         analysisResult = await api.analyzeXray({
           patientName,
-          imageUrl: uploadResult.url,
+          imageUrl: imageUrl,
           findings,
-          generateVideo: true // Request video generation
+          generateVideo: true, // Request video generation for both manual and AWS
+          preAnalyzedDetections,
+          preAnalyzedAnnotatedUrl
         });
         
         // Video URL comes directly from backend - NO POLLING NEEDED
