@@ -3518,7 +3518,7 @@ import { ViewInBulgarian } from '@/components/ViewInBulgarian';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { StageEditorModal, createDynamicStages, generateId, getFindingUrgency } from '@/features/stage-editor';
 import { api } from '@/services/api';
-import { ToothNumberingSystem } from '@/data/dental-data';
+import { ToothNumberingSystem, getSuggestedTreatments } from '@/data/dental-data';
 
 // Import our new extracted components
 import { FileUploadSection } from "@/features/create-report/FileUploadSection";
@@ -3606,6 +3606,115 @@ const CreateReport = () => {
     updateTreatmentSetting(treatment, { price });
   };
 
+  // Function to refresh image with tooth number overlay
+  const refreshImageWithOverlay = async (imageUrl: string) => {
+    if (!showToothNumberOverlay) {
+      return imageUrl;
+    }
+    
+    try {
+      const overlayResult = await api.addToothNumberOverlay(
+        imageUrl,
+        toothNumberingSystem,
+        true,
+        textSizeMultiplier,
+        immediateAnalysisData?.detections,
+        cachedSegmentationData  // Pass cached data
+      );
+      
+      if (overlayResult && overlayResult.has_overlay) {
+        // Cache segmentation data for future calls
+        if (overlayResult.segmentation_data && !cachedSegmentationData) {
+          console.log('💾 Caching segmentation data for future use');
+          setCachedSegmentationData(overlayResult.segmentation_data);
+        }
+        
+        return overlayResult.image_url;
+      }
+    } catch (error) {
+      console.error('Failed to add tooth number overlay:', error);
+    }
+    
+    return imageUrl;
+  };
+
+  // Function to restore original image when toggle is turned off
+  const restoreOriginalImage = () => {
+    if (originalImageUrl && immediateAnalysisData?.annotated_image_url !== originalImageUrl) {
+      setImmediateAnalysisData((prev: any) => ({
+        ...prev,
+        annotated_image_url: originalImageUrl
+      }));
+    }
+  };
+
+  // Effect to refresh image when tooth number overlay toggle changes
+  useEffect(() => {
+    if (!immediateAnalysisData?.annotated_image_url) return;
+    
+    if (showToothNumberOverlay) {
+      // Toggle is ON - add overlay using ORIGINAL URL
+      console.log('🔢 TOOTH OVERLAY: Toggle turned ON, adding overlay...');
+      
+      // Use original URL if available, otherwise use current
+      const urlToUse = originalImageUrl || immediateAnalysisData.annotated_image_url;
+      
+      console.log('🔢 TOOTH OVERLAY: Using URL:', urlToUse.substring(0, 100));
+      
+      refreshImageWithOverlay(urlToUse).then(newImageUrl => {
+        if (newImageUrl !== urlToUse && showToothNumberOverlay) {
+          setImmediateAnalysisData((prev: any) => ({
+            ...prev,
+            annotated_image_url: newImageUrl
+          }));
+        }
+      });
+    } else {
+      // Toggle is OFF - restore original image
+      console.log('🔢 TOOTH OVERLAY: Toggle turned OFF, restoring original image...');
+      restoreOriginalImage();
+    }
+  }, [showToothNumberOverlay]); // Only depend on toggle, not text size
+
+  // Separate effect for real-time text size updates with debouncing
+  useEffect(() => {
+    if (!showToothNumberOverlay || !immediateAnalysisData?.annotated_image_url) return;
+    
+    // Debounce the text size changes to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      console.log('🔢 TOOTH OVERLAY: Text size changed to', textSizeMultiplier, 'x, refreshing overlay...');
+      setIsUpdatingTextSize(true);
+      
+      // Always use the original URL, not the current (possibly base64) image
+      const urlToUse = originalImageUrl || immediateAnalysisData.annotated_image_url;
+      
+      console.log('🔢 TOOTH OVERLAY: Using URL for re-overlay:', urlToUse.substring(0, 100));
+      
+      refreshImageWithOverlay(urlToUse).then(newImageUrl => {
+        // Only update if we got a new image and toggle is still on
+        if (newImageUrl !== urlToUse && showToothNumberOverlay) {
+          setImmediateAnalysisData((prev: any) => ({
+            ...prev,
+            annotated_image_url: newImageUrl
+          }));
+        }
+        setIsUpdatingTextSize(false);
+      }).catch((error) => {
+        console.error('🔢 TOOTH OVERLAY: Failed to update text size:', error);
+        setIsUpdatingTextSize(false);
+      });
+    }, 300); // 300ms debounce delay
+    
+    return () => clearTimeout(timeoutId);
+  }, [textSizeMultiplier]); // Only trigger when text size changes
+
+  // Clear cache when toggle is turned off or new image is uploaded
+  useEffect(() => {
+    if (!showToothNumberOverlay) {
+      setCachedSegmentationData(null);
+    }
+  }, [showToothNumberOverlay]);
+
   // Check for AWS pre-analyzed data on mount
   useEffect(() => {
     const awsPreAnalyzed = (location.state as any)?.awsPreAnalyzed;
@@ -3629,7 +3738,10 @@ const CreateReport = () => {
       };
       
       setImmediateAnalysisData(analysisData);
-      setOriginalImageUrl(awsPreAnalyzed.annotatedImageUrl);
+      // Store original annotated image URL for tooth overlay toggle
+      if (awsPreAnalyzed.annotatedImageUrl) {
+        setOriginalImageUrl(awsPreAnalyzed.annotatedImageUrl);
+      }
       
       // Show success toast
       toast({
@@ -3652,6 +3764,10 @@ const CreateReport = () => {
 
   const handleAnalysisComplete = (data: any) => {
     setImmediateAnalysisData(data);
+    // Store original annotated image URL for tooth overlay toggle
+    if (data.annotated_image_url) {
+      setOriginalImageUrl(data.annotated_image_url);
+    }
     toast({
       title: "AI Analysis Complete",
       description: `Found ${data.detections?.length || 0} potential conditions.`,
@@ -3667,7 +3783,10 @@ const CreateReport = () => {
       normalizedCondition = 'missing-tooth';
     }
     
-    const recommendedTreatment = detection.suggestedTreatment || '';
+    // Get suggested treatment using the comprehensive mapping from dental-data.ts
+    const suggestedTreatments = getSuggestedTreatments(normalizedCondition);
+    const recommendedTreatment = suggestedTreatments && suggestedTreatments.length > 0 ? suggestedTreatments[0].value : '';
+    
     const price = recommendedTreatment ? getPrice(recommendedTreatment) : undefined;
     const tooth = toothMapping ? toothMapping.tooth : '';
     
