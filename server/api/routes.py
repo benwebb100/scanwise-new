@@ -255,9 +255,9 @@ async def analyze_xray(
         ai_analysis = await openai_service.analyze_dental_conditions(predictions, findings_dict)
         
         # Step 4: Save to database (Supabase handles user_id via RLS)
-        # Generate HTML report using GPT
-        findings_dict = [f.model_dump() for f in request.findings] if request.findings else []
-        html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
+        # SKIP HTML generation here - let frontend generate HTML from organized stages
+        # This ensures the report uses the dentist's organized stages from the stage editor
+        # html_report = await openai_service.generate_html_report_content(findings_dict, request.patient_name)
         
         diagnosis_data = {
             'patient_name': request.patient_name,
@@ -266,7 +266,7 @@ async def analyze_xray(
             'summary': ai_analysis.get('summary', ''),
             'ai_notes': ai_analysis.get('ai_notes', ''),
             'treatment_stages': ai_analysis.get('treatment_stages', []),
-            'report_html': html_report,
+            'report_html': None,  # Let frontend generate HTML from organized stages
             'is_xray_based': True
         }
         
@@ -301,7 +301,7 @@ async def analyze_xray(
             "diagnosis_timestamp": datetime.now(),
             "annotated_image_url": annotated_url,
             "detections": ai_analysis.get('detections', []),
-            "report_html": html_report,
+            "report_html": None,  # Let frontend generate HTML from organized stages
             "diagnosis_id": diagnosis_id,
             "video_url": video_url  # Include video URL directly
         }
