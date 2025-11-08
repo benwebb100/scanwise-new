@@ -133,6 +133,8 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       'caries': '#58eec3',
       'crown': '#FF00D4',
       'filling': '#FF004D',
+      'root-canal': '#FF004D',  // Same red as filling
+      'root-canal-treatment': '#FF004D',  // Same red as filling
       'fracture': '#FF69F8',
       'impacted-tooth': '#FFD700',
       'implant': '#00FF5A',
@@ -141,7 +143,6 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       'periapical-lesion': '#007BFF',
       'post': '#00FFD5',
       'root-piece': '#fe4eed',
-      'root-canal-treatment': '#FF004D',
       'tissue-level': '#A2925D'
     };
     
@@ -381,17 +382,53 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                     );
 
                     if (uniqueConditions.length > 0) {
+                      // Check if both filling and root-canal are present
+                      const hasFilling = uniqueConditions.includes('filling');
+                      const hasRootCanal = uniqueConditions.includes('root-canal') || 
+                                          uniqueConditions.includes('root-canal-treatment');
+                      
+                      // Create display conditions - combine filling and root-canal if both present
+                      let displayConditions: Array<{ name: string, color: string }> = [];
+                      
+                      if (hasFilling && hasRootCanal) {
+                        // Combine into one red entry
+                        displayConditions.push({
+                          name: 'Filling & Root Canal',
+                          color: '#FF004D'  // Red
+                        });
+                        
+                        // Add all other conditions except filling and root-canal
+                        uniqueConditions.forEach(condition => {
+                          if (condition !== 'filling' && 
+                              condition !== 'root-canal' && 
+                              condition !== 'root-canal-treatment') {
+                            displayConditions.push({
+                              name: formatConditionName(condition),
+                              color: getConditionColor(condition)
+                            });
+                          }
+                        });
+                      } else {
+                        // Show all conditions separately
+                        uniqueConditions.forEach(condition => {
+                          displayConditions.push({
+                            name: formatConditionName(condition),
+                            color: getConditionColor(condition)
+                          });
+                        });
+                      }
+
                       return (
                         <div className="mt-4">
                           <div className="flex flex-wrap gap-3 justify-center">
-                            {uniqueConditions.map((condition, index) => (
+                            {displayConditions.map((item, index) => (
                               <div key={index} className="flex items-center space-x-3">
                                 <div 
                                   className="w-6 h-6 rounded border border-gray-300"
-                                  style={{ backgroundColor: getConditionColor(condition) }}
+                                  style={{ backgroundColor: item.color }}
                                 />
                                 <span className="text-base text-gray-700 font-medium">
-                                  {formatConditionName(condition)}
+                                  {item.name}
                                 </span>
                               </div>
                             ))}

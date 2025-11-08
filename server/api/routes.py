@@ -562,20 +562,49 @@ async def upload_xray_image(
     file: UploadFile = File(...),
     token: str = Depends(get_auth_token)
 ):
-    """Upload X-ray image to Supabase Storage"""
+    """Upload X-ray image to Supabase Storage (supports JPEG, PNG, TIFF, and DICOM)"""
     try:
+        # Check if this is a DICOM file
+        is_dicom = (
+            file.filename and file.filename.lower().endswith('.dcm') or
+            file.content_type == "application/dicom"
+        )
+        
         # Validate file type
-        allowed_types = ["image/jpeg", "image/png", "image/tiff"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="Invalid file type")
+        allowed_types = ["image/jpeg", "image/png", "image/tiff", "application/dicom"]
+        if not is_dicom and file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Invalid file type. Supported: JPEG, PNG, TIFF, DICOM")
         
         # Read file content
         file_content = await file.read()
         
         # Generate unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_extension = file.filename.split('.')[-1]
-        file_name = f"xrays/{timestamp}_{file.filename}"
+        
+        # Handle DICOM files - convert to JPEG
+        if is_dicom:
+            logger.info(f"🏥 Detected DICOM file upload: {file.filename}")
+            from services.dicom_processor import dicom_processor
+            
+            # Convert DICOM to JPEG
+            conversion_result = dicom_processor.convert_dicom_bytes_to_image(file_content)
+            
+            if not conversion_result:
+                raise HTTPException(status_code=500, detail="Failed to convert DICOM file. Please ensure it's a valid DICOM with image data.")
+            
+            image_bytes, dicom_metadata = conversion_result
+            logger.info(f"✅ DICOM converted to JPEG: {len(image_bytes)} bytes, Patient: {dicom_metadata.get('patient_name', 'Unknown')}")
+            
+            # Use JPEG bytes and change extension
+            file_content = image_bytes
+            file_name = f"xrays/dicom_{timestamp}_{file.filename.replace('.dcm', '.jpg')}"
+            
+            # Store metadata for future use (optional - could save to database here too)
+            logger.info(f"📋 DICOM metadata: {dicom_metadata.get('patient_name')}, ID: {dicom_metadata.get('patient_id')}")
+        else:
+            # Regular image file
+            file_extension = file.filename.split('.')[-1]
+            file_name = f"xrays/{timestamp}_{file.filename}"
         
         # Upload to Supabase
         public_url = await supabase_service.upload_image(
@@ -587,11 +616,24 @@ async def upload_xray_image(
         if not public_url:
             raise HTTPException(status_code=500, detail="Failed to upload image")
         
-        return {
+        # Prepare response
+        response = {
             "status": "success",
             "url": public_url,
             "filename": file_name
         }
+        
+        # Add DICOM metadata if available
+        if is_dicom and 'dicom_metadata' in locals():
+            response["metadata"] = {
+                "patient_name": dicom_metadata.get('patient_name'),
+                "patient_id": dicom_metadata.get('patient_id'),
+                "patient_email": dicom_metadata.get('patient_email'),
+                "is_dicom": True
+            }
+            logger.info(f"📤 Returning DICOM metadata with upload response")
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error uploading image: {str(e)}")

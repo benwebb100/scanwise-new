@@ -128,7 +128,8 @@ interface ReportGenerationData {
         findings,
         patientName,
         treatmentSettings,
-        showReplacementOptionsTable
+        showReplacementOptionsTable,
+        organizedStages  // Pass organized stages to local HTML generation
       });
     }
 
@@ -327,7 +328,7 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
 // ReportGeneration.tsx - COMPLETE VERSION (continued)
 
 const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Function) => {
-  const stages = data.stages || data.treatment_stages || [];
+  const stages = data?.stages || data?.treatment_stages || data?.organizedStages || [];
   
   if (stages && stages.length > 0) {
     return `
@@ -470,6 +471,11 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
     'whitening': 45
   };
 
+  // Safety check for uniqueFindings
+  if (!uniqueFindings || !Array.isArray(uniqueFindings) || uniqueFindings.length === 0) {
+    return '';
+  }
+  
   // Group findings by urgency
   const urgencyGroups: {[key: number]: any[]} = {};
   uniqueFindings.forEach((finding: any) => {

@@ -58,6 +58,7 @@ const Dashboard = () => {
   const [processingAws, setProcessingAws] = useState<string | null>(null); // Track which AWS image is being processed
   const [loadingAws, setLoadingAws] = useState(false); // Track AWS images loading state
   const [awsError, setAwsError] = useState<string | null>(null); // Track AWS errors
+  const [dataFullyLoaded, setDataFullyLoaded] = useState(false); // Track if all data is loaded and ready
   const [stats, setStats] = useState<Stats>({
     totalReports: 0,
     thisMonth: 0,
@@ -210,6 +211,10 @@ const Dashboard = () => {
       });
     } finally {
       setLoading(false);
+      // Set a small delay to ensure all data is rendered and ready
+      setTimeout(() => {
+        setDataFullyLoaded(true);
+      }, 500);
     }
   };
 
@@ -377,8 +382,29 @@ const Dashboard = () => {
   // };
 
     const handleViewReport = async (report: Report) => {
+    // Prevent clicking if data not fully loaded yet
+    if (!dataFullyLoaded) {
+      toast({
+        title: "Loading...",
+        description: "Please wait while we load all report data.",
+        duration: 2000,
+      });
+      return;
+    }
+    
     // Check if this is an AWS image
     if (report.source === 'aws_s3') {
+      // Prevent clicking on Pending or Processing reports
+      if (report.status === 'Pending' || report.status === 'pending' || 
+          report.status === 'Processing' || report.status === 'processing') {
+        toast({
+          title: "⏳ AI Analysis in Progress",
+          description: "This image is still being analyzed. Please wait until processing is complete.",
+          duration: 3000,
+        });
+        return;
+      }
+      
       // Check if analysis is complete
       if (report.analysisComplete && report.detections) {
         // Navigate to CreateReport with pre-analyzed AWS data
@@ -398,13 +424,6 @@ const Dashboard = () => {
               analysisId: report.analysisId
             }
           }
-        });
-      } else if (report.status === 'Processing' || report.status === 'processing') {
-        // Still processing, show toast
-        toast({
-          title: "Analysis in Progress",
-          description: "This image is still being analyzed. Please wait...",
-          duration: 3000,
         });
       } else if (report.status === 'Failed' || report.status === 'failed') {
         // Failed, allow retry
@@ -832,13 +851,26 @@ const Dashboard = () => {
               ) : (
                 <>
                   <div className="space-y-4">
-                    {filteredReports.map((report) => (
+                    {filteredReports.map((report) => {
+                      // Check if report is clickable
+                      const isProcessing = report.source === 'aws_s3' && 
+                        (report.status === 'Pending' || report.status === 'pending' || 
+                         report.status === 'Processing' || report.status === 'processing');
+                      const isClickable = dataFullyLoaded && !isProcessing;
+                      
+                      return (
                       <div 
                           key={report.id} 
-                          className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-gray-50 ${
+                          className={`border rounded-lg p-4 transition-colors ${
+                            isClickable ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed opacity-75'
+                          } ${
                             report.source === 'aws_s3' && report.status !== 'Completed' ? 'border-blue-300 bg-blue-50/30' : ''
+                          } ${
+                            isProcessing ? 'border-yellow-300 bg-yellow-50/30' : ''
+                          } ${
+                            !dataFullyLoaded ? 'pointer-events-none' : ''
                           }`}
-                          onClick={() => handleViewReport(report)}
+                          onClick={() => isClickable && handleViewReport(report)}
                         >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-4">
@@ -940,19 +972,33 @@ const Dashboard = () => {
                           </div>
                         )}
 
-                        {report.source === 'aws_s3' && report.status !== 'Completed' && (
+                        {/* Processing/Pending indicator */}
+                        {isProcessing && (
+                          <div className="mt-3 p-3 bg-yellow-100 border border-yellow-300 rounded flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
+                              <span className="text-sm font-medium text-yellow-800">
+                                ⏳ AI Analysis in Progress - Please wait...
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Ready to process indicator */}
+                        {report.source === 'aws_s3' && !isProcessing && report.status !== 'Completed' && report.status !== 'completed' && (
                           <div className="mt-3 p-2 bg-blue-100 rounded flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Cloud className="h-4 w-4 text-blue-600" />
                               <span className="text-sm font-medium text-blue-700">
-                                Click to process this X-ray
+                                Click to view analysis results
                               </span>
                             </div>
                             <ArrowRight className="h-4 w-4 text-blue-600" />
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   
                   {filteredReports.length === 0 && !loading && (

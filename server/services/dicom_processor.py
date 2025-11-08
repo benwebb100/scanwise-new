@@ -86,6 +86,45 @@ class DICOMProcessor:
             self.logger.error(f"Error processing DICOM bytes: {str(e)}")
             return None
     
+    def _normalize_dicom_name(self, dicom_name: str) -> str:
+        """
+        Normalize DICOM patient name from "LastName^FirstName^MiddleName^Prefix^Suffix"
+        to "FirstName LastName" format
+        
+        Args:
+            dicom_name: Raw DICOM patient name (e.g., "Grahova^Anna^^^")
+            
+        Returns:
+            Normalized name (e.g., "Anna Grahova")
+        """
+        try:
+            # Split by ^ delimiter
+            parts = dicom_name.split('^')
+            
+            # Extract components (LastName^FirstName^MiddleName^Prefix^Suffix)
+            last_name = parts[0].strip() if len(parts) > 0 else ''
+            first_name = parts[1].strip() if len(parts) > 1 else ''
+            middle_name = parts[2].strip() if len(parts) > 2 else ''
+            
+            # Build normalized name: "FirstName MiddleName LastName"
+            name_parts = []
+            if first_name:
+                name_parts.append(first_name)
+            if middle_name:
+                name_parts.append(middle_name)
+            if last_name:
+                name_parts.append(last_name)
+            
+            normalized = ' '.join(name_parts)
+            
+            # If empty, return original (shouldn't happen but safety first)
+            return normalized if normalized else dicom_name
+            
+        except Exception as e:
+            self.logger.warning(f"Error normalizing DICOM name '{dicom_name}': {str(e)}")
+            # Return original if normalization fails
+            return dicom_name
+    
     def _extract_metadata(self, ds: pydicom.Dataset) -> Dict[str, Any]:
         """
         Extract metadata from a DICOM dataset
@@ -101,7 +140,8 @@ class DICOMProcessor:
         # Patient information
         try:
             if hasattr(ds, 'PatientName'):
-                metadata['patient_name'] = str(ds.PatientName)
+                raw_name = str(ds.PatientName)
+                metadata['patient_name'] = self._normalize_dicom_name(raw_name)
             if hasattr(ds, 'PatientID'):
                 metadata['patient_id'] = str(ds.PatientID)
             if hasattr(ds, 'PatientBirthDate'):
