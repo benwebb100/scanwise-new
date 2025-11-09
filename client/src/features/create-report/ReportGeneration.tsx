@@ -82,11 +82,16 @@ const useReportGeneration = () => {
           }
         }
         
+        // Get video language from localStorage settings
+        const videoLanguage = localStorage.getItem('videoNarrationLanguage') || 'english';
+        console.log(`🎙️ Using video narration language: ${videoLanguage}`);
+        
         analysisResult = await api.analyzeXray({
           patientName,
           imageUrl: imageUrl,
           findings,
           generateVideo: true, // Request video generation for both manual and AWS
+          videoLanguage, // Pass the selected language
           preAnalyzedDetections,
           preAnalyzedAnnotatedUrl
         });
