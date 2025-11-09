@@ -41,7 +41,7 @@ export function TreatmentCard({
           <div className="flex-1 min-w-0">
             {/* Tooth and urgency */}
             <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className="text-sm font-mono font-bold bg-blue-100 text-blue-700 border-blue-300">
+              <Badge variant="outline" className="text-sm font-mono font-bold bg-blue-100 text-blue-700 border-blue-300 whitespace-nowrap">
                 Tooth #{item.toothNumber}
               </Badge>
               {item.urgency && (

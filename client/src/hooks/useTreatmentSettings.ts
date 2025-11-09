@@ -155,6 +155,8 @@ export const useTreatmentSettings = () => {
     
     if (!setting) {
       console.warn(`⚠️ No setting found for treatment: ${treatmentValue}`);
+      console.log(`📋 Available treatment keys:`, Object.keys(state.settings).slice(0, 10));
+      console.log(`🔍 Looking for key: "${treatmentValue}"`);
       return { duration: 30, price: 0 }; // Fallback only if treatment not in database
     }
     
