@@ -3585,6 +3585,9 @@ const CreateReport = () => {
   // Patient name validation state
   const patientNameRef = useRef<HTMLInputElement>(null);
   const [patientNameError, setPatientNameError] = useState(false);
+  
+  // Findings validation state
+  const [findingsErrors, setFindingsErrors] = useState<number[]>([]);
 
   // Helper functions
   const getPrice = (treatment: string): number => {
@@ -3873,6 +3876,7 @@ const CreateReport = () => {
     
     // Clear previous errors
     setPatientNameError(false);
+    setFindingsErrors([]);
     
     // Validation
     if (useXrayMode) {
@@ -3918,21 +3922,55 @@ const CreateReport = () => {
       }
     }
 
-    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
-    const findingsWithoutTreatment = findings.filter(f => f.tooth && f.condition && !f.treatment);
+    // Check for incomplete findings (where at least one field is filled but not all three)
+    const incompleteFindings: number[] = [];
+    const incompleteFindingsDetails: string[] = [];
     
-    if (findingsWithoutTreatment.length > 0) {
+    findings.forEach((finding, index) => {
+      const hasTooth = finding.tooth && finding.tooth.trim() !== '';
+      const hasCondition = finding.condition && finding.condition.trim() !== '';
+      const hasTreatment = finding.treatment && finding.treatment.trim() !== '';
+      
+      // Count how many fields are filled
+      const filledCount = [hasTooth, hasCondition, hasTreatment].filter(Boolean).length;
+      
+      // If some fields are filled but not all (incomplete finding)
+      if (filledCount > 0 && filledCount < 3) {
+        incompleteFindings.push(index);
+        
+        const missingFields: string[] = [];
+        if (!hasTooth) missingFields.push('tooth number');
+        if (!hasCondition) missingFields.push('condition');
+        if (!hasTreatment) missingFields.push('treatment');
+        
+        incompleteFindingsDetails.push(`Finding ${index + 1}: missing ${missingFields.join(', ')}`);
+      }
+    });
+    
+    if (incompleteFindings.length > 0) {
+      setFindingsErrors(incompleteFindings);
+      
       toast({
-        title: "Treatments Required",
-        description: `Please select treatments for ${findingsWithoutTreatment.length} finding(s) before proceeding.`,
+        title: "Incomplete Findings",
+        description: `Please fill in all required fields (tooth, condition, treatment) for ${incompleteFindings.length} finding(s). ${incompleteFindingsDetails[0]}`,
         variant: "destructive",
+        duration: 5000,
       });
+      
+      // Scroll to first incomplete finding
+      setTimeout(() => {
+        const firstErrorElement = document.querySelector(`[data-finding-index="${incompleteFindings[0]}"]`);
+        if (firstErrorElement) {
+          firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
       return;
     }
+
+    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
     
     if (validFindings.length === 0) {
-// CreateReport.tsx (continued)
-
       toast({
         title: "No Complete Findings",
         description: "Please add at least one complete finding with tooth, condition, and treatment.",
@@ -4168,6 +4206,7 @@ const CreateReport = () => {
                       }}
                       patientNameError={patientNameError}
                       patientNameRef={patientNameRef}
+                      findingsErrors={findingsErrors}
                     />
                   </>
                 )}
@@ -4232,6 +4271,7 @@ const CreateReport = () => {
                   }}
                   patientNameError={patientNameError}
                   patientNameRef={patientNameRef}
+                  findingsErrors={findingsErrors}
                 />
               </>
             )}

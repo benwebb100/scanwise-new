@@ -44,6 +44,7 @@ interface FindingsManagementProps {
   onPatientNameChange: (value: string) => void;
   patientNameError: boolean;
   patientNameRef: React.RefObject<HTMLInputElement>;
+  findingsErrors?: number[];
 }
 
 export const FindingsManagement = ({
@@ -62,7 +63,8 @@ export const FindingsManagement = ({
   patientName,
   onPatientNameChange,
   patientNameError,
-  patientNameRef
+  patientNameRef,
+  findingsErrors = []
 }: FindingsManagementProps) => {
   const { t } = useTranslation();
 
@@ -160,8 +162,15 @@ export const FindingsManagement = ({
         </div>
         
         <div id="findings-list" className="space-y-4">
-        {findings.map((f, idx) => (
-          <Card key={idx} id={`finding-${idx}`} className="p-4 finding-card relative">
+        {findings.map((f, idx) => {
+          const hasError = findingsErrors.includes(idx);
+          return (
+          <Card 
+            key={idx} 
+            id={`finding-${idx}`} 
+            data-finding-index={idx}
+            className={`p-4 finding-card relative ${hasError ? 'border-2 border-yellow-400 bg-yellow-50/30' : ''}`}
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {/* Tooth Number */}
               <div className="space-y-2">
@@ -257,7 +266,8 @@ export const FindingsManagement = ({
               </div>
             )}
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* Submit Buttons */}
