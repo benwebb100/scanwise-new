@@ -652,6 +652,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
     const descriptions: {[key: string]: string} = {
       'impacted-tooth': 'An impacted tooth is one that has not fully erupted through the gum or has grown in at an angle. This can cause pain, swelling, and can damage neighboring teeth.',
       'periapical-lesion': 'A periapical lesion is an infection or inflammation at the tip of the tooth root, usually caused by untreated decay or trauma. This can lead to severe pain and bone loss.',
+      'caries': 'Caries, commonly known as cavities, are areas of tooth decay caused by bacteria that produce acids that eat away at your tooth enamel. This decay starts on the surface and can progress deeper into the tooth if left untreated, potentially reaching the nerve and causing severe pain.',
       'cavity': 'A cavity is a hole in your tooth caused by bacteria that eat away at the enamel. Left untreated, cavities can grow larger and reach the sensitive inner part of your tooth.',
       'root-piece': 'A root piece is a fragment of a tooth root that remains in the jawbone after a tooth has been extracted. This can cause infection and prevent proper healing.',
       'missing-tooth': 'A missing tooth creates a gap that can cause other teeth to shift, leading to bite problems and potential jaw pain.',
@@ -691,6 +692,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
     const physicalRisks = urgencyMessages[treatment] || 'Delaying treatment can lead to worsening pain, infection, and potentially more complex and expensive procedures in the future.';
     
     const aestheticRisks: {[key: string]: string} = {
+      'caries': 'Untreated caries can cause visible discoloration and dark spots on your teeth, and may eventually lead to tooth loss, creating gaps in your smile.',
       'cavity': 'Untreated cavities can cause visible discoloration and may eventually lead to tooth loss, creating gaps in your smile.',
       'missing-tooth': 'Missing teeth can cause your face to look sunken and make you appear older than you are.',
       'fracture': 'A fractured tooth can be visible when you smile and may cause you to hide your smile.',
