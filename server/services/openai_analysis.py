@@ -197,23 +197,46 @@ Keep the tone professional, educational, and reassuring. Avoid clinical jargon u
             # LOW URGENCY (Existing dental work or other conditions)
             return 'low'
     
-    async def generate_video_script(self, treatment_stages: List[Dict], annotated_image_base64: str) -> str:
-        """Generate video voiceover script for patient education"""
+    async def generate_video_script(self, treatment_stages: List[Dict], annotated_image_base64: str, patient_name: str = None) -> str:
+        """Generate video voiceover script for patient education using vision model"""
         try:
-            system_prompt = """You are a dental clinician creating a calm, friendly, and easy-to-understand voiceover script for a patient based on their panoramic x-ray. The patient will be watching a video that shows their annotated x-ray with highlighted areas in specific colors. Your job is to explain the findings in a reassuring tone that improves clarity and builds trust.
+            system_prompt = """You are a **dental clinician** creating a **clear, concise, and easy-to-understand** voiceover script for a **patient** based on their panoramic x-ray.
 
-Start every script with the following line:
+The patient will be watching a video that shows their **annotated x-ray** with **color-coded highlights**.
 
-"I know dental scans can be a little overwhelming, so I've put this video together to guide you through the key findings from your x-ray and help you understand what we're seeing, step by step."
+Your goal is to explain what each highlighted color represents, what it means for their dental health, and what treatments are planned — in friendly, plain English.
+
+---
+
+### 🎬 OPENING LINE
+
+Start every script with:
+
+**"Hi {{patient_name}}, here's a quick explanation of what we found in your x-ray."**
+
+If no name is provided, use:
+**"Hi there, here's a quick explanation of what we found in your x-ray."**
+
+Then continue straight into the findings.
+
+---
+
+### 🗂️ INPUT YOU WILL RECEIVE
 
 You will receive:
-- A list of confirmed dentist findings (tooth number, condition, recommended treatment)
-- An annotated x-ray image with highlighted color-coded areas
-- A color legend mapping conditions to visual highlight colors
+- A JSON list of confirmed dentist findings (tooth number, condition, and recommended treatment)
+- An annotated x-ray image with color-coded highlights
+- A color legend mapping conditions to highlight colors
 
-When referring to the image, always describe the condition by its plain color name — never mention hex codes. For example, say: "In purple, you'll see an impacted tooth on the lower left..." or "The bright red area shows a filling on your upper molar."
+You may use the image to identify:
+- Approximate positions (upper/lower, left/right)
+- Number of instances of each color
+- Grouped regions (e.g. "across the bottom row" or "mainly on the top right")
 
-Here is the color legend to use:
+---
+
+### 🎨 COLOR LEGEND (Plain Names Only)
+
 - Bone-level: deep brown
 - Caries: light aqua
 - Crown: magenta pink
@@ -229,28 +252,55 @@ Here is the color legend to use:
 - Root canal treatment: bright red
 - Tissue-level loss: muted gold
 
-What to explain:
-For each dentist-confirmed finding, use the image and the color legend to describe what the patient is seeing. Mention:
-- The color-coded area
-- The tooth or area of the mouth (e.g. upper left molar)
-- What the condition means in simple terms
-- What might happen if it's left untreated
-- The suggested treatment
+Always refer to colors by their plain names — never use hex codes or technical terms.
 
-Use soft, non-definitive clinical language like:
-- "This may require..."
-- "We'd often recommend..."
-- "This is typically treated with..."
-- "One option might be..."
+---
 
-Group existing dental work (like fillings, implants, crowns, root canals, and posts) into a single sentence at the end, for example:
-"You'll also notice a few areas of dental work already in place — such as fillings in red and implants in green — which appear to be doing their job and helping protect your smile."
+### 🧩 SCRIPT STRUCTURE — GROUPED BY CONDITION
 
-Do not:
-- Mention confidence levels
-- Mention the patient's name
-- Include a closing line
-- Return anything other than clean, plain text"""
+Group findings by **condition/color**, not by tooth number.
+
+For each color/condition present, generate one paragraph following this structure:
+
+1. **Intro line (color + count + location)**
+   - "You'll notice several [color] areas across your scan — these represent [condition]."
+   - If one area only: "You'll see a [color] highlight along the [directional region] — this shows [condition]."
+
+2. **Condition meaning (plain-English)**
+   - Explain simply what the condition is and what it means.
+
+3. **Consequences if untreated (gentle, factual)**
+   - "If left untreated, this can sometimes lead to…"
+
+4. **Treatment plan (based on JSON + visual cues)**
+   - Use JSON to describe planned treatments.
+   - Example:
+     "All of these are planned for extraction."
+     "Three will be removed, while one on the upper right will remain since it isn't causing issues."
+   - Use regional terms (upper/lower, left/right), not tooth numbers.
+
+---
+
+### 🦷 CONDITIONAL: EXISTING DENTAL WORK
+
+If the findings include any of the following: *filling, crown, implant, root canal treatment, or post*
+→ Include one paragraph at the end that dynamically references those colors and terms.
+
+Use this template:
+> "You'll also see some existing dental work — like the [color 1] and [color 2] areas — showing your [conditions, e.g. fillings and implants]. Everything there looks stable and functioning well."
+
+If none are present, omit this paragraph entirely.
+
+---
+
+### ⚙️ STYLE GUIDELINES
+
+- Do **not** mention tooth numbers, confidence levels, or patient names in the main narration.
+- Use **soft phrasing**:
+  "This may require…", "We'd usually recommend…", "One option might be…"
+- Tone: professional, calm, conversational, not overly emotional.
+- Keep sentences short and clear.
+- Do **not** include an outro — stop after the final relevant paragraph."""
 
             # Extract findings from treatment stages
             findings = []
@@ -262,26 +312,46 @@ Do not:
                         'treatment': item.get('recommended_treatment', '')
                     })
 
-            user_prompt = f"""Based on this dental X-ray analysis, create a voiceover script:
+            # Prepare patient name for greeting
+            greeting_name = patient_name if patient_name else None
+            name_instruction = f"Use the patient name '{patient_name}' in the opening greeting." if greeting_name else "Use 'Hi there' in the opening greeting since no patient name was provided."
 
-    Findings:
-    {json.dumps(findings, indent=2)}
+            user_prompt = f"""Based on this dental X-ray analysis, create a concise, grouped-by-condition voiceover script.
 
-    The annotated X-ray shows these conditions highlighted in their respective colors according to the legend.
+{name_instruction}
 
-    Please generate a clear, friendly voiceover script explaining these findings to the patient."""
+Findings:
+{json.dumps(findings, indent=2)}
 
+The annotated X-ray shows these conditions highlighted in their respective colors according to the legend.
+
+Please analyze the uploaded annotated X-ray image as well, and use it to identify approximate regions (upper/lower, left/right) and how many times each color appears.
+
+Generate a short, friendly script following the structure in the system prompt."""
+
+            # Use vision-capable model (gpt-4o or gpt-4o-mini)
             response = self.client.chat.completions.create(
-                model=self.model_script,
+                model="gpt-4o",  # Vision-capable model
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{annotated_image_base64}"
+                                }
+                            }
+                        ]
+                    }
                 ],
-                max_completion_tokens=1000
+                max_completion_tokens=1500  # Increased for more detailed vision-based analysis
             )
             
             script = response.choices[0].message.content.strip()
-            logger.info("Successfully generated video script")
+            logger.info("Successfully generated video script using vision model")
             return script
             
         except Exception as e:
