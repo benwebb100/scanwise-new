@@ -2416,8 +2416,7 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                 
                 if analysis_response.data and len(analysis_response.data) > 0:
                     analysis = analysis_response.data[0]
-                    img['status'] = analysis.get('status', 'Ready')
-                    img['analysisComplete'] = analysis.get('status') == 'completed'
+                    analysis_status = analysis.get('status', 'pending')
                     img['analysisId'] = analysis.get('id')
                     
                     # Fetch DICOM metadata if metadata_id exists
@@ -2438,15 +2437,20 @@ async def get_user_aws_images(token: str = Depends(get_auth_token)):
                         except Exception as meta_error:
                             logger.warning(f"⚠️ Could not load metadata: {str(meta_error)}")
                     
-                    if analysis.get('status') == 'completed':
+                    # Map analysis status to UI status
+                    if analysis_status == 'completed':
+                        # Analysis is done, ready to create report
+                        img['status'] = 'Ready'
+                        img['analysisComplete'] = True
                         img['annotatedImageUrl'] = analysis.get('annotated_image_url')
                         img['detections'] = analysis.get('detections', [])
                         img['findingsSummary'] = analysis.get('findings_summary')
-                        img['summary'] = f"Ready - {len(analysis.get('detections', []))} conditions detected"
-                    elif analysis.get('status') == 'processing':
+                        img['summary'] = f"AI analysis complete - {len(analysis.get('detections', []))} conditions detected"
+                    elif analysis_status == 'processing':
                         img['status'] = 'Processing'
+                        img['analysisComplete'] = False
                         img['summary'] = 'AI analysis in progress...'
-                    elif analysis.get('status') == 'failed':
+                    elif analysis_status == 'failed':
                         img['status'] = 'Failed'
                         img['summary'] = 'Analysis failed - click to retry'
                 else:
