@@ -402,13 +402,20 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
       <div style="padding: 0 20px; margin-bottom: 40px;">
         <h3 style="font-size: 20px; margin-bottom: 20px;">Treatment Plan Stages</h3>
         
-        ${stages.map((stage: any, stageIndex: number) => `
+        ${stages.map((stage: any, stageIndex: number) => {
+          // Support both formats: stage editor format (items) and backend format (visits)
+          const hasItems = stage.items && stage.items.length > 0;
+          const hasVisits = stage.visits && stage.visits.length > 0;
+          const stageName = stage.name || stage.stage_title || stage.stage || `Stage ${stageIndex + 1}`;
+          const stageFocus = stage.focus || '';
+          
+          return `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="background-color: #e3f2fd; padding: 12px 16px;">
-              <strong style="font-size: 16px;">${stage.stage_title || `Stage ${stageIndex + 1}`}${stage.focus ? ` - ${stage.focus}` : ''}</strong>
+              <strong style="font-size: 16px;">${stageName}${stageFocus ? ` - ${stageFocus}` : ''}</strong>
             </div>
             <div style="padding: 20px;">
-              ${(stage.visits && stage.visits.length > 0) ? stage.visits.map((visit: any, visitIndex: number) => `
+              ${hasVisits ? stage.visits.map((visit: any, visitIndex: number) => `
                 <div style="border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; background: #fafafa;">
                   <div style="background-color: #f0f0f0; padding: 10px 15px; border-radius: 8px 8px 0 0;">
                     <strong style="color: #1e88e5;">${visit.visit_label || `Visit ${visitIndex + 1}`}</strong>
@@ -454,25 +461,47 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                     ` : ''}
                   </div>
                 </div>
-              `).join('') : ''}
+              `).join('') : hasItems ? `
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #666; font-size: 15px; display: block; margin-bottom: 10px;">Treatments in this stage:</strong>
+                  <ul style="margin: 0; padding-left: 20px; list-style: none;">
+                    ${stage.items.map((item: any) => `
+                      <li style="margin-bottom: 10px; padding: 10px; background: #f9fafb; border-left: 3px solid #1e88e5; border-radius: 4px;">
+                        <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
+                          Tooth ${item.toothNumber || item.tooth}: ${(item.treatment || '').replace(/-/g, ' ')}
+                        </div>
+                        <div style="font-size: 13px; color: #6b7280;">
+                          For: ${(item.condition || '').replace(/-/g, ' ')}
+                        </div>
+                        ${item.estimatedTime ? `
+                          <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
+                            ⏱️ ${item.estimatedTime} minutes • 💰 $${item.price || 0}
+                          </div>
+                        ` : ''}
+                      </li>
+                    `).join('')}
+                  </ul>
+                </div>
+              ` : '<div style="color: #6b7280; font-style: italic;">No treatments in this stage</div>'}
               
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
                   <strong style="color: #666;">Stage Duration:</strong>
                   <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
-                    ${Math.round((stage.total_duration_min || 60) / 60 * 10) / 10} hours
+                    ${stage.totalTime ? `${Math.round(stage.totalTime / 60 * 10) / 10} hours` : stage.total_duration_min ? `${Math.round(stage.total_duration_min / 60 * 10) / 10} hours` : '1 hour'}
                   </div>
                 </div>
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
                   <strong style="color: #666;">Stage Cost:</strong>
                   <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
-                    $${stage.total_cost || 0}
+                    $${stage.totalCost || stage.total_cost || 0}
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
         
         ${(data.future_tasks && data.future_tasks.length > 0) ? `
           <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-top: 20px;">
