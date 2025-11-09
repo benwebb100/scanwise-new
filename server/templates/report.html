@@ -3,88 +3,137 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dental Report</title>
+  <title>Dental Report - {{ patient_name }}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#111; }
-    .container { width: 780px; margin: 0 auto; }
-    .header { text-align: center; padding: 12px 0 6px; border-bottom: 2px solid #e5e7eb; }
-    .clinic-name { font-size: 28px; margin: 0; color: {{ primary_color }}; }
-    .contact { margin-top: 6px; font-size: 12px; color:#6b7280; }
-    .section { margin: 18px 0; }
-    .patient { font-size: 18px; font-weight: 700; }
-    .date { color:#6b7280; font-size: 12px; }
-    .html-content { margin-top: 12px; }
-    .legend { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color:#374151; }
-    .legend .chip { background:#eef2ff; border:1px solid #c7d2fe; border-radius: 6px; padding: 4px 8px; }
-    .annotated { text-align: center; margin-top: 8px; }
-    .annotated img { max-width: 100%; height: auto; border:1px solid #e5e7eb; }
-    .btn-row { display:flex; gap:12px; margin-top:16px; flex-wrap: wrap; }
-    .btn { display:inline-block; padding:10px 14px; border-radius:8px; font-weight:600; text-decoration:none; color:#fff; }
-    .btn.avatar { background: linear-gradient(90deg, #2563eb, #7c3aed); }
-    .btn.video { background: linear-gradient(90deg, #059669, #0ea5e9); }
-    .btn.book { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-    .btn.call { background: linear-gradient(90deg, #10b981, #22c55e); }
-    .note { font-size: 11px; color:#6b7280; margin-top:6px; }
-    .footer { text-align:center; margin-top:30px; color:#9ca3af; font-size:11px; }
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      padding: 20px; 
+      font-family: Arial, Helvetica, sans-serif; 
+      background: #f9fafb; 
+      color: #111827;
+    }
+    .report-wrapper {
+      max-width: 850px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 0;
+    }
+    .report-content {
+      background: #ffffff;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1 class="clinic-name">{{ clinic_name }}</h1>
-      <div class="contact">
-        {% if address %}Address: {{ address }} • {% endif %}
-        {% if phone %}Phone: {{ phone }} • {% endif %}
-        {% if email %}Email: {{ email }} • {% endif %}
-        {% if website %}Website: {{ website }}{% endif %}
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="patient">Patient: {{ patient_name }}</div>
-      <div class="date">Report Generated: {{ report_date }}</div>
-    </div>
-
-    <div class="section html-content">
-      <!-- Insert the exact preview HTML here -->
+  <div class="report-wrapper">
+    <!-- MAIN REPORT CONTENT -->
+    <div class="report-content">
       {{ report_html | safe }}
     </div>
-
-    {% if legend and legend|length > 0 %}
-    <div class="section">
-      <div class="legend">
-        {% for item in legend %}
-        <div class="chip">{{ item }}</div>
-        {% endfor %}
+    
+    <!-- VIDEO BUTTON SECTION (PROMINENT AND CLICKABLE) -->
+    {% if video_url %}
+    <div style="margin: 40px 20px 20px; padding: 35px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; text-align: center; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);">
+      <div style="margin-bottom: 20px;">
+        <span style="font-size: 48px; display: inline-block;">📹</span>
       </div>
+      <h2 style="color: #ffffff; font-size: 32px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.5px;">
+        Watch Your Personalized Video
+      </h2>
+      <p style="color: #e5e7eb; font-size: 17px; margin: 0 0 30px 0; line-height: 1.6; max-width: 500px; margin-left: auto; margin-right: auto;">
+        {{ clinic_name }} has prepared a detailed video explanation of your dental analysis and recommended treatment plan
+      </p>
+      <a href="{{ video_url }}" 
+         style="display: inline-block; background: #ffffff; color: #667eea; padding: 18px 50px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 20px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); border: 3px solid #ffffff;">
+        ▶ WATCH VIDEO NOW
+      </a>
+      <p style="color: #d1d5db; font-size: 14px; margin: 25px 0 0 0; font-style: italic;">
+        🎬 Your video is ready to view - click the button above
+      </p>
+    </div>
+    {% else %}
+    <div style="margin: 30px 20px; padding: 25px; background: #fef3c7; border: 2px solid #fbbf24; border-radius: 12px; text-align: center;">
+      <p style="color: #92400e; font-size: 16px; margin: 0; font-weight: 600;">
+        ⏳ Your personalized video explanation is being generated and will be available soon
+      </p>
     </div>
     {% endif %}
-
-    {% if annotated_image_url %}
-    <div class="section annotated">
-      <img src="{{ annotated_image_url }}" alt="Annotated X-ray" />
+    
+    <!-- INTERACTIVE CONSULTATION -->
+    {% if consultation_url %}
+    <div style="margin: 20px 20px; padding: 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; text-align: center;">
+      <h3 style="color: #ffffff; font-size: 26px; margin: 0 0 12px 0; font-weight: 700;">
+        💬 Have Questions? Get Instant Answers
+      </h3>
+      <p style="color: #d1fae5; font-size: 15px; margin: 0 0 20px 0;">
+        Chat with our AI assistant about your treatment plan
+      </p>
+      <a href="{{ consultation_url }}" 
+         style="display: inline-block; background: #ffffff; color: #10b981; padding: 14px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 17px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);">
+        Start Interactive Consultation →
+      </a>
     </div>
     {% endif %}
-
-    <div class="section">
-      <div class="btn-row">
-        <a class="btn avatar" href="{{ consultation_url or '#' }}">Interactive Avatar</a>
-        <a class="btn video" href="{{ video_url or '#' }}">Watch Your Report Video</a>
-        {% if website %}
-        <a class="btn book" href="{{ website }}" target="_blank" rel="noopener">Book Appointment</a>
-        {% endif %}
+    
+    <!-- BOOKING CALL-TO-ACTION -->
+    <div style="margin: 20px 20px 40px; padding: 30px; background: #f9fafb; border: 3px solid #e5e7eb; border-radius: 16px; text-align: center;">
+      <h3 style="color: #111827; font-size: 24px; margin: 0 0 8px 0; font-weight: 700;">
+        📅 Ready to Start Your Treatment?
+      </h3>
+      <p style="color: #6b7280; font-size: 15px; margin: 0 0 20px 0;">
+        Book your appointment today and take the first step towards a healthier smile
+      </p>
+      <div style="display: block; text-align: center; margin-top: 20px;">
         {% if phone %}
-        <a class="btn call" href="tel:{{ phone }}">Call Us to Book</a>
+        <a href="tel:{{ phone }}" 
+           style="display: inline-block; background: #10b981; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+          📞 Call {{ phone }}
+        </a>
+        {% endif %}
+        {% if website %}
+        <a href="{{ website }}" target="_blank" rel="noopener"
+           style="display: inline-block; background: #f59e0b; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">
+          🗓️ Book Online
+        </a>
+        {% endif %}
+        {% if email %}
+        <a href="mailto:{{ email }}" 
+           style="display: inline-block; background: #3b82f6; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
+          ✉️ Email Us
+        </a>
         {% endif %}
       </div>
-      <div class="note">These buttons may not be clickable in this preview PDF if links are not yet generated.</div>
     </div>
-
-    <div class="footer">
-      Report generated by {{ clinic_name }}
+    
+    <!-- FOOTER -->
+    <div style="margin: 0; padding: 30px 20px; text-align: center; border-top: 2px solid #e5e7eb; background: #f3f4f6;">
+      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 700; color: #374151;">
+        {{ clinic_name }}
+      </p>
+      {% if address %}
+      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">📍 {{ address }}</p>
+      {% endif %}
+      {% if phone %}
+      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">📞 {{ phone }}</p>
+      {% endif %}
+      {% if email %}
+      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">✉️ {{ email }}</p>
+      {% endif %}
+      {% if website %}
+      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">🌐 {{ website }}</p>
+      {% endif %}
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d1d5db;">
+        <p style="margin: 5px 0; color: #9ca3af; font-size: 12px; font-style: italic;">
+          This report contains confidential patient information
+        </p>
+        <p style="margin: 5px 0; color: #9ca3af; font-size: 12px;">
+          Report generated on {{ report_date }}
+        </p>
+        <p style="margin: 15px 0 0; color: #b91c1c; font-size: 11px; font-weight: 600;">
+          ⚠️ For professional dental advice only - not a substitute for in-person examination
+        </p>
+      </div>
     </div>
   </div>
 </body>
 </html>
-
-
