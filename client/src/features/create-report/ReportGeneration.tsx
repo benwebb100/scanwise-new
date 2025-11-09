@@ -13,10 +13,11 @@ interface ReportGenerationData {
   showReplacementOptionsTable?: boolean;
   toothNumberingSystem?: string;
   organizedStages?: any[];
+  clinicBranding?: any;
 }
 
 const useReportGeneration = () => {
-  const { applyBrandingToReport } = useClinicBranding();
+  const { applyBrandingToReport, brandingData } = useClinicBranding();
 
   const progressSteps = [
     { progress: 10, text: "Analyzing dental findings..." },
@@ -130,7 +131,8 @@ const useReportGeneration = () => {
         patientName,
         treatmentSettings,
         showReplacementOptionsTable,
-        annotated_image_url: immediateAnalysisData?.annotated_image_url || analysisResult.annotated_image_url
+        annotated_image_url: immediateAnalysisData?.annotated_image_url || analysisResult.annotated_image_url,
+        clinicBranding: brandingData
       });
     }
 
@@ -152,7 +154,16 @@ const useReportGeneration = () => {
 
 // WORKING generateReportHTML from commit 2784580 (adapted)
 const generateReportHTML = (data: any) => {
-  const { findings, patientName, treatmentSettings, showReplacementOptionsTable } = data;
+  const { findings, patientName, treatmentSettings, showReplacementOptionsTable, clinicBranding } = data;
+  
+  // Extract clinic branding with defaults
+  const clinicName = clinicBranding?.clinicName || 'Dental Clinic';
+  const clinicLogo = clinicBranding?.logoUrl || '';
+  const clinicAddress = clinicBranding?.address || '';
+  const clinicPhone = clinicBranding?.phone || '';
+  const clinicEmail = clinicBranding?.email || '';
+  const clinicWebsite = clinicBranding?.website || '';
+  const primaryColor = clinicBranding?.primaryColor || '#1e88e5';
   
   // Safety checks
   if (!findings || findings.length === 0) {
@@ -294,24 +305,39 @@ const generateReportHTML = (data: any) => {
 
   const groupedTreatments = groupTreatments(treatmentItems);
   
-  // Generate the HTML - clinic branding will be applied by useClinicBranding hook
+  // Generate the HTML with clinic branding
   const htmlContent = `
     <div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-      <!-- Header - This will be replaced by applyBrandingToReport() -->
-      <div style="background-color: #1e88e5; color: white; padding: 20px; display: flex; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="width: 40px; height: 40px; background-color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-            <span style="color: #1e88e5; font-size: 20px;">🧠</span>
+      <!-- Clinic Header with Branding -->
+      <div style="background-color: ${primaryColor}; color: white; padding: 25px 20px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          ${clinicLogo ? `
+            <img src="${clinicLogo}" alt="${clinicName}" style="height: 50px; width: auto; max-width: 150px; object-fit: contain; background: white; padding: 5px; border-radius: 8px;" />
+          ` : ''}
+          <div>
+            <div style="font-size: 26px; font-weight: bold; margin-bottom: 5px;">${clinicName}</div>
+            ${clinicPhone || clinicAddress ? `
+              <div style="font-size: 13px; opacity: 0.95; line-height: 1.4;">
+                ${clinicPhone ? `📞 ${clinicPhone}` : ''}
+                ${clinicPhone && clinicAddress ? ' • ' : ''}
+                ${clinicAddress ? `📍 ${clinicAddress}` : ''}
+              </div>
+            ` : ''}
           </div>
-          <span style="font-size: 24px; font-weight: bold;">Scanwise</span>
         </div>
       </div>
 
-      <!-- Greeting -->
-      <div style="padding: 30px 20px;">
-        <h2 style="font-size: 24px; margin-bottom: 10px;">Hi ${patientName}, here's what we found in your X-Ray:</h2>
-        <p style="color: #666; margin-bottom: 20px;">Below is a clear, easy-to-understand breakdown of your scan and what it means for your dental health.</p>
-        <p style="text-align: center; color: #666; margin: 20px 0;">Scroll down to view your full written report.</p>
+      <!-- Patient Info & Title -->
+      <div style="padding: 25px 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+        <h1 style="font-size: 28px; margin: 0 0 12px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
+        <div style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+          ${clinicName ? `<div style="margin-bottom: 4px;"><strong>${clinicName}</strong></div>` : ''}
+          ${clinicAddress ? `<div style="margin-bottom: 4px;">📍 ${clinicAddress}</div>` : ''}
+          ${clinicPhone ? `<div style="margin-bottom: 4px;">📞 ${clinicPhone}</div>` : ''}
+          ${clinicEmail ? `<div style="margin-bottom: 4px;">✉️ ${clinicEmail}</div>` : ''}
+          ${clinicWebsite ? `<div style="margin-bottom: 4px;">🌐 ${clinicWebsite}</div>` : ''}
+        </div>
+        <p style="text-align: center; color: #6b7280; margin: 20px 0 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
       </div>
 
       <!-- Treatment Overview Table -->
@@ -374,15 +400,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
   if (stages && stages.length > 0) {
     return `
       <div style="padding: 0 20px; margin-bottom: 40px;">
-        <h3 style="font-size: 20px; margin-bottom: 20px;">
-          Treatment Plan Stages
-          <span style="font-size: 14px; color: #666; font-weight: normal; margin-left: 10px;">
-            (Customized by Dentist)
-          </span>
-        </h3>
-        <p style="color: #666; margin-bottom: 20px; font-style: italic;">
-          Your treatment plan has been carefully organized by your dentist for optimal scheduling and patient comfort.
-        </p>
+        <h3 style="font-size: 20px; margin-bottom: 20px;">Treatment Plan Stages</h3>
         
         ${stages.map((stage: any, stageIndex: number) => `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -471,13 +489,6 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
             `).join('')}
           </div>
         ` : ''}
-        
-        <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 15px; margin-top: 20px; text-align: center;">
-          <p style="color: #1976d2; margin: 0; font-size: 14px;">
-            <strong>Note:</strong> This treatment plan has been customized by your dentist to ensure optimal outcomes.
-            The stages are organized for scheduling efficiency and your comfort.
-          </p>
-        </div>
       </div>
     `;
   }
