@@ -66,7 +66,7 @@ const ACTIVE_CONDITIONS = [
 ];
 
 const EXISTING_DENTAL_WORK = [
-  'filling', 'crown', 'bridge', 'root-canal', 'post', 'implant',
+  'filling', 'crown', 'bridge', 'root-canal', 'root-canal-treatment', 'post', 'implant',
   'existing-large-filling', 'implant-placement', 'composite-build-up',
   'partial-denture', 'complete-denture', 'inlay', 'onlay', 'whitening',
   'bonding', 'sealant'
@@ -306,6 +306,12 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   // Filter out rejected detections and separate by type
   const visibleDetections = detections.filter((_, index) => !rejectedDetections.has(index));
   
+  // Debug: Log all detection classes
+  console.log('🔍 All detection classes:', visibleDetections.map(d => ({
+    raw: d.class,
+    normalized: normalizeConditionName(d.class)
+  })));
+  
   const activeConditions = visibleDetections.filter(detection => 
     ACTIVE_CONDITIONS.includes(normalizeConditionName(detection.class))
   );
@@ -313,6 +319,9 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   const existingWork = visibleDetections.filter(detection => 
     EXISTING_DENTAL_WORK.includes(normalizeConditionName(detection.class))
   );
+  
+  console.log('📊 Active conditions:', activeConditions.length);
+  console.log('🦷 Existing work:', existingWork.length, existingWork.map(d => d.class));
 
   const activeCount = activeConditions.length;
   const existingCount = existingWork.length;

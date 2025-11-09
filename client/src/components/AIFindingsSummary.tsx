@@ -64,6 +64,23 @@ export const AIFindingsSummary: React.FC<AIFindingsSummaryProps> = ({
 
   if (!isVisible) return null;
 
+  // Safety check for findingsSummary
+  if (!findingsSummary || !findingsSummary.detailed_findings || !Array.isArray(findingsSummary.detailed_findings)) {
+    return (
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center text-blue-900">
+            <Brain className="mr-2 h-5 w-5" />
+            AI Analysis Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">Clinical analysis data is not available for this image.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <TooltipProvider>
       <Card className="border-blue-200 bg-blue-50">
@@ -74,7 +91,7 @@ export const AIFindingsSummary: React.FC<AIFindingsSummaryProps> = ({
               AI Analysis Summary
             </CardTitle>
             <Badge variant="outline" className="bg-white">
-              {findingsSummary.total_detections} detections found
+              {findingsSummary.total_detections || 0} detections found
             </Badge>
           </div>
           <CardDescription>
@@ -83,23 +100,25 @@ export const AIFindingsSummary: React.FC<AIFindingsSummaryProps> = ({
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Overall Summary */}
-          <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-semibold text-gray-900 mb-2">Overall Assessment</h4>
-            <p className="text-gray-700">{findingsSummary.overall_summary}</p>
-          </div>
+          {findingsSummary.overall_summary && (
+            <div className="bg-white p-4 rounded-lg border">
+              <h4 className="font-semibold text-gray-900 mb-2">Overall Assessment</h4>
+              <p className="text-gray-700">{findingsSummary.overall_summary}</p>
+            </div>
+          )}
 
           {/* Key Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-3 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-blue-600">{findingsSummary.total_detections}</div>
+              <div className="text-2xl font-bold text-blue-600">{findingsSummary.total_detections || 0}</div>
               <div className="text-sm text-gray-600">Total Detections</div>
             </div>
             <div className="bg-white p-3 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-green-600">{findingsSummary.high_confidence_count}</div>
+              <div className="text-2xl font-bold text-green-600">{findingsSummary.high_confidence_count || 0}</div>
               <div className="text-sm text-gray-600">High Confidence</div>
             </div>
             <div className="bg-white p-3 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-orange-600">{findingsSummary.areas_needing_attention.length}</div>
+              <div className="text-2xl font-bold text-orange-600">{findingsSummary.areas_needing_attention?.length || 0}</div>
               <div className="text-sm text-gray-600">Areas of Concern</div>
             </div>
           </div>
@@ -202,7 +221,7 @@ export const AIFindingsSummary: React.FC<AIFindingsSummaryProps> = ({
           </div>
 
           {/* Areas Needing Attention */}
-          {findingsSummary.areas_needing_attention.length > 0 && (
+          {findingsSummary.areas_needing_attention && findingsSummary.areas_needing_attention.length > 0 && (
             <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
               <h4 className="font-semibold text-orange-900 mb-2 flex items-center">
                 <AlertTriangle className="w-4 h-4 mr-2" />

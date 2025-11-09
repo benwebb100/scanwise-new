@@ -39,6 +39,12 @@ export const FileUploadSection = ({
       const uploadResult = await api.uploadImage(file);
       const analysisResult = await api.analyzeXrayImmediate(uploadResult.url);
       
+      // If upload result has DICOM metadata, merge it with analysis result
+      if (uploadResult.metadata) {
+        console.log('📋 DICOM metadata from upload:', uploadResult.metadata);
+        analysisResult.dicom_metadata = uploadResult.metadata;
+      }
+      
       setAnalysisProgress(100);
       clearInterval(progressInterval);
       

@@ -3763,6 +3763,13 @@ const CreateReport = () => {
     if (data.annotated_image_url) {
       setOriginalImageUrl(data.annotated_image_url);
     }
+    
+    // Auto-fill patient name from DICOM metadata if available
+    if (data.dicom_metadata?.patient_name) {
+      console.log('🏥 Auto-filling patient name from DICOM:', data.dicom_metadata.patient_name);
+      setPatientName(data.dicom_metadata.patient_name);
+    }
+    
     toast({
       title: "AI Analysis Complete",
       description: `Found ${data.detections?.length || 0} potential conditions.`,
