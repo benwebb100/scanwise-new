@@ -348,13 +348,29 @@ async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_s
         temp_dir = tempfile.mkdtemp()
         unique_id = str(uuid.uuid4())[:8]
         
-        # Save image
-        image_response = requests.get(annotated_url, timeout=30)
-        image_response.raise_for_status()
+        # Save image - handle both HTTP URLs and data URLs
+        if annotated_url.startswith('data:'):
+            # Data URL (base64-encoded image)
+            logger.info("Detected data URL for annotated image, decoding base64")
+            try:
+                # Extract base64 data (remove "data:image/png;base64," prefix)
+                base64_data = annotated_url.split(',', 1)[1]
+                image_bytes = base64.b64decode(base64_data)
+                logger.info(f"Successfully decoded data URL - Size: {len(image_bytes)} bytes")
+            except Exception as decode_error:
+                logger.error(f"Failed to decode data URL: {str(decode_error)}")
+                raise Exception(f"Invalid data URL format: {str(decode_error)}")
+        else:
+            # HTTP/HTTPS URL - download the image
+            logger.info(f"Downloading image from HTTP URL: {annotated_url[:100]}...")
+            image_response = requests.get(annotated_url, timeout=30)
+            image_response.raise_for_status()
+            image_bytes = image_response.content
+            logger.info(f"Successfully downloaded image - Size: {len(image_bytes)} bytes")
         
         image_path = os.path.join(temp_dir, f"image_{unique_id}.jpg")
         with open(image_path, 'wb') as f:
-            f.write(image_response.content)
+            f.write(image_bytes)
         
         # Save audio
         audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")

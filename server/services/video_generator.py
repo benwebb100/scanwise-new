@@ -15,16 +15,26 @@ class VideoGeneratorService:
         os.makedirs(self.temp_dir, exist_ok=True)
         
     def image_to_base64(self, image_url: str) -> str:
-        """Convert image from URL to base64"""
+        """Convert image from URL to base64 - handles both HTTP URLs and data URLs"""
         try:
-            response = requests.get(image_url)
-            response.raise_for_status()
-            
-            image_bytes = response.content
-            base64_str = base64.b64encode(image_bytes).decode('utf-8')
-            
-            logger.info(f"Successfully converted image to base64 - Size: {len(base64_str)} characters")
-            return base64_str
+            if image_url.startswith('data:'):
+                # Already a data URL - extract just the base64 part
+                logger.info("Image is already a data URL, extracting base64 data")
+                # Remove the "data:image/png;base64," prefix to get pure base64
+                base64_str = image_url.split(',', 1)[1]
+                logger.info(f"Extracted base64 from data URL - Size: {len(base64_str)} characters")
+                return base64_str
+            else:
+                # HTTP/HTTPS URL - download and convert
+                logger.info(f"Downloading image from HTTP URL to convert to base64")
+                response = requests.get(image_url)
+                response.raise_for_status()
+                
+                image_bytes = response.content
+                base64_str = base64.b64encode(image_bytes).decode('utf-8')
+                
+                logger.info(f"Successfully converted image to base64 - Size: {len(base64_str)} characters")
+                return base64_str
             
         except Exception as e:
             logger.error(f"Error converting image to base64: {str(e)}")
