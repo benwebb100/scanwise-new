@@ -3535,6 +3535,7 @@ const CreateReport = () => {
   const { 
     settings: treatmentSettings, 
     updateTreatmentSetting, 
+    saveChanges,
     getTreatmentSetting,
     isLoading: treatmentSettingsLoading 
   } = useTreatmentSettings();
@@ -3885,7 +3886,7 @@ const CreateReport = () => {
     setFindingsErrors([]);
     
     // Validation 0: Wait for treatment settings to load
-    if (isLoading) {
+    if (treatmentSettingsLoading) {
       toast({
         title: "Loading Treatment Settings",
         description: "Please wait while treatment prices and durations are loaded...",
