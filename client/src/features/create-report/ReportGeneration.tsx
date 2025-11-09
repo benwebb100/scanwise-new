@@ -360,9 +360,9 @@ const generateReportHTML = (data: any) => {
             <div style="font-size: 26px; font-weight: bold; margin-bottom: 5px;">${clinicName}</div>
             ${clinicPhone || clinicAddress ? `
               <div style="font-size: 13px; opacity: 0.95; line-height: 1.4;">
-                ${clinicPhone ? `📞 ${clinicPhone}` : ''}
+                ${clinicPhone ? `<strong>Phone:</strong> ${clinicPhone}` : ''}
                 ${clinicPhone && clinicAddress ? ' • ' : ''}
-                ${clinicAddress ? `📍 ${clinicAddress}` : ''}
+                ${clinicAddress ? `<strong>Address:</strong> ${clinicAddress}` : ''}
               </div>
             ` : ''}
           </div>
@@ -374,10 +374,10 @@ const generateReportHTML = (data: any) => {
         <h1 style="font-size: 28px; margin: 0 0 12px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
         <div style="font-size: 14px; color: #6b7280; line-height: 1.6;">
           ${clinicName ? `<div style="margin-bottom: 4px;"><strong>${clinicName}</strong></div>` : ''}
-          ${clinicAddress ? `<div style="margin-bottom: 4px;">📍 ${clinicAddress}</div>` : ''}
-          ${clinicPhone ? `<div style="margin-bottom: 4px;">📞 ${clinicPhone}</div>` : ''}
-          ${clinicEmail ? `<div style="margin-bottom: 4px;">✉️ ${clinicEmail}</div>` : ''}
-          ${clinicWebsite ? `<div style="margin-bottom: 4px;">🌐 ${clinicWebsite}</div>` : ''}
+          ${clinicAddress ? `<div style="margin-bottom: 4px;"><strong>Address:</strong> ${clinicAddress}</div>` : ''}
+          ${clinicPhone ? `<div style="margin-bottom: 4px;"><strong>Phone:</strong> ${clinicPhone}</div>` : ''}
+          ${clinicEmail ? `<div style="margin-bottom: 4px;"><strong>Email:</strong> ${clinicEmail}</div>` : ''}
+          ${clinicWebsite ? `<div style="margin-bottom: 4px;"><strong>Website:</strong> ${clinicWebsite}</div>` : ''}
         </div>
         <p style="text-align: center; color: #6b7280; margin: 20px 0 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
       </div>
