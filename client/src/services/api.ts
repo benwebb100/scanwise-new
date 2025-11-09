@@ -198,6 +198,25 @@ export const api = {
     return data;
   },
 
+  // Delete report by ID
+  async deleteReport(reportId: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/diagnoses/${reportId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to delete report');
+    }
+
+    return response.json();
+  },
+
   // Apply AI suggestions to report
   async applyAiSuggestions(previousReportHtml: string, changeRequestText: string) {
     const token = await this.getAuthToken();

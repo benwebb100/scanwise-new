@@ -961,6 +961,50 @@ async def get_diagnosis_by_id(
         raise HTTPException(status_code=500, detail=f"Failed to fetch diagnosis: {str(e)}")
 
 
+@router.delete("/diagnoses/{diagnosis_id}")
+async def delete_diagnosis(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Delete a specific diagnosis by ID for the authenticated user"""
+    try:
+        logger.info(f"🗑️ Attempting to delete diagnosis: {diagnosis_id}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # First, verify the diagnosis exists and belongs to the user
+        check_response = auth_client.table('patient_diagnosis').select("id, patient_name").eq('id', diagnosis_id).execute()
+        
+        if not check_response.data:
+            logger.warning(f"❌ Diagnosis {diagnosis_id} not found")
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+        
+        diagnosis = check_response.data[0]
+        patient_name = diagnosis.get('patient_name', 'Unknown')
+        
+        # Delete the diagnosis
+        delete_response = auth_client.table('patient_diagnosis').delete().eq('id', diagnosis_id).execute()
+        
+        if not delete_response.data:
+            logger.error(f"❌ Failed to delete diagnosis {diagnosis_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete diagnosis")
+        
+        logger.info(f"✅ Successfully deleted diagnosis {diagnosis_id} for patient: {patient_name}")
+        
+        return {
+            "success": True,
+            "message": f"Report for {patient_name} has been permanently deleted",
+            "diagnosis_id": diagnosis_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error deleting diagnosis {diagnosis_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete diagnosis: {str(e)}")
+
+
 @router.patch("/diagnosis/{diagnosis_id}/html")
 async def update_diagnosis_html(
     diagnosis_id: str,
