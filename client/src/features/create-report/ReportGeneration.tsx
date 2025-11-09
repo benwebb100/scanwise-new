@@ -175,12 +175,27 @@ const generateReportHTML = (data: any) => {
   let reportImageUrl = data.annotated_image_url;
   
   // SECURITY FIX: Only use web-accessible URLs, not local file paths
-  if (reportImageUrl && (reportImageUrl.startsWith('/tmp/') || reportImageUrl.startsWith('file://') || !reportImageUrl.startsWith('http'))) {
-    console.warn('🚨 SECURITY: Blocking local file path from report:', reportImageUrl);
-    reportImageUrl = null;
+  // Allow: HTTP/HTTPS URLs and data URLs (base64-encoded images)
+  // Block: Local file paths (/tmp/, file://)
+  if (reportImageUrl) {
+    const isDataUrl = reportImageUrl.startsWith('data:');
+    const isHttpUrl = reportImageUrl.startsWith('http://') || reportImageUrl.startsWith('https://');
+    const isLocalPath = reportImageUrl.startsWith('/tmp/') || reportImageUrl.startsWith('file://') || reportImageUrl.startsWith('/');
+    
+    if (isLocalPath && !isDataUrl) {
+      console.warn('🚨 SECURITY: Blocking local file path from report:', reportImageUrl.substring(0, 100));
+      reportImageUrl = null;
+    } else if (isDataUrl) {
+      console.log('✅ Using base64 data URL for report image (length:', reportImageUrl.length, ')');
+    } else if (isHttpUrl) {
+      console.log('✅ Using HTTP URL for report image:', reportImageUrl);
+    } else {
+      console.warn('⚠️ Unexpected image URL format:', reportImageUrl.substring(0, 100));
+      reportImageUrl = null;
+    }
   }
   
-  console.log('🔧 REPORT IMAGE: Using image for report:', reportImageUrl);
+  console.log('🔧 REPORT IMAGE: Final image URL for report:', reportImageUrl ? (reportImageUrl.startsWith('data:') ? `data URL (${reportImageUrl.length} chars)` : reportImageUrl) : 'None');
   
   // Use doctor's findings as the primary source of truth
   const doctorFindings = findings.filter((f: any) => f && f.tooth && f.condition && f.treatment);
