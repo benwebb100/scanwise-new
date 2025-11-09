@@ -15,7 +15,7 @@ interface ReportGenerationData {
   organizedStages?: any[];
 }
 
-  const useReportGeneration = () => {
+const useReportGeneration = () => {
   const { applyBrandingToReport } = useClinicBranding();
 
   const progressSteps = [
@@ -114,9 +114,10 @@ interface ReportGenerationData {
       }
     }
 
-    // Use organized stages if provided
+    // CRITICAL FIX: Set both properties to ensure compatibility
     if (organizedStages) {
-      analysisResult.treatment_stages = organizedStages;
+      analysisResult.stages = organizedStages;  // For HTML template access
+      analysisResult.treatment_stages = organizedStages;  // For backwards compatibility
     }
 
     let reportHtml = analysisResult.report_html;
@@ -129,7 +130,7 @@ interface ReportGenerationData {
         patientName,
         treatmentSettings,
         showReplacementOptionsTable,
-        organizedStages  // Pass organized stages to local HTML generation
+        annotated_image_url: immediateAnalysisData?.annotated_image_url || analysisResult.annotated_image_url
       });
     }
 
@@ -149,9 +150,9 @@ interface ReportGenerationData {
   };
 };
 
-// FULL HTML generation function (this was massively simplified in my version)
+// WORKING generateReportHTML from commit 2784580 (adapted)
 const generateReportHTML = (data: any) => {
-  const { findings, patientName, treatmentSettings, showReplacementOptionsTable, originalImageUrl } = data;
+  const { findings, patientName, treatmentSettings, showReplacementOptionsTable } = data;
   
   // Safety checks
   if (!findings || findings.length === 0) {
@@ -159,17 +160,19 @@ const generateReportHTML = (data: any) => {
     return '<div>No findings available</div>';
   }
   
-  // Filter valid findings
-interface Finding {
-    tooth: string | number;
-    condition: string;
-    treatment: string;
-    price?: number;
-    replacement?: string;
-    [key: string]: any;
-}
-
-const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f && f.tooth && f.condition && f.treatment);
+  // CRITICAL FIX: Use the annotated image from data
+  let reportImageUrl = data.annotated_image_url;
+  
+  // SECURITY FIX: Only use web-accessible URLs, not local file paths
+  if (reportImageUrl && (reportImageUrl.startsWith('/tmp/') || reportImageUrl.startsWith('file://') || !reportImageUrl.startsWith('http'))) {
+    console.warn('🚨 SECURITY: Blocking local file path from report:', reportImageUrl);
+    reportImageUrl = null;
+  }
+  
+  console.log('🔧 REPORT IMAGE: Using image for report:', reportImageUrl);
+  
+  // Use doctor's findings as the primary source of truth
+  const doctorFindings = findings.filter((f: any) => f && f.tooth && f.condition && f.treatment);
   
   if (doctorFindings.length === 0) {
     return `
@@ -179,6 +182,9 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
       </div>
     `;
   }
+  
+  console.log('🔧 Current findings state:', findings);
+  console.log('🔧 Data parameter:', data);
   
   // Helper functions
   const generateADACode = (treatment: string) => {
@@ -201,7 +207,10 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
   };
 
   const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
+    // Use the price from the finding if available, otherwise use treatment settings
     if (findingPrice) return findingPrice;
+    
+    // Get price from treatment settings
     return treatmentSettings?.[treatment]?.price || 100;
   };
 
@@ -230,14 +239,48 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
     return treatments.reduce((sum: number, t: any) => sum + t.totalPrice, 0);
   };
 
+  const calculateStageCost = (stage: any, groupedTreatments: any[]) => {
+    let cost = 0;
+    stage.items.forEach((item: any) => {
+      const treatment = groupedTreatments.find((t: any) => 
+        t.procedure.toLowerCase().includes(item.recommended_treatment.toLowerCase())
+      );
+      if (treatment) {
+        cost += treatment.unitPrice * (item.quantity || 1);
+      }
+    });
+    return cost;
+  };
+
+  const estimateDuration = (stage: any) => {
+    const durations: Record<string, number> = {
+      'filling': 0.75,
+      'extraction': 0.5,
+      'root canal': 1.5,
+      'crown': 1.5,
+      'implant': 2,
+      'bridge': 2,
+      'scaling': 1
+    };
+    
+    let totalHours = 0;
+    stage.items.forEach((item: any) => {
+      const procedure = item.recommended_treatment.toLowerCase();
+      const duration = Object.keys(durations).find(key => procedure.includes(key));
+      totalHours += duration ? durations[duration] : 1;
+    });
+    
+    return Math.round(totalHours * 10) / 10;
+  };
+
   // Process findings to create treatment items
   const treatmentItems: any[] = [];
-  const uniqueFindings = doctorFindings.filter((finding, index, self) => {
+  const uniqueFindings = doctorFindings.filter((finding: any, index: number, self: any[]) => {
     const key = `${finding.tooth}-${finding.treatment}-${finding.condition}`;
-    return index === self.findIndex(f => `${f.tooth}-${f.treatment}-${f.condition}` === key);
+    return index === self.findIndex((f: any) => `${f.tooth}-${f.treatment}-${f.condition}` === key);
   });
   
-  uniqueFindings.forEach((finding) => {
+  uniqueFindings.forEach((finding: any) => {
     treatmentItems.push({
       procedure: finding.treatment,
       adaCode: generateADACode(finding.treatment),
@@ -251,17 +294,10 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
 
   const groupedTreatments = groupTreatments(treatmentItems);
   
-  // Security check for image URL
-  let reportImageUrl = originalImageUrl || data.annotated_image_url;
-  if (reportImageUrl && (reportImageUrl.startsWith('/tmp/') || reportImageUrl.startsWith('file://') || !reportImageUrl.startsWith('http'))) {
-    console.warn('🚨 SECURITY: Blocking local file path from report:', reportImageUrl);
-    reportImageUrl = null;
-  }
-
-  // Generate the complete HTML report
+  // Generate the HTML - clinic branding will be applied by useClinicBranding hook
   const htmlContent = `
     <div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-      <!-- Header -->
+      <!-- Header - This will be replaced by applyBrandingToReport() -->
       <div style="background-color: #1e88e5; color: white; padding: 20px; display: flex; align-items: center;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <div style="width: 40px; height: 40px; background-color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
@@ -307,7 +343,7 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
         </table>
       </div>
 
-      <!-- Stage-Based Treatment Plan -->
+      <!-- Stage-Based Treatment Plan (uses data.stages from stage editor) -->
       ${renderStages(data, uniqueFindings, getTreatmentPrice)}
 
       <!-- Active Conditions with Enhanced Descriptions -->
@@ -325,10 +361,15 @@ const doctorFindings: Finding[] = findings.filter((f: any): f is Finding => f &&
 };
 
 // Helper functions for report sections
-// ReportGeneration.tsx - COMPLETE VERSION (continued)
-
 const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Function) => {
-  const stages = data?.stages || data?.treatment_stages || data?.organizedStages || [];
+  // CRITICAL FIX: Check for data.stages (from stage editor organized stages)
+  const stages = data?.stages || data?.treatment_stages || [];
+  
+  console.log('🎯 renderStages called with:', { 
+    hasStages: !!stages, 
+    stagesLength: stages?.length, 
+    stagesData: stages 
+  });
   
   if (stages && stages.length > 0) {
     return `
@@ -336,77 +377,78 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
         <h3 style="font-size: 20px; margin-bottom: 20px;">
           Treatment Plan Stages
           <span style="font-size: 14px; color: #666; font-weight: normal; margin-left: 10px;">
-            (AI-Optimized Scheduling)
+            (Customized by Dentist)
           </span>
         </h3>
         <p style="color: #666; margin-bottom: 20px; font-style: italic;">
-          Your treatment plan has been intelligently staged for scheduling efficiency and patient comfort. 
-          Each stage represents a treatment phase, and visits are grouped by time budget and anesthesia rules.
+          Your treatment plan has been carefully organized by your dentist for optimal scheduling and patient comfort.
         </p>
         
-        ${stages.map((stage: any) => `
+        ${stages.map((stage: any, stageIndex: number) => `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="background-color: #e3f2fd; padding: 12px 16px;">
-              <strong style="font-size: 16px;">${stage.stage_title}${stage.focus ? ` - ${stage.focus}` : ''}</strong>
+              <strong style="font-size: 16px;">${stage.stage_title || `Stage ${stageIndex + 1}`}${stage.focus ? ` - ${stage.focus}` : ''}</strong>
             </div>
             <div style="padding: 20px;">
-              ${stage.visits.map((visit: any) => `
+              ${(stage.visits && stage.visits.length > 0) ? stage.visits.map((visit: any, visitIndex: number) => `
                 <div style="border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; background: #fafafa;">
                   <div style="background-color: #f0f0f0; padding: 10px 15px; border-radius: 8px 8px 0 0;">
-                    <strong style="color: #1e88e5;">${visit.visit_label}</strong>
+                    <strong style="color: #1e88e5;">${visit.visit_label || `Visit ${visitIndex + 1}`}</strong>
                   </div>
                   <div style="padding: 15px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                       <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
                         <strong style="color: #666;">Visit Duration:</strong>
                         <div style="font-size: 16px; color: #1e88e5; margin-top: 5px;">
-                          ${Math.round(visit.visit_duration_min / 60 * 10) / 10} hours
+                          ${Math.round((visit.visit_duration_min || 60) / 60 * 10) / 10} hours
                         </div>
                       </div>
                       <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
                         <strong style="color: #666;">Visit Cost:</strong>
                         <div style="font-size: 16px; color: #1e88e5; margin-top: 5px;">
-                          $${visit.visit_cost}
+                          $${visit.visit_cost || 0}
                         </div>
                       </div>
                     </div>
                     
-                    <div style="margin-bottom: 15px;">
-                      <strong style="color: #666;">Treatments:</strong>
-                      <ul style="margin: 8px 0; padding-left: 20px;">
-                        ${visit.treatments.map((treatment: any) => `
-                          <li style="margin-bottom: 5px;">
-                            <strong>Tooth ${treatment.tooth}</strong>: ${treatment.procedure.replace('-', ' ')} 
-                            for ${treatment.condition.replace('-', ' ')}
-                            <span style="color: #666; font-size: 12px;">
-                              (${treatment.time_estimate_min} min)
-                            </span>
-                          </li>
-                        `).join('')}
-                      </ul>
-                    </div>
-                    
-                    <div style="background-color: #e8f5e8; padding: 12px; border-radius: 6px; border-left: 4px solid #4caf50;">
-                      <strong style="color: #2e7d32;">Why This Grouping:</strong>
-                      <div style="color: #2e7d32; margin-top: 5px; font-size: 14px;">
-                        ${visit.explain_note}
+                    ${(visit.treatments && visit.treatments.length > 0) ? `
+                      <div style="margin-bottom: 15px;">
+                        <strong style="color: #666;">Treatments:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px;">
+                          ${visit.treatments.map((treatment: any) => `
+                            <li style="margin-bottom: 5px;">
+                              <strong>Tooth ${treatment.tooth}</strong>: ${(treatment.procedure || treatment.treatment || '').replace(/-/g, ' ')} 
+                              for ${(treatment.condition || '').replace(/-/g, ' ')}
+                              ${treatment.time_estimate_min ? `<span style="color: #666; font-size: 12px;">(${treatment.time_estimate_min} min)</span>` : ''}
+                            </li>
+                          `).join('')}
+                        </ul>
                       </div>
-                    </div>
+                    ` : ''}
+                    
+                    ${visit.explain_note ? `
+                      <div style="background-color: #e8f5e8; padding: 12px; border-radius: 6px; border-left: 4px solid #4caf50;">
+                        <strong style="color: #2e7d32;">Why This Grouping:</strong>
+                        <div style="color: #2e7d32; margin-top: 5px; font-size: 14px;">
+                          ${visit.explain_note}
+                        </div>
+                      </div>
+                    ` : ''}
                   </div>
                 </div>
-              `).join('')}
+              `).join('') : ''}
               
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
                   <strong style="color: #666;">Stage Duration:</strong>
                   <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
-                    ${Math.round(stage.total_duration_min / 60 * 10) / 10} hours
+                    ${Math.round((stage.total_duration_min || 60) / 60 * 10) / 10} hours
                   </div>
                 </div>
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px;">
                   <strong style="color: #666;">Stage Cost:</strong>
                   <div style="font-size: 18px; color: #1e88e5; margin-top: 5px;">
-                    $${stage.total_cost}
+                    $${stage.total_cost || 0}
                   </div>
                 </div>
               </div>
@@ -421,7 +463,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
             </h4>
             ${data.future_tasks.map((task: any) => `
               <div style="background-color: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
-                <strong style="color: #856404;">${task.treatment.replace('-', ' ')} on Tooth ${task.tooth}</strong>
+                <strong style="color: #856404;">${(task.treatment || '').replace(/-/g, ' ')} on Tooth ${task.tooth}</strong>
                 <div style="color: #856404; font-size: 14px; margin-top: 5px;">
                   ${task.dependency_reason} - Earliest: ~${task.earliest_date_offset_weeks} weeks
                 </div>
@@ -432,22 +474,22 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
         
         <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 15px; margin-top: 20px; text-align: center;">
           <p style="color: #1976d2; margin: 0; font-size: 14px;">
-            <strong>Note:</strong> This plan is auto-staged for scheduling efficiency and patient comfort. 
-            It follows a typical sequence (disease control → restoration → prosthetics → aesthetics) and 
-            respects appointment length, anesthesia side, and clinical dependencies. 
-            <strong>Your clinician will review and adjust as needed.</strong>
+            <strong>Note:</strong> This treatment plan has been customized by your dentist to ensure optimal outcomes.
+            The stages are organized for scheduling efficiency and your comfort.
           </p>
         </div>
       </div>
     `;
   }
   
-  // Legacy staging for simple cases
-  if (uniqueFindings.length <= 3) {
+  // Fallback to simple staging if no organized stages
+  console.log('⚠️ No organized stages found, using simple fallback staging');
+  
+  if (!uniqueFindings || !Array.isArray(uniqueFindings) || uniqueFindings.length === 0 || uniqueFindings.length <= 3) {
     return '';
   }
 
-  // Define urgency levels
+  // Define urgency levels for fallback
   const urgencyLevels: {[key: string]: number} = {
     'periapical-lesion': 1,
     'cavity': 1,
@@ -470,11 +512,6 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
     'scaling': 60,
     'whitening': 45
   };
-
-  // Safety check for uniqueFindings
-  if (!uniqueFindings || !Array.isArray(uniqueFindings) || uniqueFindings.length === 0) {
-    return '';
-  }
   
   // Group findings by urgency
   const urgencyGroups: {[key: number]: any[]} = {};
@@ -512,7 +549,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
         const treatmentSummary = treatments.map((treatment: any) => {
           const count = findings.filter((f: any) => f.treatment === treatment).length;
           const condition = findings.find((f: any) => f.treatment === treatment)?.condition;
-          return `${count} ${treatment.replace('-', ' ')}${count > 1 ? 's' : ''} for ${condition?.replace('-', ' ')}`;
+          return `${count} ${treatment.replace(/-/g, ' ')}${count > 1 ? 's' : ''} for ${condition?.replace(/-/g, ' ')}`;
         }).join(', ');
 
         return `
@@ -540,11 +577,9 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
               
               <div style="background-color: #f5f5f5; padding: 15px; border-radius: 6px;">
                 <strong style="color: #666;">Treatments in this stage:</strong>
-// ReportGeneration.tsx - COMPLETE VERSION (continued)
-
                 <ul style="margin: 10px 0 0 20px; color: #666;">
                   ${findings.map((finding: any) => `
-                    <li>${finding.treatment.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} on Tooth ${finding.tooth} for ${finding.condition.replace('-', ' ')}</li>
+                    <li>${finding.treatment.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} on Tooth ${finding.tooth} for ${finding.condition.replace(/-/g, ' ')}</li>
                   `).join('')}
                 </ul>
               </div>
@@ -569,7 +604,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
       'fracture': 'A fractured tooth has a crack or break that can cause pain and sensitivity. Without treatment, the fracture can worsen and lead to tooth loss.',
       'abscess': 'An abscess is a pocket of infection that forms around the tooth root. This is a serious condition that can cause severe pain and spread to other parts of your body.'
     };
-    return descriptions[condition] || `${condition.replace('-', ' ')} is a dental condition that requires professional treatment.`;
+    return descriptions[condition] || `${condition.replace(/-/g, ' ')} is a dental condition that requires professional treatment.`;
   };
 
   const getTreatmentDescription = (treatment: string) => {
@@ -583,7 +618,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
       'scaling': 'Scaling removes plaque and tartar buildup from below the gum line. This treats gum disease and prevents tooth loss.',
       'whitening': 'Professional whitening uses safe, effective methods to remove stains and brighten your smile by several shades.'
     };
-    return descriptions[treatment] || `${treatment.replace('-', ' ')} is a dental procedure that will effectively treat your condition and restore your oral health.`;
+    return descriptions[treatment] || `${treatment.replace(/-/g, ' ')} is a dental procedure that will effectively treat your condition and restore your oral health.`;
   };
 
   const getUrgencyMessage = (treatment: string, conditions: string[]) => {
@@ -600,14 +635,14 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
     
     const physicalRisks = urgencyMessages[treatment] || 'Delaying treatment can lead to worsening pain, infection, and potentially more complex and expensive procedures in the future.';
     
-    const aestheticRisks = {
+    const aestheticRisks: {[key: string]: string} = {
       'cavity': 'Untreated cavities can cause visible discoloration and may eventually lead to tooth loss, creating gaps in your smile.',
       'missing-tooth': 'Missing teeth can cause your face to look sunken and make you appear older than you are.',
       'fracture': 'A fractured tooth can be visible when you smile and may cause you to hide your smile.',
       'decay': 'Visible decay can make you self-conscious about your smile and affect your confidence in social situations.'
     };
     
-    const aestheticRisk = conditions.some((c: string) => aestheticRisks[c as keyof typeof aestheticRisks]) ? 
+    const aestheticRisk = conditions.some((c: string) => aestheticRisks[c]) ? 
       ' Additionally, this condition can affect the appearance of your smile and your confidence.' : '';
     
     return physicalRisks + aestheticRisk;
@@ -648,14 +683,14 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
                   <strong style="font-size: 14px;">Extraction with Replacement</strong>
                 </div>
                 <div style="padding: 20px;">
-                  <h3 style="font-size: 20px; margin-bottom: 15px;">Extraction and ${replacement.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</h3>
+                  <h3 style="font-size: 20px; margin-bottom: 15px;">Extraction and ${replacement.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</h3>
                   
-                  <p style="margin-bottom: 15px;"><strong>Tooth ${tooth}</strong> requires extraction followed by replacement with a ${replacement.replace('-', ' ')}.</p>
+                  <p style="margin-bottom: 15px;"><strong>Tooth ${tooth}</strong> requires extraction followed by replacement with a ${replacement.replace(/-/g, ' ')}.</p>
                   
                   <p style="margin-bottom: 15px;"><strong>What This Means:</strong> An impacted tooth is one that has not fully erupted through the gum or has grown in at an angle. This can cause pain, swelling, and can damage neighboring teeth.</p>
                   
                   <p style="margin-bottom: 15px;">
-                    <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> Surgical extraction involves removing the tooth through a small incision in the gum, followed by replacement with a ${replacement.replace('-', ' ')} after healing.
+                    <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> Surgical extraction involves removing the tooth through a small incision in the gum, followed by replacement with a ${replacement.replace(/-/g, ' ')} after healing.
                   </p>
                   
                   <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
@@ -671,17 +706,15 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
         const teeth = findings.map((f: any) => f.tooth).sort();
         const teethText = teeth.length === 1 ? `Tooth ${teeth[0]}` : `Teeth ${teeth.join(', ')}`;
         
-// ReportGeneration.tsx - COMPLETE VERSION (continued)
-
         return `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="background-color: #ffeb3b; padding: 8px 16px;">
-              <strong style="font-size: 14px;">${treatmentKey.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</strong>
+              <strong style="font-size: 14px;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</strong>
             </div>
             <div style="padding: 20px;">
-              <h3 style="font-size: 20px; margin-bottom: 15px;">${treatmentKey.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</h3>
+              <h3 style="font-size: 20px; margin-bottom: 15px;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</h3>
               
-              <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace('-', ' ')).join(', ')} that requires ${treatmentKey.replace('-', ' ')}.</p>
+              <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace(/-/g, ' ')).join(', ')} that requires ${treatmentKey.replace(/-/g, ' ')}.</p>
               
               <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map((c: string) => getConditionDescription(c)).join(' ')}</p>
               
@@ -705,7 +738,7 @@ const renderReplacementOptionsTable = (showReplacementTable: boolean, findings: 
     return '';
   }
   
-  const relevantTreatments = findings.filter(f =>
+  const relevantTreatments = findings.filter((f: any) =>
     f.treatment && ['implant-placement', 'crown', 'bridge', 'partial-denture'].includes(f.treatment)
   );
   
@@ -759,6 +792,8 @@ const renderLegend = (detections: any[]) => {
     'caries': '#58eec3',
     'crown': '#FF00D4',
     'filling': '#FF004D',
+    'root-canal-treatment': '#FF004D',
+    'root-canal': '#FF004D',
     'fracture': '#FF69F8',
     'impacted-tooth': '#FFD700',
     'implant': '#00FF5A',
@@ -767,7 +802,6 @@ const renderLegend = (detections: any[]) => {
     'periapical-lesion': '#007BFF',
     'post': '#00FFD5',
     'root-piece': '#fe4eed',
-    'root-canal-treatment': '#FF004D',
     'tissue-level': '#A2925D'
   };
 
@@ -788,21 +822,49 @@ const renderLegend = (detections: any[]) => {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   };
+  
+  // Check if both filling and root canal are present
+  const normalizedConditions = uniqueConditions.map(normalizeCondition);
+  const hasFilling = normalizedConditions.includes('filling');
+  const hasRootCanal = normalizedConditions.includes('root-canal-treatment') || normalizedConditions.includes('root-canal');
+  
+  let displayConditions: Array<{name: string, color: string}> = [];
+  
+  if (hasFilling && hasRootCanal) {
+    // Combine them
+    displayConditions.push({
+      name: 'Filling & Root Canal',
+      color: '#FF004D'
+    });
+    // Add other conditions
+    uniqueConditions.forEach(condition => {
+      const normalized = normalizeCondition(condition);
+      if (normalized !== 'filling' && normalized !== 'root-canal-treatment' && normalized !== 'root-canal') {
+        displayConditions.push({
+          name: formatConditionName(condition),
+          color: conditionColors[normalized] || '#666666'
+        });
+      }
+    });
+  } else {
+    // Show all individually
+    uniqueConditions.forEach(condition => {
+      const normalized = normalizeCondition(condition);
+      displayConditions.push({
+        name: formatConditionName(condition),
+        color: conditionColors[normalized] || '#666666'
+      });
+    });
+  }
 
   return `
     <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
-      ${uniqueConditions.map((condition: string) => {
-        const normalizedCondition = normalizeCondition(condition);
-        const color = conditionColors[normalizedCondition] || '#666666';
-        const displayName = formatConditionName(condition);
-        
-        return `
-          <div style="display: flex; align-items: center; gap: 5px;">
-            <div style="width: 15px; height: 15px; background-color: ${color}; border-radius: 2px;"></div>
-            <span style="font-size: 14px;">${displayName}</span>
-          </div>
-        `;
-      }).join('')}
+      ${displayConditions.map(({name, color}) => `
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 15px; height: 15px; background-color: ${color}; border-radius: 2px;"></div>
+          <span style="font-size: 14px;">${name}</span>
+        </div>
+      `).join('')}
     </div>
   `;
 };
