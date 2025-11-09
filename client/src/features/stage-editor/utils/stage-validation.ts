@@ -40,10 +40,10 @@ export function validateStages(stages: TreatmentStage[]): ValidationResult {
     // Check for duplicate treatments on same tooth in same stage
     const toothTreatments = new Map<string, string[]>();
     stage.items.forEach(item => {
-      if (!toothTreatments.has(item.tooth)) {
-        toothTreatments.set(item.tooth, []);
+      if (!toothTreatments.has(item.toothNumber)) {
+        toothTreatments.set(item.toothNumber, []);
       }
-      toothTreatments.get(item.tooth)!.push(item.treatment);
+      toothTreatments.get(item.toothNumber)!.push(item.treatment);
     });
 
     toothTreatments.forEach((treatments, tooth) => {
@@ -75,11 +75,11 @@ function checkTreatmentOrdering(stages: TreatmentStage[], warnings: string[]): v
 
   stages.forEach((stage, stageIndex) => {
     stage.items.forEach(item => {
-      if (!toothTreatmentsByStage.has(item.tooth)) {
-        toothTreatmentsByStage.set(item.tooth, new Map());
+      if (!toothTreatmentsByStage.has(item.toothNumber)) {
+        toothTreatmentsByStage.set(item.toothNumber, new Map());
       }
       
-      const stageMap = toothTreatmentsByStage.get(item.tooth)!;
+      const stageMap = toothTreatmentsByStage.get(item.toothNumber)!;
       if (!stageMap.has(stageIndex)) {
         stageMap.set(stageIndex, []);
       }

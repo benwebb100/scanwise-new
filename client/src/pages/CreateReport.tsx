@@ -3592,11 +3592,17 @@ const CreateReport = () => {
   // Helper functions
   const getPrice = (treatment: string): number => {
     const setting = getTreatmentSetting(treatment);
+    if (setting.price === 0 && setting.duration === 30) {
+      console.warn(`⚠️ Treatment "${treatment}" not found in settings, using fallback price: $0`);
+    }
     return setting.price;
   };
   
   const getDuration = (treatment: string): number => {
     const setting = getTreatmentSetting(treatment);
+    if (setting.price === 0 && setting.duration === 30) {
+      console.warn(`⚠️ Treatment "${treatment}" not found in settings, using fallback duration: 30min`);
+    }
     return setting.duration;
   };
   
@@ -3877,6 +3883,16 @@ const CreateReport = () => {
     // Clear previous errors
     setPatientNameError(false);
     setFindingsErrors([]);
+    
+    // Validation 0: Wait for treatment settings to load
+    if (isLoading) {
+      toast({
+        title: "Loading Treatment Settings",
+        description: "Please wait while treatment prices and durations are loaded...",
+        duration: 2000,
+      });
+      return;
+    }
     
     // Validation
     if (useXrayMode) {

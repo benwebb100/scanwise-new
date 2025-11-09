@@ -166,7 +166,7 @@ export function RctTreatmentCard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className="text-xs font-mono">
-                  #{item.tooth}
+                  #{item.toothNumber}
                 </Badge>
                 {item.urgency && (
                   <Badge variant="outline" className={`text-xs ${getUrgencyColor(item.urgency)}`}>
@@ -218,7 +218,7 @@ export function RctTreatmentCard({
             {/* Tooth and urgency */}
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline" className="text-xs font-mono">
-                #{item.tooth}
+                #{item.toothNumber}
               </Badge>
               {item.urgency && (
                 <Badge variant="outline" className={`text-xs ${getUrgencyColor(item.urgency)}`}>
@@ -233,7 +233,7 @@ export function RctTreatmentCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Tooth {item.tooth} → default {overrides.canals} canals</p>
+                    <p>Tooth {item.toothNumber} → default {overrides.canals} canals</p>
                     {autoMapping.canalMapping.note && <p>{autoMapping.canalMapping.note}</p>}
                   </TooltipContent>
                 </Tooltip>

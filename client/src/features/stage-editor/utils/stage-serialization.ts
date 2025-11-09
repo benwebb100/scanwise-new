@@ -31,7 +31,7 @@ export function deserializeStages(backendStages: any[]): TreatmentStage[] {
       order: index,
       items: (stage.items || []).map((item: any) => ({
         id: generateId(),
-        tooth: item.tooth || '',
+        toothNumber: item.tooth || item.toothNumber || '',  // Support both formats
         condition: item.condition || '',
         treatment: item.recommended_treatment || item.treatment || '',
         estimatedTime: getTreatmentDuration(item.recommended_treatment || item.treatment || ''),
@@ -52,7 +52,7 @@ export function serializeStages(editorStages: TreatmentStage[]): any[] {
     stage: stage.name,
     focus: stage.focus,
     items: stage.items.map(item => ({
-      tooth: item.tooth,
+      tooth: item.toothNumber,  // Convert back to 'tooth' for backend
       condition: item.condition,
       recommended_treatment: item.treatment,
       treatment: item.treatment, // Include both for compatibility
@@ -69,7 +69,7 @@ export function findingsToTreatmentItems(findings: any[]): TreatmentItem[] {
     .filter(finding => finding.tooth && finding.condition && finding.treatment)
     .map(finding => ({
       id: generateId(),
-      tooth: finding.tooth,
+      toothNumber: finding.tooth,  // Convert to toothNumber for editor
       condition: finding.condition,
       treatment: finding.treatment,
       estimatedTime: getTreatmentDuration(finding.treatment),

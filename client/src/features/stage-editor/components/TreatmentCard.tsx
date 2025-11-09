@@ -34,7 +34,7 @@ export function TreatmentCard({
   };
 
   return (
-    <Card className="transition-all duration-200 hover:shadow-lg hover:scale-[1.02] relative group border-l-4 border-l-blue-500 bg-gradient-to-r from-white to-blue-50">
+    <Card className="transition-all duration-200 hover:shadow-lg hover:scale-[1.02] relative group rounded-lg border-2 border-blue-400 bg-gradient-to-r from-white to-blue-50">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           {/* Main content */}
@@ -42,7 +42,7 @@ export function TreatmentCard({
             {/* Tooth and urgency */}
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="outline" className="text-sm font-mono font-bold bg-blue-100 text-blue-700 border-blue-300">
-                Tooth #{item.tooth}
+                Tooth #{item.toothNumber}
               </Badge>
               {item.urgency && (
                 <Badge

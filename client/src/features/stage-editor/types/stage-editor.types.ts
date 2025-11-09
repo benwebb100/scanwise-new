@@ -1,6 +1,6 @@
 export interface TreatmentItem {
   id: string;
-  tooth: string;
+  toothNumber: string;  // Changed from 'tooth' to 'toothNumber' for consistency
   condition: string;
   treatment: string;
   estimatedTime: number; // in minutes
