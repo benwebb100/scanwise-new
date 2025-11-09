@@ -62,10 +62,20 @@ class HtmlPdfService:
             try:
                 page = browser.new_page()
                 file_url = f"file://{html_path}"
-                page.goto(file_url, wait_until="load")
+                logger.info(f"📄 Loading HTML from: {file_url}")
+                
+                # Wait for the page to fully load including all resources
+                page.goto(file_url, wait_until="networkidle", timeout=60000)
+                
+                # Give any dynamic content a moment to render
+                page.wait_for_timeout(1000)
+                
+                logger.info("📄 Generating PDF from loaded page...")
                 page.pdf(path=pdf_path, print_background=True, format="A4", margin={
                     "top": "14mm", "bottom": "14mm", "left": "14mm", "right": "14mm"
                 })
+                
+                logger.info(f"✅ PDF generated successfully: {pdf_path}")
             finally:
                 browser.close()
         logger.info(f"PDF written: {pdf_path}")

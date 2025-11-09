@@ -64,6 +64,11 @@ class EmailService:
                 annotated_url = report_data.get('annotated_image_url')
                 logger.info(f"Email service - annotated_image_url: {annotated_url}")
                 
+                # Get report HTML and log for debugging
+                report_html = report_data.get('report_html') or ''
+                logger.info(f"📄 Report HTML length: {len(report_html)} characters")
+                logger.info(f"📄 Report HTML starts with: {report_html[:100] if report_html else 'EMPTY'}")
+                
                 html = template.render(
                     clinic_name=clinic_branding.get('clinic_name') or 'ScanWise',
                     address=clinic_branding.get('address'),
@@ -73,12 +78,15 @@ class EmailService:
                     primary_color=clinic_branding.get('primary_color') or '#1e88e5',
                     patient_name=report_data.get('patient_name') or 'Patient',
                     report_date=report_data.get('created_at') or datetime.now().isoformat(),
-                    report_html=report_data.get('report_html') or '',
+                    report_html=report_html,
                     annotated_image_url=annotated_url,
                     legend=legend,
                     video_url=report_data.get('video_url'),
                     consultation_url=report_data.get('consultation_url'),
                 )
+                
+                logger.info(f"📧 Final rendered HTML length: {len(html)} characters")
+                logger.info(f"📧 Final HTML starts with: {html[:150]}")
 
                 pdf_path = html_pdf_service.render_html_to_pdf(html)
             except Exception as html_err:
