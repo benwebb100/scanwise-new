@@ -33,7 +33,9 @@ class EmailService:
         try:
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = f"{clinic_branding.get('clinic_name', 'Dental Clinic')} <{self.sender_email}>"
+            # Use ScanWise as default if clinic_name is None or empty
+            clinic_name = clinic_branding.get('clinic_name') or 'ScanWise'
+            msg['From'] = f"{clinic_name} <{self.sender_email}>"
             msg['To'] = patient_email
             msg['Subject'] = f"Dental Report - {patient_name}"
             
@@ -63,15 +65,15 @@ class EmailService:
                 logger.info(f"Email service - annotated_image_url: {annotated_url}")
                 
                 html = template.render(
-                    clinic_name=clinic_branding.get('clinic_name', 'Dental Clinic'),
+                    clinic_name=clinic_branding.get('clinic_name') or 'ScanWise',
                     address=clinic_branding.get('address'),
                     phone=clinic_branding.get('phone'),
                     email=clinic_branding.get('email'),
                     website=clinic_branding.get('website'),
-                    primary_color=clinic_branding.get('primary_color', '#1e88e5'),
-                    patient_name=report_data.get('patient_name', 'Patient'),
-                    report_date=report_data.get('created_at', datetime.now().isoformat()),
-                    report_html=report_data.get('report_html', ''),
+                    primary_color=clinic_branding.get('primary_color') or '#1e88e5',
+                    patient_name=report_data.get('patient_name') or 'Patient',
+                    report_date=report_data.get('created_at') or datetime.now().isoformat(),
+                    report_html=report_data.get('report_html') or '',
                     annotated_image_url=annotated_url,
                     legend=legend,
                     video_url=report_data.get('video_url'),
@@ -115,9 +117,10 @@ class EmailService:
         """
         Create simple text email content (no HTML to avoid spam)
         """
-        clinic_name = clinic_branding.get('clinic_name', 'Dental Clinic')
-        clinic_phone = clinic_branding.get('phone', 'our office')
-        clinic_website = clinic_branding.get('website', 'our website')
+        # Use ScanWise as default if clinic_name is None or empty
+        clinic_name = clinic_branding.get('clinic_name') or 'ScanWise'
+        clinic_phone = clinic_branding.get('phone') or 'our office'
+        clinic_website = clinic_branding.get('website') or 'our website'
         
         text_content = f"""Hi {patient_name},
 

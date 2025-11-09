@@ -3061,11 +3061,14 @@ async def send_report_email(
             
             if clinic_branding_response.data:
                 clinic_branding = clinic_branding_response.data[0]
+                # Replace None values with defaults
+                if not clinic_branding.get('clinic_name'):
+                    clinic_branding['clinic_name'] = 'ScanWise'
                 logger.info(f"✅ Found clinic branding: {clinic_branding.get('clinic_name', 'Unknown')}")
             else:
                 # Fallback to default branding
                 clinic_branding = {
-                    'clinic_name': 'Dental Clinic',
+                    'clinic_name': 'ScanWise',
                     'phone': 'our office',
                     'website': 'our website'
                 }
