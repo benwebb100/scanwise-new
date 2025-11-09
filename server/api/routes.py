@@ -1360,8 +1360,21 @@ async def save_clinic_branding(
         # Create authenticated client
         auth_client = supabase_service._create_authenticated_client(token)
         
-        # Convert to dict
-        branding_dict = branding_data.model_dump()
+        # Convert to dict and clean values
+        raw_branding_dict = branding_data.model_dump()
+        
+        # Trim strings and remove empty values
+        branding_dict = {}
+        for key, value in raw_branding_dict.items():
+            if isinstance(value, str):
+                trimmed = value.strip()
+                if trimmed:
+                    branding_dict[key] = trimmed
+                else:
+                    # Skip empty strings to avoid overwriting with NULL
+                    continue
+            elif value is not None:
+                branding_dict[key] = value
         
         # DEBUG: Log the authentication context
         logger.info(f"Attempting to save clinic branding with token: {token[:20]}...")
