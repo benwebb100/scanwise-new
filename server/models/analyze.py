@@ -12,6 +12,7 @@ class AnalyzeXrayRequest(BaseModel):
     image_url: HttpUrl
     findings: Optional[List[Finding]] = []
     generate_video: Optional[bool] = True
+    video_language: Optional[str] = "english"  # Language for video narration: "english" or "bulgarian"
     # Optional pre-existing analysis data (for AWS images)
     pre_analyzed_detections: Optional[List[dict]] = None
     pre_analyzed_annotated_url: Optional[str] = None

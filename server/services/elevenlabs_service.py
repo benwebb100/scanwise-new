@@ -11,20 +11,28 @@ logger = logging.getLogger(__name__)
 class ElevenLabsService:
     def __init__(self):
         self.api_key = os.getenv("ELEVENLABS_API_KEY")
-        self.voice_id = os.getenv("ELEVENLABS_VOICE_ID", "EkK5I93UQWFDigLMpZcX")
-        self.api_url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}"
+        # Default English voice
+        self.default_voice_id = os.getenv("ELEVENLABS_VOICE_ID", "EkK5I93UQWFDigLMpZcX")
+        # Bulgarian voice
+        self.bulgarian_voice_id = "13Cuh3NuYvWOVQtLbRN8"
         
         # Check if API key is configured
         if not self.api_key:
             logger.warning("ELEVENLABS_API_KEY not configured. Video generation will use text-to-speech fallback.")
         
-    async def generate_voice(self, text: str) -> Optional[bytes]:
+    async def generate_voice(self, text: str, language: str = "english") -> Optional[bytes]:
         """Generate voice audio from text using ElevenLabs or fallback to silent audio"""
         try:
             # Check if ElevenLabs is properly configured
             if not self.api_key:
                 logger.info("ElevenLabs API key not configured, generating silent audio fallback")
                 return self._generate_silent_audio(len(text))
+            
+            # Select voice ID based on language
+            voice_id = self.bulgarian_voice_id if language.lower() == "bulgarian" else self.default_voice_id
+            api_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            
+            logger.info(f"Generating voice in {language} using voice ID: {voice_id}")
             
             headers = {
                 "Content-Type": "application/json",
@@ -40,8 +48,8 @@ class ElevenLabsService:
                 }
             }
             
-            logger.info("Calling ElevenLabs API...")
-            response = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
+            logger.info(f"Calling ElevenLabs API for {language} narration...")
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
             
             if response.status_code == 401:
                 logger.error("ElevenLabs API key is invalid or expired. Falling back to silent audio.")

@@ -24,6 +24,10 @@ const Settings = () => {
     const saved = localStorage.getItem('treatmentDurationThreshold');
     return saved ? parseInt(saved, 10) : 90; // Default to 90 minutes
   });
+  const [videoNarrationLanguage, setVideoNarrationLanguage] = useState<'english' | 'bulgarian'>(() => {
+    const saved = localStorage.getItem('videoNarrationLanguage');
+    return (saved as 'english' | 'bulgarian') || 'english'; // Default to English
+  });
 
   const handleBrandingSave = async (brandingData: any) => {
     try {
@@ -170,6 +174,29 @@ const Settings = () => {
                           </div>
                         </label>
                       </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="font-medium text-gray-900 mb-3">Video Narration Language</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Choose the language for patient education video narration
+                      </p>
+                      <select
+                        value={videoNarrationLanguage}
+                        onChange={(e) => {
+                          const newLanguage = e.target.value as 'english' | 'bulgarian';
+                          setVideoNarrationLanguage(newLanguage);
+                          localStorage.setItem('videoNarrationLanguage', newLanguage);
+                          toast({
+                            title: "Language Updated",
+                            description: `Video narration language set to ${newLanguage === 'english' ? 'English' : 'Bulgarian'}`,
+                          });
+                        }}
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="english">English</option>
+                        <option value="bulgarian">Bulgarian</option>
+                      </select>
                     </div>
 
                     <div className="border-t pt-6">

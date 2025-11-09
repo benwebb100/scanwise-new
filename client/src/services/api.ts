@@ -41,6 +41,7 @@ export const api = {
     imageUrl: string;
     findings: Array<{ tooth: string; condition: string; treatment: string }>;
     generateVideo?: boolean;  // Make sure this is included in the type
+    videoLanguage?: string;  // Language for video narration
     // Optional pre-analyzed data for AWS images
     preAnalyzedDetections?: any[];
     preAnalyzedAnnotatedUrl?: string;
@@ -48,11 +49,15 @@ export const api = {
     
     const token = await this.getAuthToken();
     
+    // Get video language from localStorage settings, default to English
+    const videoLanguage = data.videoLanguage || localStorage.getItem('videoNarrationLanguage') || 'english';
+    
     const requestBody: any = {
       patient_name: data.patientName,
       image_url: data.imageUrl,
       findings: data.findings,
       generate_video: data.generateVideo !== false,  // Default to true if not specified
+      video_language: videoLanguage,  // Include video language
     };
     
     // Include pre-analyzed data if provided (for AWS images)
@@ -61,6 +66,8 @@ export const api = {
       requestBody.pre_analyzed_annotated_url = data.preAnalyzedAnnotatedUrl;
       console.log('📊 API: Including pre-analyzed AWS data in request');
     }
+    
+    console.log(`🎙️ API: Video narration language: ${videoLanguage}`);
     
     // Use query parameter for generate_video if needed (keeping both approaches for compatibility)
     const url = `${API_BASE_URL}/analyze-xray`;

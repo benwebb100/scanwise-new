@@ -282,8 +282,12 @@ async def analyze_xray(
         if should_generate_video and diagnosis_id and annotated_url:  # Use should_generate_video
             logger.info(f"Generating video for diagnosis: {diagnosis_id}")
             try:
+                # Get video language from request, default to English
+                video_language = request.video_language or "english"
+                logger.info(f"Video language: {video_language}")
+                
                 # Call the video generation function directly (not in background)
-                video_url = await generate_video_sync(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token)
+                video_url = await generate_video_sync(diagnosis_id, annotated_url, ai_analysis.get('treatment_stages', []), request.patient_name, token, video_language)
                 logger.info(f"Video generated successfully: {video_url}")
             except Exception as video_error:
                 logger.error(f"Video generation failed: {str(video_error)}")
@@ -318,13 +322,13 @@ async def analyze_xray(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 # New synchronous video generation function
-async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str) -> Optional[str]:
+async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_stages: list, patient_name: str, token: str, video_language: str = "english") -> Optional[str]:
     """
     Generate video synchronously and return the URL
     """
     temp_dir = None
     try:
-        logger.info(f"Starting synchronous video generation for diagnosis: {diagnosis_id}")
+        logger.info(f"Starting synchronous video generation for diagnosis: {diagnosis_id} in {video_language}")
         
         # Convert annotated image to base64
         logger.info(f"Converting image to base64 for diagnosis: {diagnosis_id}")
@@ -337,9 +341,9 @@ async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_s
         if not video_script or len(video_script.strip()) == 0:
             raise Exception("Generated video script is empty")
         
-        # Generate voice audio
-        logger.info(f"Generating voice audio for diagnosis: {diagnosis_id}")
-        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        # Generate voice audio with specified language
+        logger.info(f"Generating voice audio for diagnosis: {diagnosis_id} in {video_language}")
+        audio_bytes = await elevenlabs_service.generate_voice(video_script, video_language)
         
         if not audio_bytes or len(audio_bytes) == 0:
             raise Exception("Generated audio is empty")
