@@ -359,12 +359,12 @@ const Dashboard = () => {
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "Pending":
       case "pending":
+        return "bg-gray-100 text-gray-700 border-gray-200";
+      case "Ready":  // AWS analysis complete, ready to create report
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "Failed":
       case "failed":
         return "bg-red-100 text-red-700 border-red-200";
-      case "Ready":
-        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -910,14 +910,36 @@ const Dashboard = () => {
                         
                         <div className="flex items-center justify-between text-sm text-gray-600">
                           <div className="flex items-center space-x-4">
-                            <span>{report.teethAnalyzed} teeth analyzed</span>
-                            {report.conditions.length > 0 && (
+                            {/* For AWS scans that are ready, show affected teeth count from detections */}
+                            {report.source === 'aws_s3' && report.status === 'Ready' && report.detections ? (
                               <>
+                                <span>{report.detections.length} conditions detected</span>
                                 <span>•</span>
-                                <span className="truncate max-w-xs">
-                                  {report.conditions.slice(0, 3).join(", ")}
-                                  {report.conditions.length > 3 && ` +${report.conditions.length - 3} more`}
+                                <span>
+                                  {(() => {
+                                    // Count unique tooth numbers from detections
+                                    const uniqueTeeth = new Set(
+                                      report.detections
+                                        .map((d: any) => d.tooth_number)
+                                        .filter((t: any) => t)
+                                    );
+                                    return `${uniqueTeeth.size} ${uniqueTeeth.size === 1 ? 'tooth' : 'teeth'} affected`;
+                                  })()}
                                 </span>
+                              </>
+                            ) : (
+                              // For completed reports, show the standard format
+                              <>
+                                <span>{report.teethAnalyzed} teeth analyzed</span>
+                                {report.conditions.length > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="truncate max-w-xs">
+                                      {report.conditions.slice(0, 3).join(", ")}
+                                      {report.conditions.length > 3 && ` +${report.conditions.length - 3} more`}
+                                    </span>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -966,11 +988,16 @@ const Dashboard = () => {
                           </div>
                         </div>
 
-                        {report.summary && (
+                        {/* Summary or status-specific message */}
+                        {report.source === 'aws_s3' && report.status === 'Ready' && !report.summary ? (
+                          <div className="mt-3 text-sm text-gray-600">
+                            AI analysis complete. Click to review findings and create patient report.
+                          </div>
+                        ) : report.summary ? (
                           <div className="mt-3 text-sm text-gray-500 line-clamp-2">
                             {report.summary}
                           </div>
-                        )}
+                        ) : null}
 
                         {/* Processing/Pending indicator */}
                         {isProcessing && (
@@ -984,13 +1011,13 @@ const Dashboard = () => {
                           </div>
                         )}
                         
-                        {/* Ready to process indicator */}
-                        {report.source === 'aws_s3' && !isProcessing && report.status !== 'Completed' && report.status !== 'completed' && (
-                          <div className="mt-3 p-2 bg-blue-100 rounded flex items-center justify-between">
+                        {/* Ready to create report indicator */}
+                        {report.source === 'aws_s3' && report.status === 'Ready' && !isProcessing && (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Cloud className="h-4 w-4 text-blue-600" />
                               <span className="text-sm font-medium text-blue-700">
-                                Click to view analysis results
+                                Ready to create report
                               </span>
                             </div>
                             <ArrowRight className="h-4 w-4 text-blue-600" />
