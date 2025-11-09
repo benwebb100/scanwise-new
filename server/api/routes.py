@@ -957,6 +957,48 @@ async def get_diagnosis_by_id(
         raise HTTPException(status_code=500, detail=f"Failed to fetch diagnosis: {str(e)}")
 
 
+@router.patch("/diagnosis/{diagnosis_id}/html")
+async def update_diagnosis_html(
+    diagnosis_id: str,
+    request: Dict,
+    token: str = Depends(get_auth_token)
+):
+    """Update the report_html field for a specific diagnosis"""
+    try:
+        report_html = request.get('report_html')
+        
+        if not report_html:
+            raise HTTPException(status_code=400, detail="report_html is required")
+        
+        logger.info(f"📝 Updating report HTML for diagnosis: {diagnosis_id} (length: {len(report_html)} chars)")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Update the diagnosis record
+        response = auth_client.table('patient_diagnosis')\
+            .update({'report_html': report_html})\
+            .eq('id', diagnosis_id)\
+            .execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Diagnosis not found")
+        
+        logger.info(f"✅ Successfully updated report HTML for diagnosis: {diagnosis_id}")
+        
+        return {
+            "success": True,
+            "message": "Report HTML updated successfully",
+            "diagnosis_id": diagnosis_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating diagnosis HTML {diagnosis_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update diagnosis HTML: {str(e)}")
+
+
 @router.post("/analyze-without-xray", response_model=AnalyzeXrayResponse)
 async def analyze_without_xray(
     request: Dict,

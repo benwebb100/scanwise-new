@@ -819,4 +819,28 @@ export const api = {
       throw error;
     }
   },
+
+  // Update report HTML in database
+  async updateReportHtml(diagnosisId: string, reportHtml: string) {
+    const token = await this.getAuthToken();
+    
+    const response = await fetch(`${API_BASE_URL}/diagnosis/${diagnosisId}/html`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        report_html: reportHtml
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to update report HTML:', errorText);
+      throw new Error('Failed to update report HTML');
+    }
+
+    return response.json();
+  },
 };

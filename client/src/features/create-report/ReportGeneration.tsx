@@ -137,9 +137,22 @@ const useReportGeneration = () => {
     }
 
     const brandedReport = applyBrandingToReport(reportHtml);
+    const finalHtml = brandedReport || reportHtml;
+    
+    // Save the generated HTML back to the database
+    if (finalHtml && analysisResult.diagnosis_id) {
+      try {
+        console.log('💾 Saving generated HTML to database...');
+        await api.updateReportHtml(analysisResult.diagnosis_id, finalHtml);
+        console.log('✅ HTML saved successfully to database');
+      } catch (error) {
+        console.error('❌ Failed to save HTML to database:', error);
+        // Don't fail the whole report generation if this fails
+      }
+    }
     
     return {
-      reportHtml: brandedReport || reportHtml,
+      reportHtml: finalHtml,
       videoUrl: videoUrl, // Video URL from backend, or null
       detections: analysisResult.detections
     };
