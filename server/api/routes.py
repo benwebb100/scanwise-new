@@ -1150,6 +1150,28 @@ async def get_treatment_settings(
     try:
         logger.info("Fetching treatment settings for clinic")
         
+        # Hardcoded defaults as fallback (matching dental-data.ts)
+        HARDCODED_DEFAULTS = {
+            'filling': {'duration': 30, 'price': 220},
+            'extraction': {'duration': 30, 'price': 250},
+            'root-canal-treatment': {'duration': 90, 'price': 1100},
+            'crown': {'duration': 60, 'price': 1800},
+            'bridge': {'duration': 120, 'price': 850},
+            'implant-placement': {'duration': 90, 'price': 2300},
+            'partial-denture': {'duration': 60, 'price': 1600},
+            'scale-and-clean': {'duration': 30, 'price': 190},
+            'whitening': {'duration': 60, 'price': 500},
+            'veneer': {'duration': 60, 'price': 1200},
+            'fluoride-treatment': {'duration': 15, 'price': 40},
+            'composite-build-up': {'duration': 45, 'price': 200},
+            'surgical-extraction': {'duration': 45, 'price': 450},
+            'deep-cleaning': {'duration': 60, 'price': 280},
+            'complete-denture': {'duration': 90, 'price': 2500},
+            'periodontal-treatment': {'duration': 60, 'price': 350},
+            'bone-graft': {'duration': 90, 'price': 800},
+            'sinus-lift': {'duration': 120, 'price': 1500},
+        }
+        
         # Pass the token to the service method
         custom_settings = await supabase_service.get_treatment_settings(token)
         
@@ -1159,19 +1181,23 @@ async def get_treatment_settings(
         # Merge custom settings with defaults
         treatment_data = {}
         
-        # First, add all default treatments
+        # Start with hardcoded defaults
+        treatment_data = HARDCODED_DEFAULTS.copy()
+        
+        # Override with database defaults if available
         for treatment in default_treatments:
             treatment_data[treatment['code']] = {
                 'duration': treatment['default_duration'],
                 'price': treatment['default_price']
             }
         
-        # Then override with custom settings if they exist
+        # Finally override with custom settings if they exist
         if custom_settings and custom_settings.get('treatment_settings'):
             custom_data = custom_settings.get('treatment_settings', {})
             for code, settings in custom_data.items():
-                if code in treatment_data:
-                    treatment_data[code] = settings
+                treatment_data[code] = settings
+        
+        logger.info(f"✅ Returning {len(treatment_data)} treatment settings")
         
         return {
             "status": "success",
