@@ -97,9 +97,11 @@ const useReportGeneration = () => {
           videoUrl = analysisResult.video_url;
         }
       } catch (error) {
-        console.error('Network error during API call:', error);
-        // Fallback to local generation
+        console.error('❌ Network error during API call:', error);
+        console.error('   Error details:', error);
+        // Fallback to local generation - but we won't have a diagnosis_id
         analysisResult = { detections: [], treatment_stages: [] };
+        console.warn('⚠️ Using fallback analysisResult without diagnosis_id - HTML will NOT be saved');
       }
     } else {
       try {
@@ -110,8 +112,11 @@ const useReportGeneration = () => {
           generateVideo: false // No video for non-X-ray mode
         });
       } catch (error) {
-        console.error('Network error during no-xray API call:', error);
+        console.error('❌ Network error during no-xray API call:', error);
+        console.error('   Error details:', error);
+        // Fallback to local generation - but we won't have a diagnosis_id
         analysisResult = { detections: [], treatment_stages: [] };
+        console.warn('⚠️ Using fallback analysisResult without diagnosis_id - HTML will NOT be saved');
       }
     }
 
@@ -140,15 +145,24 @@ const useReportGeneration = () => {
     const finalHtml = brandedReport || reportHtml;
     
     // Save the generated HTML back to the database
-    if (finalHtml && analysisResult.diagnosis_id) {
+    console.log('🔍 Checking if we can save HTML to database...');
+    console.log('   - finalHtml exists:', !!finalHtml, '(length:', finalHtml?.length || 0, ')');
+    console.log('   - analysisResult.diagnosis_id:', analysisResult?.diagnosis_id);
+    console.log('   - analysisResult keys:', Object.keys(analysisResult || {}));
+    
+    if (finalHtml && analysisResult?.diagnosis_id) {
       try {
-        console.log('💾 Saving generated HTML to database...');
+        console.log('💾 Saving generated HTML to database for diagnosis:', analysisResult.diagnosis_id);
         await api.updateReportHtml(analysisResult.diagnosis_id, finalHtml);
         console.log('✅ HTML saved successfully to database');
       } catch (error) {
         console.error('❌ Failed to save HTML to database:', error);
         // Don't fail the whole report generation if this fails
       }
+    } else {
+      console.warn('⚠️ Cannot save HTML to database:');
+      if (!finalHtml) console.warn('   - Missing finalHtml');
+      if (!analysisResult?.diagnosis_id) console.warn('   - Missing diagnosis_id in analysisResult');
     }
     
     return {
