@@ -947,13 +947,19 @@ const renderLegend = (detections: any[]) => {
   }
 
   return `
-    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
-      ${displayConditions.map(({name, color}) => `
-        <div style="display: flex; align-items: center; gap: 5px;">
-          <div style="width: 15px; height: 15px; background-color: ${color}; border-radius: 2px;"></div>
-          <span style="font-size: 14px;">${name}</span>
-        </div>
-      `).join('')}
+    <div style="text-align: center; margin-bottom: 30px; padding: 15px; background-color: #f9f9f9; border: 1px solid #ddd;">
+      <h4 style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold;">Annotation Color Legend</h4>
+      <table style="margin: 0 auto; border-collapse: separate; border-spacing: 15px 8px;">
+        <tr>
+          ${displayConditions.map(({name, color}, index) => `
+            ${index % 3 === 0 && index !== 0 ? '</tr><tr>' : ''}
+            <td style="text-align: left; white-space: nowrap;">
+              <span style="display: inline-block; width: 18px; height: 18px; background-color: ${color}; border: 1px solid #333; vertical-align: middle; margin-right: 6px;"></span>
+              <span style="font-size: 14px; vertical-align: middle;">${name}</span>
+            </td>
+          `).join('')}
+        </tr>
+      </table>
     </div>
   `;
 };

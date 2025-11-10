@@ -37,7 +37,19 @@ class HtmlPdfService:
                 logger.error("❌ Run 'playwright install chromium' to install browsers")
                 self._playwright_available = False
         except Exception as e:
-            logger.warning(f"Playwright not available: {str(e)}; will use xhtml2pdf fallback if needed.")
+            logger.warning("=" * 80)
+            logger.warning("⚠️  PLAYWRIGHT NOT AVAILABLE - EMAILED PDFs WILL LOOK BROKEN!")
+            logger.warning("=" * 80)
+            logger.warning(f"Reason: {str(e)}")
+            logger.warning("⚠️ PDFs will have tiny boxes, missing color legend, and broken layout")
+            logger.warning("⚠️ This is because xhtml2pdf has very limited CSS support")
+            logger.warning("")
+            logger.warning("📖 To fix this, install Playwright on your production server:")
+            logger.warning("   1. Add to build: pip install playwright && playwright install chromium")
+            logger.warning("   2. See: PLAYWRIGHT_INSTALL_INSTRUCTIONS.md in the repo")
+            logger.warning("")
+            logger.warning("💡 After install, verify logs show: '✅ Using Playwright for PDF'")
+            logger.warning("=" * 80)
 
     def render_html_to_pdf(self, html: str, base_url: Optional[str] = None) -> str:
         """Render given HTML string to a temporary PDF file and return its path."""
