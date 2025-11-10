@@ -2220,12 +2220,35 @@ async def verify_payment_public(request: Request):
             
             if session.status == 'complete':
                 # Check if this was a new registration
-                if session.metadata.get('registration_pending') == 'true':
+                is_new_registration = session.metadata.get('is_registration') == 'true'
+                
+                if is_new_registration:
                     logger.info("🆕 New registration payment verified")
+                    
+                    # Get user email from metadata to help with auto-login
+                    user_email = session.metadata.get('user_email', '')
+                    
+                    # Decode registration data to get the password
+                    import base64
+                    registration_data_encoded = session.metadata.get('registration_data')
+                    user_credentials = None
+                    
+                    if registration_data_encoded:
+                        try:
+                            user_data = json.loads(base64.b64decode(registration_data_encoded).decode())
+                            user_credentials = {
+                                'email': user_data.get('email'),
+                                'password': user_data.get('password')
+                            }
+                            logger.info(f"✅ Extracted credentials for auto-login: {user_credentials['email']}")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to decode registration data: {e}")
+                    
                     return {
                         "success": True,
                         "is_new_registration": True,
-                        "message": "Payment verified for new registration"
+                        "message": "Payment verified for new registration",
+                        "credentials": user_credentials  # Send credentials for auto-login
                     }
                 else:
                     logger.info("👤 Existing user payment verified")

@@ -3,6 +3,7 @@ import logging
 import json
 import base64
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 import stripe
 import jwt
@@ -245,12 +246,37 @@ class StripeService:
                     logger.error(f"❌ Error creating S3 folder for new user {user_id}: {e}")
                     # Don't fail the registration if S3 folder creation fails
                 
-                # Optionally save clinic branding
+                # Save clinic branding from registration data
                 try:
-                    # This could be called via API if needed
-                    pass
+                    logger.info(f"💼 Saving clinic branding for user {user_id}")
+                    
+                    # Prepare clinic branding data
+                    branding_data = {
+                        'user_id': user_id,
+                        'clinic_name': user_data.get('clinicName', ''),
+                        'email': user_data.get('email', ''),
+                        'phone': user_data.get('phone', ''),
+                        'website': user_data.get('clinicWebsite', ''),
+                        'address': user_data.get('address', ''),
+                        'country': user_data.get('country', ''),
+                        'created_at': datetime.now().isoformat(),
+                        'updated_at': datetime.now().isoformat()
+                    }
+                    
+                    # Use service client to save clinic branding
+                    service_client = supabase_service.get_service_client()
+                    branding_response = service_client.table('clinic_branding').insert(branding_data).execute()
+                    
+                    if branding_response.data:
+                        logger.info(f"✅ Successfully saved clinic branding for user {user_id}")
+                    else:
+                        logger.warning(f"⚠️ No data returned when saving clinic branding for {user_id}")
+                        
                 except Exception as e:
-                    logger.warning(f"Failed to save clinic branding for {user_id}: {e}")
+                    logger.error(f"❌ Failed to save clinic branding for {user_id}: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    # Don't fail registration if branding save fails
                 
                 return user_id
             else:

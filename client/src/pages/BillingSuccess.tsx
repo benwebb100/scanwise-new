@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
+import { supabase } from '@/services/supabase';
 
 const BillingSuccess = () => {
   const navigate = useNavigate();
@@ -40,15 +41,50 @@ const BillingSuccess = () => {
           setVerified(true);
           
           if (response.is_new_registration) {
-            toast({
-              title: "Payment Successful!",
-              description: "Your account has been created! You can now log in with your email and password.",
-            });
-            
-            // Redirect to login for new registrations
-            setTimeout(() => {
-              navigate('/login');
-            }, 3000);
+            // Auto-login for new registrations if credentials are provided
+            if (response.credentials && response.credentials.email && response.credentials.password) {
+              try {
+                console.log('🔐 Auto-logging in new user:', response.credentials.email);
+                
+                const { data, error } = await supabase.auth.signInWithPassword({
+                  email: response.credentials.email,
+                  password: response.credentials.password,
+                });
+                
+                if (error) throw error;
+                
+                toast({
+                  title: "Welcome to ScanWise!",
+                  description: "Your account has been created and you're now logged in.",
+                });
+                
+                // Redirect to dashboard after successful auto-login
+                setTimeout(() => {
+                  navigate('/dashboard');
+                }, 2000);
+              } catch (loginError) {
+                console.error('Auto-login failed:', loginError);
+                toast({
+                  title: "Account Created!",
+                  description: "Please log in with your credentials.",
+                });
+                
+                // Fallback to login page if auto-login fails
+                setTimeout(() => {
+                  navigate('/login');
+                }, 3000);
+              }
+            } else {
+              toast({
+                title: "Account Created!",
+                description: "Please log in with your email and password.",
+              });
+              
+              // Redirect to login if no credentials
+              setTimeout(() => {
+                navigate('/login');
+              }, 3000);
+            }
           } else {
             toast({
               title: "Payment Successful!",
