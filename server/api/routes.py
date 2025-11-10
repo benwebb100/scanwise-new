@@ -1048,6 +1048,82 @@ async def update_diagnosis_html(
         raise HTTPException(status_code=500, detail=f"Failed to update diagnosis HTML: {str(e)}")
 
 
+@router.get("/generate-pdf/{diagnosis_id}")
+async def generate_pdf_download(
+    diagnosis_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Generate and return a PDF for download"""
+    try:
+        logger.info(f"📄 Generating PDF for diagnosis: {diagnosis_id}")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Fetch the diagnosis data
+        response = auth_client.table('patient_diagnosis')\
+            .select("*")\
+            .eq('id', diagnosis_id)\
+            .execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        diagnosis = response.data[0]
+        report_html = diagnosis.get('report_html', '')
+        
+        if not report_html:
+            raise HTTPException(status_code=400, detail="Report HTML not available")
+        
+        # Get clinic branding
+        user_id = diagnosis.get('user_id')
+        branding_response = auth_client.table('clinic_branding')\
+            .select("*")\
+            .eq('user_id', user_id)\
+            .execute()
+        
+        clinic_branding = branding_response.data[0] if branding_response.data else {}
+        
+        # Use the HTML PDF service to render the HTML to PDF
+        from services.html_pdf_service import HtmlPdfService
+        html_pdf_service = HtmlPdfService()
+        
+        # Render HTML to PDF
+        pdf_path = html_pdf_service.render_html_to_pdf(report_html)
+        
+        # Read the PDF file
+        with open(pdf_path, 'rb') as pdf_file:
+            pdf_content = pdf_file.read()
+        
+        # Clean up temp file
+        import os
+        os.unlink(pdf_path)
+        
+        logger.info(f"✅ PDF generated successfully for diagnosis: {diagnosis_id}")
+        
+        # Return PDF as downloadable file
+        from fastapi.responses import Response
+        patient_name = diagnosis.get('patient_name', 'Report').replace(' ', '-')
+        filename = f"Dental-Report-{patient_name}-{diagnosis_id[:8]}.pdf"
+        
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Type": "application/pdf"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating PDF {diagnosis_id}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+
 @router.post("/analyze-without-xray", response_model=AnalyzeXrayResponse)
 async def analyze_without_xray(
     request: Dict,

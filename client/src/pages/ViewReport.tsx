@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle, Mail, Send } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Video, Play, Loader2, Download, Share2, FileIcon, MessageCircle, Mail, Send, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from '@/services/api';
 import { heygenService } from '@/services/heygen';
+import { supabase } from '@/services/supabase';
 
 const ViewReport = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -98,16 +99,78 @@ const ViewReport = () => {
     });
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
+    if (!reportData?.reportHtml || !reportId) return;
+    
+    try {
+      toast({
+        title: "Generating PDF",
+        description: "Please wait while we generate your PDF...",
+      });
+      
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      
+      // Call backend to generate PDF
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://backend-scanwise.onrender.com/api/v1'}/generate-pdf/${reportId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Dental-Report-${reportData.patientName?.replace(/\s+/g, '-') || 'Report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your dental report PDF has been downloaded successfully.",
+      });
+      
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download PDF. You can try printing instead.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handlePrintReport = () => {
     if (!reportData?.reportHtml) return;
     
+    // Open print dialog directly
     const printWindow = window.open('', '', 'width=800,height=600');
     if (printWindow) {
       printWindow.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Dental Report - ${reportData.patientName}</title>
             <style>
+              @page { size: A4; margin: 20mm; }
               body { font-family: Arial, sans-serif; margin: 20px; }
               .report-container { max-width: 800px; margin: 0 auto; }
               h2, h3, h4 { color: #333; }
@@ -115,6 +178,9 @@ const ViewReport = () => {
               .treatment-stage { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
               ul { margin: 10px 0; }
               li { margin: 5px 0; }
+              table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+              th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+              th { background: #f5f5f5; font-weight: bold; }
               @media print {
                 body { margin: 0; }
                 .report-container { max-width: 100%; }
@@ -389,14 +455,24 @@ const ViewReport = () => {
             <CardHeader>
               <CardTitle className="text-blue-900 flex items-center justify-between">
                 <span>Treatment Analysis</span>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleDownloadPDF}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleDownloadPDF}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handlePrintReport}
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
