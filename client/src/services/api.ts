@@ -3,15 +3,50 @@ import { supabase } from './supabase'; // You'll need to setup Supabase client
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export const api = {
-  // Get auth token
+  // Get auth token with automatic refresh
   async getAuthToken() {
     console.log('🔐 API: Getting auth token...');
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔐 API: Session exists:', !!session);
+    
+    // First try to get current session
+    let { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('🔐 API: Session error:', error);
+      throw new Error('Session error');
+    }
+    
     if (!session) {
       console.error('🔐 API: No session found - user not authenticated');
       throw new Error('No session');
     }
+    
+    // Check if token is expired or about to expire (within 5 minutes)
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = session.expires_at || 0;
+    const timeUntilExpiry = expiresAt - now;
+    
+    console.log('🔐 API: Token expires in:', timeUntilExpiry, 'seconds');
+    
+    // If token expires in less than 5 minutes (300 seconds), refresh it
+    if (timeUntilExpiry < 300) {
+      console.log('🔄 API: Token expiring soon, refreshing...');
+      
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('🔐 API: Token refresh failed:', refreshError);
+        throw new Error('Token refresh failed');
+      }
+      
+      if (refreshData.session) {
+        console.log('✅ API: Token refreshed successfully');
+        session = refreshData.session;
+      } else {
+        console.error('🔐 API: No session after refresh');
+        throw new Error('No session after refresh');
+      }
+    }
+    
     console.log('🔐 API: Auth token retrieved successfully');
     return session.access_token;
   },
