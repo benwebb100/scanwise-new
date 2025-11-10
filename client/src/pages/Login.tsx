@@ -15,7 +15,6 @@ const Login = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [credentials, setCredentials] = useState({
     email: "",
     password: ""
@@ -81,42 +80,6 @@ const Login = () => {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!credentials.email) {
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsResettingPassword(true);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(credentials.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Check your email",
-        description: "We've sent you a password reset link.",
-      });
-    } catch (error: any) {
-      console.error("Password reset error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send reset email. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsResettingPassword(false);
-    }
-  };
 
   // Check if user is already logged in
   useState(() => {
@@ -210,11 +173,11 @@ const Login = () => {
                 <div className="text-center space-y-2">
                   <button 
                     type="button"
-                    onClick={handleForgotPassword}
-                    disabled={isResettingPassword || isLoading}
+                    onClick={() => navigate("/forgot-password")}
+                    disabled={isLoading}
                     className="text-sm text-blue-600 hover:text-blue-700 underline disabled:opacity-50"
                   >
-                    {isResettingPassword ? "Sending reset email..." : "Forgot your password?"}
+                    Forgot your password?
                   </button>
                   
                   <p className="text-sm text-gray-500">

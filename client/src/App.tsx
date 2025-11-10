@@ -8,6 +8,8 @@ import { TranslationProvider } from "@/contexts/TranslationContext";
 import Index from "./pages/Index";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import CreateReport from "./pages/CreateReport";
 import ViewReport from "./pages/ViewReport";
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/create-report" element={<CreateReport />} />
             <Route path="/report/:reportId" element={<ViewReport />} />
