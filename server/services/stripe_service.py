@@ -249,6 +249,8 @@ class StripeService:
                 # Save clinic branding from registration data
                 try:
                     logger.info(f"💼 Saving clinic branding for user {user_id}")
+                    logger.info(f"📋 Registration user_data keys: {list(user_data.keys())}")
+                    logger.info(f"📋 Registration user_data values: {user_data}")
                     
                     # Prepare clinic branding data
                     branding_data = {
@@ -262,6 +264,8 @@ class StripeService:
                         'created_at': datetime.now().isoformat(),
                         'updated_at': datetime.now().isoformat()
                     }
+                    
+                    logger.info(f"💼 Branding data to save: {branding_data}")
                     
                     # Use service client to save clinic branding
                     service_client = supabase_service.get_service_client()

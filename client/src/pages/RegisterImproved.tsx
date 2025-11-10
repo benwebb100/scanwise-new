@@ -19,6 +19,8 @@ const RegisterImproved = () => {
     confirmPassword: "",
     clinicName: "",
     clinicWebsite: "",
+    phone: "",
+    address: "",
     country: ""
   });
 
@@ -27,7 +29,7 @@ const RegisterImproved = () => {
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.name || !formData.clinicName || !formData.country) {
+    if (!formData.email || !formData.password || !formData.name || !formData.clinicName || !formData.phone || !formData.address || !formData.country) {
       toast({ 
         title: "Missing information", 
         description: "Please complete all required fields.", 
@@ -184,6 +186,30 @@ const RegisterImproved = () => {
                       value={formData.clinicName}
                       onChange={(e) => handleInputChange('clinicName', e.target.value)}
                       placeholder="Enter your clinic name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      placeholder="Enter clinic phone number"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="address">Clinic Address *</Label>
+                    <Input
+                      id="address"
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      placeholder="Enter clinic address"
                       required
                     />
                   </div>
