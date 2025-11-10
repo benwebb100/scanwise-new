@@ -3,10 +3,70 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { Brain, ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
+
+// Country codes for phone numbers
+const COUNTRY_CODES = [
+  { code: "+1", country: "US/CA", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+61", country: "AU", flag: "🇦🇺" },
+  { code: "+49", country: "DE", flag: "🇩🇪" },
+  { code: "+33", country: "FR", flag: "🇫🇷" },
+  { code: "+39", country: "IT", flag: "🇮🇹" },
+  { code: "+34", country: "ES", flag: "🇪🇸" },
+  { code: "+31", country: "NL", flag: "🇳🇱" },
+  { code: "+46", country: "SE", flag: "🇸🇪" },
+  { code: "+47", country: "NO", flag: "🇳🇴" },
+  { code: "+45", country: "DK", flag: "🇩🇰" },
+  { code: "+41", country: "CH", flag: "🇨🇭" },
+  { code: "+43", country: "AT", flag: "🇦🇹" },
+  { code: "+32", country: "BE", flag: "🇧🇪" },
+  { code: "+351", country: "PT", flag: "🇵🇹" },
+  { code: "+30", country: "GR", flag: "🇬🇷" },
+  { code: "+48", country: "PL", flag: "🇵🇱" },
+  { code: "+420", country: "CZ", flag: "🇨🇿" },
+  { code: "+421", country: "SK", flag: "🇸🇰" },
+  { code: "+36", country: "HU", flag: "🇭🇺" },
+  { code: "+40", country: "RO", flag: "🇷🇴" },
+  { code: "+359", country: "BG", flag: "🇧🇬" },
+  { code: "+385", country: "HR", flag: "🇭🇷" },
+  { code: "+386", country: "SI", flag: "🇸🇮" },
+  { code: "+372", country: "EE", flag: "🇪🇪" },
+  { code: "+371", country: "LV", flag: "🇱🇻" },
+  { code: "+370", country: "LT", flag: "🇱🇹" },
+  { code: "+358", country: "FI", flag: "🇫🇮" },
+  { code: "+7", country: "RU", flag: "🇷🇺" },
+  { code: "+380", country: "UA", flag: "🇺🇦" },
+  { code: "+90", country: "TR", flag: "🇹🇷" },
+  { code: "+972", country: "IL", flag: "🇮🇱" },
+  { code: "+971", country: "AE", flag: "🇦🇪" },
+  { code: "+966", country: "SA", flag: "🇸🇦" },
+  { code: "+91", country: "IN", flag: "🇮🇳" },
+  { code: "+86", country: "CN", flag: "🇨🇳" },
+  { code: "+81", country: "JP", flag: "🇯🇵" },
+  { code: "+82", country: "KR", flag: "🇰🇷" },
+  { code: "+65", country: "SG", flag: "🇸🇬" },
+  { code: "+60", country: "MY", flag: "🇲🇾" },
+  { code: "+66", country: "TH", flag: "🇹🇭" },
+  { code: "+84", country: "VN", flag: "🇻🇳" },
+  { code: "+63", country: "PH", flag: "🇵🇭" },
+  { code: "+62", country: "ID", flag: "🇮🇩" },
+  { code: "+55", country: "BR", flag: "🇧🇷" },
+  { code: "+52", country: "MX", flag: "🇲🇽" },
+  { code: "+54", country: "AR", flag: "🇦🇷" },
+  { code: "+56", country: "CL", flag: "🇨🇱" },
+  { code: "+57", country: "CO", flag: "🇨🇴" },
+  { code: "+51", country: "PE", flag: "🇵🇪" },
+  { code: "+27", country: "ZA", flag: "🇿🇦" },
+  { code: "+20", country: "EG", flag: "🇪🇬" },
+  { code: "+234", country: "NG", flag: "🇳🇬" },
+  { code: "+254", country: "KE", flag: "🇰🇪" },
+];
 
 const RegisterImproved = () => {
   const navigate = useNavigate();
@@ -19,8 +79,12 @@ const RegisterImproved = () => {
     confirmPassword: "",
     clinicName: "",
     clinicWebsite: "",
-    phone: "",
-    address: "",
+    phoneCountryCode: "+1",
+    phoneNumber: "",
+    streetAddress: "",
+    city: "",
+    state: "",
+    postalCode: "",
     country: ""
   });
 
@@ -29,7 +93,8 @@ const RegisterImproved = () => {
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.name || !formData.clinicName || !formData.phone || !formData.address || !formData.country) {
+    if (!formData.email || !formData.password || !formData.name || !formData.clinicName || 
+        !formData.phoneNumber || !formData.streetAddress || !formData.city || !formData.country) {
       toast({ 
         title: "Missing information", 
         description: "Please complete all required fields.", 
@@ -66,10 +131,28 @@ const RegisterImproved = () => {
 
     setIsSubmitting(true);
     try {
+      // Combine phone number with country code
+      const fullPhoneNumber = `${formData.phoneCountryCode} ${formData.phoneNumber}`;
+      
+      // Combine address fields
+      const fullAddress = [
+        formData.streetAddress,
+        formData.city,
+        formData.state,
+        formData.postalCode
+      ].filter(Boolean).join(', ');
+
+      // Prepare user data for registration
+      const userData = {
+        ...formData,
+        phone: fullPhoneNumber,
+        address: fullAddress
+      };
+
       // Store registration data temporarily and create checkout session
       // The account will only be created after successful payment
       const checkoutData = await api.createRegistrationCheckout({
-        userData: formData,
+        userData: userData,
         interval: 'monthly'
       });
       
@@ -192,26 +275,84 @@ const RegisterImproved = () => {
 
                   <div>
                     <Label htmlFor="phone">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      placeholder="Enter clinic phone number"
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <Select value={formData.phoneCountryCode} onValueChange={(value) => handleInputChange('phoneCountryCode', value)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {COUNTRY_CODES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              <span className="flex items-center gap-2">
+                                <span>{country.flag}</span>
+                                <span>{country.code}</span>
+                                <span className="text-xs text-gray-500">{country.country}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="phoneNumber"
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                        placeholder="Enter phone number"
+                        className="flex-1"
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="address">Clinic Address *</Label>
-                    <Input
-                      id="address"
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      placeholder="Enter clinic address"
-                      required
-                    />
+                  <div className="space-y-3">
+                    <Label>Clinic Address *</Label>
+                    
+                    <div>
+                      <Input
+                        id="streetAddress"
+                        type="text"
+                        value={formData.streetAddress}
+                        onChange={(e) => handleInputChange('streetAddress', e.target.value)}
+                        placeholder="Street address"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        id="city"
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        placeholder="City"
+                        required
+                      />
+                      <Input
+                        id="state"
+                        type="text"
+                        value={formData.state}
+                        onChange={(e) => handleInputChange('state', e.target.value)}
+                        placeholder="State/Province"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        id="postalCode"
+                        type="text"
+                        value={formData.postalCode}
+                        onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                        placeholder="Postal/Zip code"
+                      />
+                      <Input
+                        id="country"
+                        type="text"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
+                        placeholder="Country"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
