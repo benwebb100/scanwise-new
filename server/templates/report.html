@@ -5,132 +5,123 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dental Report - {{ patient_name }}</title>
   <style>
-    * { box-sizing: border-box; }
-    body { 
-      margin: 0; 
-      padding: 20px; 
-      font-family: Arial, Helvetica, sans-serif; 
-      background: #f9fafb; 
-      color: #111827;
-    }
-    .report-wrapper {
-      max-width: 850px;
-      margin: 0 auto;
-      background: #ffffff;
+    /* PDF-compatible styles - works with both Playwright and xhtml2pdf */
+    * { 
+      box-sizing: border-box; 
+      margin: 0;
       padding: 0;
     }
-    .report-content {
+    body { 
+      font-family: Arial, Helvetica, sans-serif; 
+      font-size: 14px;
+      line-height: 1.6;
+      color: #111827;
       background: #ffffff;
+    }
+    .report-wrapper {
+      max-width: 210mm; /* A4 width */
+      margin: 0 auto;
+      padding: 0;
+      background: #ffffff;
+    }
+    .report-content {
+      padding: 0;
+      background: #ffffff;
+    }
+    /* Ensure report HTML content displays properly */
+    .report-content * {
+      max-width: 100%;
+    }
+    .report-content img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    .report-content table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .report-content th,
+    .report-content td {
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #ddd;
     }
   </style>
 </head>
 <body>
   <div class="report-wrapper">
-    <!-- MAIN REPORT CONTENT -->
+    <!-- MAIN REPORT CONTENT (UNCHANGED FROM INTERFACE) -->
     <div class="report-content">
       {{ report_html | safe }}
     </div>
     
-    <!-- VIDEO BUTTON SECTION (PROMINENT AND CLICKABLE) -->
+    <!-- VIDEO SECTION (PDF-compatible) -->
     {% if video_url %}
-    <div style="margin: 40px 20px 20px; padding: 35px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; text-align: center; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);">
-      <div style="margin-bottom: 20px;">
-        <span style="font-size: 48px; display: inline-block;">📹</span>
-      </div>
-      <h2 style="color: #ffffff; font-size: 32px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.5px;">
+    <div style="margin: 20px; padding: 20px; background: #667eea; text-align: center; page-break-inside: avoid;">
+      <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0; font-weight: bold;">
         Watch Your Personalized Video
       </h2>
-      <p style="color: #e5e7eb; font-size: 17px; margin: 0 0 30px 0; line-height: 1.6; max-width: 500px; margin-left: auto; margin-right: auto;">
-        {{ clinic_name }} has prepared a detailed video explanation of your dental analysis and recommended treatment plan
+      <p style="color: #ffffff; font-size: 14px; margin: 0 0 15px 0;">
+        {{ clinic_name }} has prepared a detailed video explanation of your dental analysis and treatment plan
       </p>
-      <a href="{{ video_url }}" 
-         style="display: inline-block; background: #ffffff; color: #667eea; padding: 18px 50px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 20px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); border: 3px solid #ffffff;">
-        ▶ WATCH VIDEO NOW
-      </a>
-      <p style="color: #d1d5db; font-size: 14px; margin: 25px 0 0 0; font-style: italic;">
-        🎬 Your video is ready to view - click the button above
-      </p>
-    </div>
-    {% else %}
-    <div style="margin: 30px 20px; padding: 25px; background: #fef3c7; border: 2px solid #fbbf24; border-radius: 12px; text-align: center;">
-      <p style="color: #92400e; font-size: 16px; margin: 0; font-weight: 600;">
-        ⏳ Your personalized video explanation is being generated and will be available soon
+      <p style="color: #ffffff; font-size: 14px; margin: 0; font-weight: bold;">
+        Video URL: {{ video_url }}
       </p>
     </div>
     {% endif %}
     
-    <!-- INTERACTIVE CONSULTATION -->
-    {% if consultation_url %}
-    <div style="margin: 20px 20px; padding: 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; text-align: center;">
-      <h3 style="color: #ffffff; font-size: 26px; margin: 0 0 12px 0; font-weight: 700;">
-        💬 Have Questions? Get Instant Answers
+    <!-- BOOKING CALL-TO-ACTION (PDF-compatible) -->
+    <div style="margin: 20px; padding: 20px; background: #f3f4f6; border: 2px solid #d1d5db; text-align: center; page-break-inside: avoid;">
+      <h3 style="color: #111827; font-size: 20px; margin: 0 0 10px 0; font-weight: bold;">
+        Ready to Start Your Treatment?
       </h3>
-      <p style="color: #d1fae5; font-size: 15px; margin: 0 0 20px 0;">
-        Chat with our AI assistant about your treatment plan
+      <p style="color: #6b7280; font-size: 14px; margin: 0 0 15px 0;">
+        Book your appointment today
       </p>
-      <a href="{{ consultation_url }}" 
-         style="display: inline-block; background: #ffffff; color: #10b981; padding: 14px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 17px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);">
-        Start Interactive Consultation →
-      </a>
-    </div>
-    {% endif %}
-    
-    <!-- BOOKING CALL-TO-ACTION -->
-    <div style="margin: 20px 20px 40px; padding: 30px; background: #f9fafb; border: 3px solid #e5e7eb; border-radius: 16px; text-align: center;">
-      <h3 style="color: #111827; font-size: 24px; margin: 0 0 8px 0; font-weight: 700;">
-        📅 Ready to Start Your Treatment?
-      </h3>
-      <p style="color: #6b7280; font-size: 15px; margin: 0 0 20px 0;">
-        Book your appointment today and take the first step towards a healthier smile
+      {% if phone %}
+      <p style="margin: 5px 0; font-size: 14px; color: #111827;">
+        <strong>Phone:</strong> {{ phone }}
       </p>
-      <div style="display: block; text-align: center; margin-top: 20px;">
-        {% if phone %}
-        <a href="tel:{{ phone }}" 
-           style="display: inline-block; background: #10b981; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
-          📞 Call {{ phone }}
-        </a>
-        {% endif %}
-        {% if website %}
-        <a href="{{ website }}" target="_blank" rel="noopener"
-           style="display: inline-block; background: #f59e0b; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">
-          🗓️ Book Online
-        </a>
-        {% endif %}
-        {% if email %}
-        <a href="mailto:{{ email }}" 
-           style="display: inline-block; background: #3b82f6; color: #ffffff; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 5px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
-          ✉️ Email Us
-        </a>
-        {% endif %}
-      </div>
+      {% endif %}
+      {% if email %}
+      <p style="margin: 5px 0; font-size: 14px; color: #111827;">
+        <strong>Email:</strong> {{ email }}
+      </p>
+      {% endif %}
+      {% if website %}
+      <p style="margin: 5px 0; font-size: 14px; color: #111827;">
+        <strong>Website:</strong> {{ website }}
+      </p>
+      {% endif %}
     </div>
     
-    <!-- FOOTER -->
-    <div style="margin: 0; padding: 30px 20px; text-align: center; border-top: 2px solid #e5e7eb; background: #f3f4f6;">
-      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 700; color: #374151;">
+    <!-- FOOTER (PDF-compatible) -->
+    <div style="margin: 0; padding: 20px; text-align: center; border-top: 2px solid #d1d5db; background: #f9fafb; page-break-inside: avoid;">
+      <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #111827;">
         {{ clinic_name }}
       </p>
       {% if address %}
-      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">📍 {{ address }}</p>
+      <p style="margin: 5px 0; font-size: 13px; color: #6b7280;"><strong>Address:</strong> {{ address }}</p>
       {% endif %}
       {% if phone %}
-      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">📞 {{ phone }}</p>
+      <p style="margin: 5px 0; font-size: 13px; color: #6b7280;"><strong>Phone:</strong> {{ phone }}</p>
       {% endif %}
       {% if email %}
-      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">✉️ {{ email }}</p>
+      <p style="margin: 5px 0; font-size: 13px; color: #6b7280;"><strong>Email:</strong> {{ email }}</p>
       {% endif %}
       {% if website %}
-      <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">🌐 {{ website }}</p>
+      <p style="margin: 5px 0; font-size: 13px; color: #6b7280;"><strong>Website:</strong> {{ website }}</p>
       {% endif %}
-      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d1d5db;">
-        <p style="margin: 5px 0; color: #9ca3af; font-size: 12px; font-style: italic;">
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #d1d5db;">
+        <p style="margin: 5px 0; color: #9ca3af; font-size: 11px; font-style: italic;">
           This report contains confidential patient information
         </p>
-        <p style="margin: 5px 0; color: #9ca3af; font-size: 12px;">
+        <p style="margin: 5px 0; color: #9ca3af; font-size: 11px;">
           Report generated on {{ report_date }}
         </p>
-        <p style="margin: 15px 0 0; color: #b91c1c; font-size: 11px; font-weight: 600;">
-          ⚠️ For professional dental advice only - not a substitute for in-person examination
+        <p style="margin: 10px 0 0; color: #991b1b; font-size: 11px; font-weight: bold;">
+          For professional dental advice only - not a substitute for in-person examination
         </p>
       </div>
     </div>
