@@ -32,7 +32,9 @@ class ElevenLabsService:
             voice_id = self.bulgarian_voice_id if language.lower() == "bulgarian" else self.default_voice_id
             api_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
-            logger.info(f"Generating voice in {language} using voice ID: {voice_id}")
+            logger.info(f"🎙️ Language requested: '{language}'")
+            logger.info(f"🎙️ Voice ID selected: {voice_id} ({'Bulgarian' if language.lower() == 'bulgarian' else 'English'})")
+            logger.info(f"🎙️ Script preview (first 100 chars): {text[:100]}")
             
             headers = {
                 "Content-Type": "application/json",

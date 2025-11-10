@@ -197,14 +197,20 @@ Keep the tone professional, educational, and reassuring. Avoid clinical jargon u
             # LOW URGENCY (Existing dental work or other conditions)
             return 'low'
     
-    async def generate_video_script(self, treatment_stages: List[Dict], annotated_image_base64: str, patient_name: str = None) -> str:
+    async def generate_video_script(self, treatment_stages: List[Dict], annotated_image_base64: str, patient_name: str = None, language: str = "english") -> str:
         """Generate video voiceover script for patient education using vision model"""
         try:
-            system_prompt = """You are a **dental clinician** creating a **clear, concise, and easy-to-understand** voiceover script for a **patient** based on their panoramic x-ray.
+            # Determine language-specific instructions
+            language_name = "Bulgarian" if language.lower() == "bulgarian" else "English"
+            language_instruction = ""
+            if language.lower() == "bulgarian":
+                language_instruction = "\n\n**CRITICAL: Generate the ENTIRE script in Bulgarian language. Use proper Bulgarian grammar, dental terminology, and natural phrasing. Do NOT use English.**\n"
+            
+            system_prompt = f"""You are a **dental clinician** creating a **clear, concise, and easy-to-understand** voiceover script for a **patient** based on their panoramic x-ray.{language_instruction}
 
 The patient will be watching a video that shows their **annotated x-ray** with **color-coded highlights**.
 
-Your goal is to explain what each highlighted color represents, what it means for their dental health, and what treatments are planned — in friendly, plain English.
+Your goal is to explain what each highlighted color represents, what it means for their dental health, and what treatments are planned — in friendly, plain {language_name}.
 
 ---
 
@@ -315,10 +321,15 @@ If none are present, omit this paragraph entirely.
             # Prepare patient name for greeting
             greeting_name = patient_name if patient_name else None
             name_instruction = f"Use the patient name '{patient_name}' in the opening greeting." if greeting_name else "Use 'Hi there' in the opening greeting since no patient name was provided."
+            
+            # Language-specific instruction
+            language_reminder = ""
+            if language.lower() == "bulgarian":
+                language_reminder = "\n\n**REMINDER: Write the ENTIRE script in Bulgarian language, not English.**"
 
-            user_prompt = f"""Based on this dental X-ray analysis, create a concise, grouped-by-condition voiceover script.
+            user_prompt = f"""Based on this dental X-ray analysis, create a concise, grouped-by-condition voiceover script IN {language_name.upper()}.
 
-{name_instruction}
+{name_instruction}{language_reminder}
 
 Findings:
 {json.dumps(findings, indent=2)}
@@ -327,7 +338,7 @@ The annotated X-ray shows these conditions highlighted in their respective color
 
 Please analyze the uploaded annotated X-ray image as well, and use it to identify approximate regions (upper/lower, left/right) and how many times each color appears.
 
-Generate a short, friendly script following the structure in the system prompt."""
+Generate a short, friendly script IN {language_name.upper()} following the structure in the system prompt."""
 
             # Use vision-capable model (gpt-4o or gpt-4o-mini)
             response = self.client.chat.completions.create(
@@ -351,7 +362,9 @@ Generate a short, friendly script following the structure in the system prompt."
             )
             
             script = response.choices[0].message.content.strip()
-            logger.info("Successfully generated video script using vision model")
+            logger.info(f"✅ Successfully generated video script in {language_name} using vision model")
+            logger.info(f"📝 Script length: {len(script)} characters")
+            logger.info(f"📝 Script preview (first 150 chars): {script[:150]}")
             return script
             
         except Exception as e:

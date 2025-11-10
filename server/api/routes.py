@@ -334,9 +334,9 @@ async def generate_video_sync(diagnosis_id: str, annotated_url: str, treatment_s
         logger.info(f"Converting image to base64 for diagnosis: {diagnosis_id}")
         image_base64 = video_generator_service.image_to_base64(annotated_url)
         
-        # Generate video script with patient name
-        logger.info(f"Generating video script for diagnosis: {diagnosis_id}")
-        video_script = await openai_service.generate_video_script(treatment_stages, image_base64, patient_name)
+        # Generate video script with patient name and language
+        logger.info(f"Generating video script for diagnosis: {diagnosis_id} in {video_language}")
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64, patient_name, video_language)
         
         if not video_script or len(video_script.strip()) == 0:
             raise Exception("Generated video script is empty")
@@ -777,13 +777,14 @@ async def generate_patient_video(
         logger.info("Converting annotated image to base64...")
         image_base64 = video_generator_service.image_to_base64(annotated_image_url)
         
-        # Step 3: Generate video script with OpenAI (with patient name)
+        # Step 3: Generate video script with OpenAI (with patient name and default English)
         logger.info("Generating video script...")
-        video_script = await openai_service.generate_video_script(treatment_stages, image_base64, patient_name)
+        video_language = "english"  # Default to English for this endpoint
+        video_script = await openai_service.generate_video_script(treatment_stages, image_base64, patient_name, video_language)
         
         # Step 4: Generate voice audio with ElevenLabs
         logger.info("Generating voice audio...")
-        audio_bytes = await elevenlabs_service.generate_voice(video_script)
+        audio_bytes = await elevenlabs_service.generate_voice(video_script, video_language)
         
         # Step 5: Save temporary files
         temp_dir = tempfile.mkdtemp()
