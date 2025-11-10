@@ -869,4 +869,29 @@ export const api = {
 
     return response.json();
   },
+
+  // Initialize S3 folder for new user
+  async initializeUserS3Folder() {
+    const token = await this.getAuthToken();
+    
+    console.log('📁 Initializing S3 folder for user...');
+    
+    const response = await fetch(`${API_BASE_URL}/user/initialize-s3`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to initialize S3 folder:', error);
+      throw new Error(error.detail || 'Failed to initialize S3 folder');
+    }
+
+    const result = await response.json();
+    console.log('✅ S3 folder initialized:', result);
+    return result;
+  },
 };

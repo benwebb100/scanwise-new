@@ -135,6 +135,16 @@ const Dashboard = () => {
         // Extract name from email or metadata
         const name = user.user_metadata?.name || user.email?.split('@')[0] || "Doctor";
         setUserName(name.charAt(0).toUpperCase() + name.slice(1));
+        
+        // Initialize S3 folder for user if it doesn't exist
+        // This is a fallback for existing users who registered before this feature
+        try {
+          await api.initializeUserS3Folder();
+          console.log('✅ S3 folder initialization check completed');
+        } catch (error) {
+          // Silently fail - S3 folder might already exist or S3 might not be configured
+          console.log('ℹ️ S3 folder initialization skipped:', error);
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);

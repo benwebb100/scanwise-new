@@ -430,6 +430,87 @@ class S3Service:
                 'success': False,
                 'error': str(e)
             }
+    
+    def create_user_folder(self, user_id: str) -> Dict:
+        """
+        Create a new clinic folder in S3 for a new user
+        
+        Args:
+            user_id: User's unique identifier from Supabase auth
+            
+        Returns:
+            Dict with success status and folder details
+        """
+        if not self.is_configured or not self.s3_client:
+            logger.error("❌ S3 not configured, cannot create user folder")
+            return {
+                'success': False,
+                'error': 'S3 not configured'
+            }
+        
+        try:
+            # Create folder path: clinics/{user_id}/
+            folder_key = f"clinics/{user_id}/"
+            
+            logger.info(f"📁 Creating S3 folder for new user: {folder_key}")
+            
+            # Create an empty object to establish the folder
+            # (S3 doesn't have real folders, but this creates a "directory marker")
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=folder_key,
+                Body='',
+                ContentType='application/x-directory'
+            )
+            
+            logger.info(f"✅ Successfully created S3 folder: {folder_key}")
+            
+            return {
+                'success': True,
+                'folder_key': folder_key,
+                'user_id': user_id,
+                'bucket': self.bucket_name,
+                'full_path': f"s3://{self.bucket_name}/{folder_key}"
+            }
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            logger.error(f"❌ S3 ClientError creating user folder: {error_code} - {error_message}")
+            return {
+                'success': False,
+                'error': f"S3 error: {error_code}",
+                'message': error_message
+            }
+        except Exception as e:
+            logger.error(f"❌ Unexpected error creating user folder: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Unexpected error',
+                'message': str(e)
+            }
+    
+    def check_user_folder_exists(self, user_id: str) -> bool:
+        """Check if a user's folder already exists in S3"""
+        if not self.is_configured or not self.s3_client:
+            return False
+        
+        try:
+            folder_key = f"clinics/{user_id}/"
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=folder_key,
+                MaxKeys=1
+            )
+            
+            # Folder exists if there are any objects with this prefix
+            exists = 'Contents' in response or 'CommonPrefixes' in response
+            logger.info(f"📁 User folder {folder_key} exists: {exists}")
+            return exists
+            
+        except Exception as e:
+            logger.error(f"Error checking user folder: {e}")
+            return False
 
 def get_s3_service() -> Optional[S3Service]:
     """Get or create S3 service instance"""

@@ -2410,6 +2410,75 @@ async def stripe_webhook(request: Request):
         return {"status": "error", "message": str(e)}, 400
 
 # AWS S3 Integration Endpoints - Real-time Processing
+
+@router.post("/user/initialize-s3")
+async def initialize_user_s3_folder(token: str = Depends(get_auth_token)):
+    """
+    Create S3 folder for a new user after signup/payment verification
+    This endpoint should be called after a user completes Stripe payment
+    """
+    logger.info("📁 Starting S3 folder initialization for new user")
+    
+    try:
+        # Get user ID from token
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded.get('sub')
+        logger.info(f"🔐 User ID: {user_id}")
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid authentication")
+        
+        # Initialize S3 service
+        from services.s3_service import get_s3_service
+        s3_service = get_s3_service()
+        
+        if not s3_service or not s3_service.is_configured:
+            logger.error("❌ S3 service not configured")
+            raise HTTPException(
+                status_code=500, 
+                detail="AWS S3 is not configured on the server"
+            )
+        
+        # Check if folder already exists
+        folder_exists = s3_service.check_user_folder_exists(user_id)
+        
+        if folder_exists:
+            logger.info(f"✅ S3 folder already exists for user {user_id}")
+            return {
+                "success": True,
+                "message": "User folder already exists",
+                "user_id": user_id,
+                "folder_path": f"clinics/{user_id}/",
+                "already_existed": True
+            }
+        
+        # Create the folder
+        result = s3_service.create_user_folder(user_id)
+        
+        if result['success']:
+            logger.info(f"✅ Successfully created S3 folder for user {user_id}")
+            return {
+                "success": True,
+                "message": "User S3 folder created successfully",
+                "user_id": user_id,
+                "folder_path": result['folder_key'],
+                "bucket": result['bucket'],
+                "full_path": result['full_path'],
+                "already_existed": False
+            }
+        else:
+            logger.error(f"❌ Failed to create S3 folder: {result.get('error')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create S3 folder: {result.get('message', 'Unknown error')}"
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error initializing S3 folder: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @router.get("/aws/images")
 async def get_user_aws_images(token: str = Depends(get_auth_token)):
     """Get all images from AWS S3 for the authenticated user"""

@@ -217,6 +217,23 @@ class StripeService:
                 user_id = signup_response.user.id
                 logger.info(f"Successfully created user account {user_id} after payment")
                 
+                # Create S3 folder for the new user
+                try:
+                    from services.s3_service import get_s3_service
+                    s3_service = get_s3_service()
+                    
+                    if s3_service and s3_service.is_configured:
+                        s3_result = s3_service.create_user_folder(user_id)
+                        if s3_result['success']:
+                            logger.info(f"✅ Successfully created S3 folder for new user {user_id}: {s3_result['folder_key']}")
+                        else:
+                            logger.error(f"❌ Failed to create S3 folder for new user {user_id}: {s3_result.get('error')}")
+                    else:
+                        logger.warning(f"⚠️ S3 service not configured, skipping folder creation for {user_id}")
+                except Exception as e:
+                    logger.error(f"❌ Error creating S3 folder for new user {user_id}: {e}")
+                    # Don't fail the registration if S3 folder creation fails
+                
                 # Optionally save clinic branding
                 try:
                     # This could be called via API if needed
