@@ -77,32 +77,32 @@ class StripeService:
         if not price_id:
             raise ValueError("Stripe price id not configured. Provide STRIPE_PRICE_ID_MONTHLY/STRIPE_PRICE_ID_YEARLY or STRIPE_PRODUCT_ID with active recurring prices.")
 
-        # Store user data in metadata to be processed after payment
+        # Encode user data to store in metadata (Stripe has size limits, so we base64 encode)
+        import base64
+        registration_data_json = json.dumps(user_data)
+        registration_data_encoded = base64.b64encode(registration_data_json.encode()).decode()
+        
+        logger.info(f"Creating registration checkout for: {user_data.get('email')}")
+        
+        # Store encoded user data in metadata to be processed after payment
         session = stripe.checkout.Session.create(
             mode="subscription",
             success_url=f"{self.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{self.frontend_url}/billing/canceled",
             line_items=[{"price": price_id, "quantity": 1}],
             metadata={
-                "registration_pending": "true",
-                "registration_id": user_data.get('registration_id', ''),
-                "user_email": user_data.get('email', ''),
-                "user_name": user_data.get('name', ''),
-                "clinic_name": user_data.get('clinicName', ''),
-                "clinic_website": user_data.get('clinicWebsite', ''),
-                "country": user_data.get('country', '')
+                "is_registration": "true",  # Flag to trigger registration handler
+                "registration_data": registration_data_encoded,  # Encoded user data
+                "user_email": user_data.get('email', '')  # For logging/debugging
             },
             subscription_data={"metadata": {
-                "registration_pending": "true",
-                "registration_id": user_data.get('registration_id', ''),
-                "user_email": user_data.get('email', ''),
-                "user_name": user_data.get('name', ''),
-                "clinic_name": user_data.get('clinicName', ''),
-                "clinic_website": user_data.get('clinicWebsite', ''),
-                "country": user_data.get('country', '')
+                "is_registration": "true",
+                "user_email": user_data.get('email', '')
             }},
             allow_promotion_codes=True,
         )
+        
+        logger.info(f"Created Stripe checkout session: {session.id}")
         return session.url
 
     def create_billing_portal(self, customer_id: str) -> str:
@@ -186,18 +186,27 @@ class StripeService:
     def _handle_registration_webhook(self, session_data: Dict[str, Any]) -> Optional[str]:
         """Handle registration webhook - create user account after successful payment"""
         try:
+            logger.info("🎉 Processing registration webhook")
             metadata = session_data.get("metadata", {})
+            logger.info(f"📦 Metadata keys: {list(metadata.keys())}")
+            
             registration_data_encoded = metadata.get("registration_data")
             
             if not registration_data_encoded:
-                logger.error("No registration data found in session metadata")
+                logger.error("❌ No registration_data found in session metadata")
+                logger.error(f"❌ Available metadata: {metadata}")
                 return None
+            
+            logger.info("✅ Found registration_data, decoding...")
             
             # Decode user data
             user_data = json.loads(base64.b64decode(registration_data_encoded).decode())
+            logger.info(f"✅ Decoded user data for: {user_data.get('email')}")
             
             # Create user account with Supabase
             auth_client = supabase_service.client
+            
+            logger.info(f"👤 Creating Supabase account for: {user_data.get('email')}")
             
             # Sign up the user
             signup_response = auth_client.auth.sign_up({
@@ -213,9 +222,11 @@ class StripeService:
                 }
             })
             
+            logger.info(f"📧 Supabase signup response received")
+            
             if signup_response.user:
                 user_id = signup_response.user.id
-                logger.info(f"Successfully created user account {user_id} after payment")
+                logger.info(f"✅ Successfully created user account {user_id} after payment")
                 
                 # Create S3 folder for the new user
                 try:
@@ -243,11 +254,14 @@ class StripeService:
                 
                 return user_id
             else:
-                logger.error(f"Failed to create user account: {signup_response}")
+                logger.error(f"❌ Failed to create user account - no user in response")
+                logger.error(f"❌ Signup response: {signup_response}")
                 return None
                 
         except Exception as e:
-            logger.error(f"Error handling registration webhook: {e}")
+            logger.error(f"❌ Error handling registration webhook: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return None
 
     def handle_webhook(self, payload: bytes, sig_header: str) -> str:
@@ -271,15 +285,21 @@ class StripeService:
         if event_type in ("checkout.session.completed", "customer.subscription.updated", "customer.subscription.deleted"):
             try:
                 if event_type == "checkout.session.completed":
+                    logger.info("💳 Processing checkout.session.completed event")
                     metadata = data_object.get("metadata", {}) or {}
                     customer_id = data_object.get("customer")
                     status = "active"
                     
+                    logger.info(f"🔍 Checking if registration: is_registration = {metadata.get('is_registration')}")
+                    
                     # Check if this is a registration session
                     if metadata.get("is_registration") == "true":
+                        logger.info("🆕 This is a NEW USER registration - calling registration handler")
                         # Handle new user registration
                         user_id = self._handle_registration_webhook(data_object)
+                        logger.info(f"🆕 Registration handler returned user_id: {user_id}")
                     else:
+                        logger.info("👤 This is an existing user subscription")
                         # Handle existing user subscription
                         user_id = metadata.get("user_id")
                 else:
