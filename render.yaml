@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: scanwise-backend
+    env: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    region: oregon
+    branch: Nov-Ben-Webb-fixes
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: PORT
+        value: 8000
