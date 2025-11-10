@@ -2289,11 +2289,57 @@ async def test_webhook():
     """Test endpoint to verify webhook connectivity"""
     return {"status": "webhook_endpoint_reachable", "timestamp": datetime.utcnow().isoformat()}
 
+@router.post("/stripe/webhook/test-registration")
+async def test_registration_webhook():
+    """Test registration webhook with mock data"""
+    try:
+        logger.info("🧪 Testing registration webhook with mock data")
+        
+        # Mock Stripe session data
+        mock_session_data = {
+            "id": "cs_test_123",
+            "status": "complete",
+            "metadata": {
+                "is_registration": "true",
+                "registration_data": "eyJlbWFpbCI6ICJ0ZXN0QGV4YW1wbGUuY29tIiwgInBhc3N3b3JkIjogIlRlc3RQYXNzd29yZDEyMyEiLCAibmFtZSI6ICJUZXN0IFVzZXIiLCAiY2xpbmljTmFtZSI6ICJUZXN0IENsaW5pYyIsICJjbGluaWNXZWJzaXRlIjogInRlc3QuY29tIiwgImNvdW50cnkiOiAiVVMifQ==",
+                "user_email": "test@example.com"
+            }
+        }
+        
+        # Use StripeService to handle the webhook
+        from services.stripe_service import get_stripe_service
+        stripe_service = get_stripe_service()
+        if not stripe_service:
+            raise HTTPException(status_code=500, detail="Stripe service unavailable")
+        
+        # Simulate the webhook call
+        result = stripe_service._handle_registration_webhook(mock_session_data)
+        
+        if result:
+            return {
+                "success": True,
+                "message": "Test registration webhook successful",
+                "user_id": result
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Test registration webhook failed"
+            }
+            
+    except Exception as e:
+        logger.error(f"💥 Test webhook error: {str(e)}")
+        import traceback
+        logger.error(f"📍 Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
     """Handle Stripe webhooks for payment events"""
     try:
         logger.info("🎯 Stripe webhook received")
+        logger.info("🔍 Webhook headers: %s", dict(request.headers))
+        logger.info("🔍 Webhook URL: %s", str(request.url))
         
         # Get the webhook payload
         payload = await request.body()
