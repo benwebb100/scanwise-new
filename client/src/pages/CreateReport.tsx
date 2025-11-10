@@ -3984,9 +3984,9 @@ const CreateReport = () => {
       
       return;
     }
-
-    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
     
+    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+
     if (validFindings.length === 0) {
       toast({
         title: "No Complete Findings",
@@ -4172,11 +4172,11 @@ const CreateReport = () => {
               <>
                 {/* Only show upload section if NOT coming from AWS pre-analyzed */}
                 {!immediateAnalysisData && (
-                  <FileUploadSection
-                    onFileUploaded={handleFileUploaded}
-                    onAnalysisComplete={handleAnalysisComplete}
-                    isProcessing={isProcessing}
-                  />
+                <FileUploadSection
+                  onFileUploaded={handleFileUploaded}
+                  onAnalysisComplete={handleAnalysisComplete}
+                  isProcessing={isProcessing}
+                />
                 )}
 
                 {immediateAnalysisData && !isProcessing && (
@@ -4198,22 +4198,22 @@ const CreateReport = () => {
 
                 {!report && immediateAnalysisData && (
                   <>
-                    <FindingsManagement
-                      findings={findings}
-                      onFindingsChange={setFindings}
-                      toothNumberingSystem={toothNumberingSystem}
-                      showTreatmentPricing={showTreatmentPricing}
-                      onShowPricingChange={(value) => {
-                        setShowTreatmentPricing(value);
-                        localStorage.setItem('showTreatmentPricing', value.toString());
-                      }}
-                      isProcessing={isProcessing}
-                      onPriceSave={savePrice}
-                      getPrice={getPrice}
-                      onNextStep={handleNextStep}
-                      onContinueEditingStages={handleContinueEditingStages}
-                      onGenerateFromSavedStages={handleGenerateFromSavedStages}
-                      currentTreatmentStages={currentTreatmentStages}
+                  <FindingsManagement
+                    findings={findings}
+                    onFindingsChange={setFindings}
+                    toothNumberingSystem={toothNumberingSystem}
+                    showTreatmentPricing={showTreatmentPricing}
+                    onShowPricingChange={(value) => {
+                      setShowTreatmentPricing(value);
+                      localStorage.setItem('showTreatmentPricing', value.toString());
+                    }}
+                    isProcessing={isProcessing}
+                    onPriceSave={savePrice}
+                    getPrice={getPrice}
+                    onNextStep={handleNextStep}
+                    onContinueEditingStages={handleContinueEditingStages}
+                    onGenerateFromSavedStages={handleGenerateFromSavedStages}
+                    currentTreatmentStages={currentTreatmentStages}
                       patientName={patientName}
                       onPatientNameChange={(value) => {
                         setPatientName(value);
@@ -4233,52 +4233,52 @@ const CreateReport = () => {
             {/* Non X-ray Mode Content */}
             {!useXrayMode && !report && (
               <>
-                <Card className="mb-8">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FileText className="mr-2 h-5 w-5" />
-                      Patient Observations
-                    </CardTitle>
-                    <CardDescription>
-                      Enter your clinical observations and notes about the patient's dental condition
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`space-y-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <div>
-                        <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
-                          Clinical Observations
-                        </Label>
-                        <Textarea
-                          id="observations"
-                          value={patientObservations}
-                          onChange={e => setPatientObservations(e.target.value)}
-                          placeholder="Enter your clinical observations..."
-                          rows={6}
-                          className="w-full"
-                          disabled={isProcessing}
-                        />
-                      </div>
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="mr-2 h-5 w-5" />
+                    Patient Observations
+                  </CardTitle>
+                  <CardDescription>
+                    Enter your clinical observations and notes about the patient's dental condition
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className={`space-y-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div>
+                      <Label htmlFor="observations" className="block font-medium text-blue-900 mb-1">
+                        Clinical Observations
+                      </Label>
+                      <Textarea
+                        id="observations"
+                        value={patientObservations}
+                        onChange={e => setPatientObservations(e.target.value)}
+                        placeholder="Enter your clinical observations..."
+                        rows={6}
+                        className="w-full"
+                        disabled={isProcessing}
+                      />
                     </div>
+                  </div>
                   </CardContent>
                 </Card>
 
-                <FindingsManagement
-                  findings={findings}
-                  onFindingsChange={setFindings}
-                  toothNumberingSystem={toothNumberingSystem}
-                  showTreatmentPricing={showTreatmentPricing}
-                  onShowPricingChange={(value) => {
-                    setShowTreatmentPricing(value);
-                    localStorage.setItem('showTreatmentPricing', value.toString());
-                  }}
-                  isProcessing={isProcessing}
-                  onPriceSave={savePrice}
-                  getPrice={getPrice}
-                  onNextStep={handleNextStep}
-                  onContinueEditingStages={handleContinueEditingStages}
-                  onGenerateFromSavedStages={handleGenerateFromSavedStages}
-                  currentTreatmentStages={currentTreatmentStages}
+                  <FindingsManagement
+                    findings={findings}
+                    onFindingsChange={setFindings}
+                    toothNumberingSystem={toothNumberingSystem}
+                    showTreatmentPricing={showTreatmentPricing}
+                    onShowPricingChange={(value) => {
+                      setShowTreatmentPricing(value);
+                      localStorage.setItem('showTreatmentPricing', value.toString());
+                    }}
+                    isProcessing={isProcessing}
+                    onPriceSave={savePrice}
+                    getPrice={getPrice}
+                    onNextStep={handleNextStep}
+                    onContinueEditingStages={handleContinueEditingStages}
+                    onGenerateFromSavedStages={handleGenerateFromSavedStages}
+                    currentTreatmentStages={currentTreatmentStages}
                   patientName={patientName}
                   onPatientNameChange={(value) => {
                     setPatientName(value);

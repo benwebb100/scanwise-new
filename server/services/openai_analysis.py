@@ -376,10 +376,10 @@ Do NOT include any paragraph about existing dental work, as none is present in t
 
 {name_instruction}{language_reminder}
 
-Findings:
-{json.dumps(findings, indent=2)}
+    Findings:
+    {json.dumps(findings, indent=2)}
 
-The annotated X-ray shows these conditions highlighted in their respective colors according to the legend.
+    The annotated X-ray shows these conditions highlighted in their respective colors according to the legend.
 
 Please analyze the uploaded annotated X-ray image as well, and use it to identify approximate regions (upper/lower, left/right) and how many times each color appears.
 {existing_work_instruction}
