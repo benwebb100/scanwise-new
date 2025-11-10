@@ -26,15 +26,29 @@ class HtmlPdfService:
             
             # Additional check: verify browsers are installed
             try:
+                logger.info("🔍 Testing Playwright browser launch...")
                 from playwright.sync_api import sync_playwright
+                
                 with sync_playwright() as p:
+                    logger.info("🔍 Playwright context created, attempting browser launch...")
                     # This will fail if browsers aren't installed
-                    browser = p.chromium.launch(args=["--no-sandbox", "--disable-gpu"])
+                    browser = p.chromium.launch(args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
+                    logger.info("🔍 Browser launched successfully, closing...")
                     browser.close()
+                    logger.info("🔍 Browser closed successfully")
                 logger.info("✅ Playwright browsers verified and working")
             except Exception as browser_error:
-                logger.error(f"❌ Playwright library found but browsers not installed: {str(browser_error)}")
-                logger.error("❌ Run 'playwright install chromium' to install browsers")
+                logger.error("=" * 80)
+                logger.error(f"❌ Playwright browser verification FAILED!")
+                logger.error(f"❌ Error type: {type(browser_error).__name__}")
+                logger.error(f"❌ Error message: {str(browser_error)}")
+                logger.error("❌ This usually means:")
+                logger.error("   1. Chromium browser not installed: playwright install chromium")
+                logger.error("   2. Missing system dependencies: apt-get install libnss3 libatk1.0-0...")
+                logger.error("   3. Render.com environment restrictions")
+                logger.error("=" * 80)
+                import traceback
+                logger.error(f"❌ Full traceback: {traceback.format_exc()}")
                 self._playwright_available = False
         except Exception as e:
             logger.warning("=" * 80)
