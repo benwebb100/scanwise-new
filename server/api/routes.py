@@ -2329,7 +2329,7 @@ async def stripe_webhook(request: Request):
             logger.info(f"🔍 Session metadata: {metadata}")
             
             # Check if this is a new registration
-            if metadata.get('registration_pending') == 'true':
+            if metadata.get('is_registration') == 'true':
                 logger.info("🆕 This is a NEW USER REGISTRATION - processing...")
                 logger.info("🆕 Processing new user registration after payment")
                 
