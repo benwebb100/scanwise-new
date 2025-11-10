@@ -22,11 +22,28 @@ class HtmlPdfService:
             # Lazy import check so environments without Playwright still work
             import playwright  # type: ignore
             self._playwright_available = True
-        except Exception:
-            logger.warning("Playwright not available; will use xhtml2pdf fallback if needed.")
+            logger.info("✅ Playwright library imported successfully")
+            
+            # Additional check: verify browsers are installed
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    # This will fail if browsers aren't installed
+                    browser = p.chromium.launch(args=["--no-sandbox", "--disable-gpu"])
+                    browser.close()
+                logger.info("✅ Playwright browsers verified and working")
+            except Exception as browser_error:
+                logger.error(f"❌ Playwright library found but browsers not installed: {str(browser_error)}")
+                logger.error("❌ Run 'playwright install chromium' to install browsers")
+                self._playwright_available = False
+        except Exception as e:
+            logger.warning(f"Playwright not available: {str(e)}; will use xhtml2pdf fallback if needed.")
 
     def render_html_to_pdf(self, html: str, base_url: Optional[str] = None) -> str:
         """Render given HTML string to a temporary PDF file and return its path."""
+        logger.info(f"🎨 Starting PDF generation. HTML length: {len(html)} chars")
+        logger.info(f"🎨 Playwright available: {self._playwright_available}")
+        
         # Convert local file paths in img src attributes to data URLs
         # This must happen BEFORE writing to temp file to ensure images are embedded
         html = self._convert_local_images_to_data_urls(html)
@@ -35,11 +52,24 @@ class HtmlPdfService:
         html_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode='w', encoding='utf-8')
         html_tmp.write(html)
         html_tmp.close()
+        
+        logger.info(f"📝 Wrote HTML to temp file: {html_tmp.name}")
 
         try:
             if self._playwright_available:
-                return self._render_with_playwright(html_tmp.name, base_url)
-            return self._render_with_xhtml2pdf(html)
+                logger.info("✅ Using Playwright for PDF generation")
+                try:
+                    result = self._render_with_playwright(html_tmp.name, base_url)
+                    logger.info(f"✅ Playwright PDF generation successful: {result}")
+                    return result
+                except Exception as playwright_error:
+                    logger.error(f"❌ Playwright PDF generation FAILED: {str(playwright_error)}")
+                    logger.error(f"❌ Error type: {type(playwright_error).__name__}")
+                    logger.error(f"❌ Falling back to xhtml2pdf (LIMITED CSS SUPPORT - WILL BE UGLY)")
+                    return self._render_with_xhtml2pdf(html)
+            else:
+                logger.warning("⚠️ Playwright NOT available, using xhtml2pdf fallback (LIMITED CSS SUPPORT)")
+                return self._render_with_xhtml2pdf(html)
         finally:
             try:
                 os.unlink(html_tmp.name)
