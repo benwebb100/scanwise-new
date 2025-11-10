@@ -287,18 +287,6 @@ For each color/condition present, generate one paragraph following this structur
 
 ---
 
-### 🦷 CONDITIONAL: EXISTING DENTAL WORK
-
-If the findings include any of the following: *filling, crown, implant, root canal treatment, or post*
-→ Include one paragraph at the end that dynamically references those colors and terms.
-
-Use this template:
-> "You'll also see some existing dental work — like the [color 1] and [color 2] areas — showing your [conditions, e.g. fillings and implants]. Everything there looks stable and functioning well."
-
-If none are present, omit this paragraph entirely.
-
----
-
 ### ⚙️ STYLE GUIDELINES
 
 - Do **not** mention tooth numbers, confidence levels, or patient names in the main narration.
@@ -318,6 +306,40 @@ If none are present, omit this paragraph entirely.
                         'treatment': item.get('recommended_treatment', '')
                     })
 
+            # Identify existing dental work conditions
+            EXISTING_WORK_CONDITIONS = {
+                'filling': 'bright red',
+                'crown': 'magenta pink',
+                'implant': 'lime green',
+                'root-canal-treatment': 'bright red',
+                'root canal treatment': 'bright red',
+                'post': 'turquoise'
+            }
+            
+            # Check which existing dental work is actually present
+            existing_work_found = []
+            for finding in findings:
+                condition = finding.get('condition', '').lower()
+                if condition in EXISTING_WORK_CONDITIONS:
+                    color = EXISTING_WORK_CONDITIONS[condition]
+                    # Format condition name nicely
+                    condition_display = condition.replace('-', ' ').replace('root canal treatment', 'root canal treatment')
+                    existing_work_found.append({
+                        'condition': condition_display,
+                        'color': color
+                    })
+            
+            # Remove duplicates
+            seen = set()
+            unique_existing_work = []
+            for work in existing_work_found:
+                key = (work['condition'], work['color'])
+                if key not in seen:
+                    seen.add(key)
+                    unique_existing_work.append(work)
+            
+            logger.info(f"🦷 Existing dental work found: {unique_existing_work}")
+
             # Prepare patient name for greeting
             greeting_name = patient_name if patient_name else None
             name_instruction = f"Use the patient name '{patient_name}' in the opening greeting." if greeting_name else "Use 'Hi there' in the opening greeting since no patient name was provided."
@@ -326,6 +348,29 @@ If none are present, omit this paragraph entirely.
             language_reminder = ""
             if language.lower() == "bulgarian":
                 language_reminder = "\n\n**REMINDER: Write the ENTIRE script in Bulgarian language, not English.**"
+
+            # Build existing dental work instruction if applicable
+            existing_work_instruction = ""
+            if unique_existing_work:
+                work_descriptions = []
+                for work in unique_existing_work:
+                    work_descriptions.append(f"{work['color']} ({work['condition']})")
+                
+                work_list = ", ".join(work_descriptions)
+                existing_work_instruction = f"""
+
+**IMPORTANT - EXISTING DENTAL WORK:**
+The patient has the following existing dental work that should be mentioned at the END of the script:
+{work_list}
+
+Include a final paragraph like: "You'll also see some existing dental work — like the [list colors] areas — showing your [list conditions, e.g. fillings and root canal treatments]. Everything there looks stable and functioning well."
+
+Use the actual colors and conditions from the list above."""
+            else:
+                existing_work_instruction = """
+
+**IMPORTANT - NO EXISTING DENTAL WORK:**
+Do NOT include any paragraph about existing dental work, as none is present in this case."""
 
             user_prompt = f"""Based on this dental X-ray analysis, create a concise, grouped-by-condition voiceover script IN {language_name.upper()}.
 
@@ -337,6 +382,7 @@ Findings:
 The annotated X-ray shows these conditions highlighted in their respective colors according to the legend.
 
 Please analyze the uploaded annotated X-ray image as well, and use it to identify approximate regions (upper/lower, left/right) and how many times each color appears.
+{existing_work_instruction}
 
 Generate a short, friendly script IN {language_name.upper()} following the structure in the system prompt."""
 
