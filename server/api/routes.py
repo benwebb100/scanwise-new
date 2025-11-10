@@ -2374,8 +2374,29 @@ async def stripe_webhook(request: Request):
             logger.info(f"🎯 Processing checkout.session.completed event")
             logger.info(f"🔍 Session metadata: {metadata}")
             
-            # Check if this is a new registration
+            # Check if this is a new registration  
             if metadata.get('is_registration') == 'true':
+                logger.info("🆕 This is a NEW USER REGISTRATION - using StripeService handler")
+                
+                # Use StripeService to handle the registration (NEW system)
+                from services.stripe_service import get_stripe_service
+                stripe_service = get_stripe_service()
+                if not stripe_service:
+                    logger.error("❌ Stripe service unavailable")
+                    return {"status": "error", "message": "Stripe service unavailable"}
+                
+                # Call the new registration handler
+                user_id = stripe_service._handle_registration_webhook(session)
+                
+                if user_id:
+                    logger.info(f"✅ Registration completed successfully for user: {user_id}")
+                    return {"status": "success", "message": "Registration completed", "user_id": user_id}
+                else:
+                    logger.error("❌ Registration failed")
+                    return {"status": "error", "message": "Registration failed"}
+            
+            # OLD SYSTEM (remove this block) - keeping for reference but won't execute
+            elif False:  # This will never execute now
                 logger.info("🆕 This is a NEW USER REGISTRATION - processing...")
                 logger.info("🆕 Processing new user registration after payment")
                 
