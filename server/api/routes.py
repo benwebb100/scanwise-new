@@ -985,13 +985,13 @@ async def delete_diagnosis(
         patient_name = diagnosis.get('patient_name', 'Unknown')
         
         # Delete the diagnosis
-        delete_response = auth_client.table('patient_diagnosis').delete().eq('id', diagnosis_id).execute()
-        
-        if not delete_response.data:
-            logger.error(f"❌ Failed to delete diagnosis {diagnosis_id}")
-            raise HTTPException(status_code=500, detail="Failed to delete diagnosis")
-        
-        logger.info(f"✅ Successfully deleted diagnosis {diagnosis_id} for patient: {patient_name}")
+        # Note: Supabase delete() doesn't always return data, so we check for errors instead
+        try:
+            delete_response = auth_client.table('patient_diagnosis').delete().eq('id', diagnosis_id).execute()
+            logger.info(f"✅ Successfully deleted diagnosis {diagnosis_id} for patient: {patient_name}")
+        except Exception as delete_error:
+            logger.error(f"❌ Failed to delete diagnosis {diagnosis_id}: {str(delete_error)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete diagnosis: {str(delete_error)}")
         
         return {
             "success": True,
