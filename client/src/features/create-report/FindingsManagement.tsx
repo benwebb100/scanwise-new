@@ -11,7 +11,8 @@ import { Info, Edit3, ArrowRight, Loader2 } from 'lucide-react';
 import { 
   getToothOptions, 
   getReplacementOptions, 
-  getSuggestedTreatments, 
+  getSuggestedTreatments,
+  getSmartTreatmentSuggestion, 
   ToothNumberingSystem,
   ALL_CONDITIONS,
   ALL_TREATMENTS
@@ -77,22 +78,16 @@ export const FindingsManagement = ({
     // Auto-suggest treatments when condition changes
     if (field === 'condition' && typeof value === 'string' && value !== '') {
       if (!updated[idx].treatment) {
-        // Auto-populate treatment logic
-        const suggestedTreatments = getSuggestedTreatments(value);
-        if (suggestedTreatments && suggestedTreatments.length > 0) {
-          const recommendedTreatment = suggestedTreatments[0].value;
+        // Use smart treatment suggestion that works with database treatments
+        const treatmentOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
+        const recommendedTreatment = getSmartTreatmentSuggestion(value, treatmentOptions);
+        
+        if (recommendedTreatment) {
+          updated[idx].treatment = recommendedTreatment;
           
-          // Check if suggested treatment exists in database treatments
-          const treatmentOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
-          const treatmentExists = treatmentOptions.find(t => t.value === recommendedTreatment);
-          
-          if (treatmentExists) {
-            updated[idx].treatment = recommendedTreatment;
-            
-            const price = getPrice(recommendedTreatment);
-            if (price) {
-              updated[idx].price = price;
-            }
+          const price = getPrice(recommendedTreatment);
+          if (price) {
+            updated[idx].price = price;
           }
         }
       }

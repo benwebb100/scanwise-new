@@ -325,45 +325,45 @@ export const ALL_TREATMENTS: SearchableSelectOption[] = [
 ]
 
 // Auto-suggestion mapping: condition -> suggested treatments
-// Updated with more comprehensive mappings
+// Updated to use database treatment codes
 export const CONDITION_TREATMENT_SUGGESTIONS: Record<string, string[]> = {
-  // Primary mappings from documentation
-  'caries': ['filling'],
-  'periapical-lesion': ['root-canal-treatment'],
-  'fracture': ['crown'],
-  'root-fracture': ['crown'],
-  'crown-fracture': ['crown'],
-  'existing-large-filling': ['crown'],
-  'tooth-wear': ['composite-build-up', 'crown'],
-  'attrition': ['composite-build-up', 'crown'],
-  'pulpitis': ['root-canal-treatment'],
-  'missing-tooth': ['implant-placement', 'bridge', 'partial-denture'],
-  'mobility': ['extraction'],
-  'tooth-mobility': ['extraction'],
-  'impacted-tooth': ['surgical-extraction'],
-  'root-piece': ['surgical-extraction'],
-  'periodontal-pocket': ['deep-cleaning'],
-  'gingivitis': ['scale-and-clean'],
+  // Primary mappings using database codes
+  'caries': ['resto_comp_one_surface_ant', 'resto_comp_two_surface_ant', 'resto_comp_one_surface_post'],
+  'periapical-lesion': ['endo_rct_1_canal', 'endo_rct_2_canals'],
+  'fracture': ['crown_full_tooth_coloured', 'crown_temp'],
+  'root-fracture': ['crown_full_tooth_coloured', 'endo_rct_1_canal'],
+  'crown-fracture': ['crown_full_tooth_coloured', 'veneer_indirect'],
+  'existing-large-filling': ['crown_full_tooth_coloured', 'onlay_inlay_indirect_tc'],
+  'tooth-wear': ['resto_comp_three_plus_ant', 'crown_full_tooth_coloured'],
+  'attrition': ['resto_comp_three_plus_ant', 'crown_full_tooth_coloured'],
+  'pulpitis': ['endo_rct_1_canal', 'endo_rct_2_canals'],
+  'missing-tooth': ['implant_placement', 'bridge_3_unit', 'prost_partial_denture_resin'],
+  'mobility': ['surg_simple_extraction', 'perio_scale_root_planing'],
+  'tooth-mobility': ['surg_simple_extraction', 'perio_scale_root_planing'],
+  'impacted-tooth': ['surg_surgical_extraction'],
+  'root-piece': ['surg_surgical_extraction'],
+  'periodontal-pocket': ['perio_scale_root_planing', 'perio_curettage'],
+  'gingivitis': ['scale_clean_polish', 'perio_scale_root_planing'],
   
-  // Additional mappings for other conditions
-  'abrasion': ['composite-build-up', 'crown'],
-  'erosion': ['composite-build-up', 'fluoride-treatment'],
-  'calculus': ['scale-and-clean'],
-  'plaque': ['scale-and-clean'],
-  'abscess': ['root-canal-treatment', 'extraction'],
-  'cyst': ['surgical-extraction'],
-  'resorption': ['root-canal-treatment', 'extraction'],
-  'staining': ['whitening', 'veneer'],
-  'fluorosis': ['whitening', 'veneer'],
-  'malocclusion': ['orthodontic-treatment'],
-  'crowding': ['orthodontic-treatment', 'extraction'],
-  'spacing': ['orthodontic-treatment', 'bonding'],
-  'overjet': ['orthodontic-treatment'],
-  'overbite': ['orthodontic-treatment'],
-  'crossbite': ['orthodontic-treatment'],
-  'open-bite': ['orthodontic-treatment'],
-  'tmj-disorder': ['night-guard', 'orthodontic-treatment'],
-  'hypoplasia': ['composite-build-up', 'crown'],
+  // Additional mappings using database codes
+  'abrasion': ['resto_comp_two_surface_ant', 'crown_full_tooth_coloured'],
+  'erosion': ['resto_comp_one_surface_ant', 'fluoride_application'],
+  'calculus': ['scale_clean_polish'],
+  'plaque': ['scale_clean_polish'],
+  'abscess': ['endo_rct_1_canal', 'surg_simple_extraction'],
+  'cyst': ['surg_surgical_extraction'],
+  'resorption': ['endo_rct_1_canal', 'surg_simple_extraction'],
+  'staining': ['whitening_inchair', 'veneer_indirect'],
+  'fluorosis': ['whitening_inchair', 'veneer_indirect'],
+  'malocclusion': ['ortho_removable_appliance'],
+  'crowding': ['ortho_removable_appliance', 'surg_simple_extraction'],
+  'spacing': ['ortho_removable_appliance', 'resto_comp_one_surface_ant'],
+  'overjet': ['ortho_removable_appliance'],
+  'overbite': ['ortho_removable_appliance'],
+  'crossbite': ['ortho_removable_appliance'],
+  'open-bite': ['ortho_removable_appliance'],
+  'tmj-disorder': ['nightguard_upper', 'ortho_removable_appliance'],
+  'hypoplasia': ['resto_comp_two_surface_ant', 'crown_full_tooth_coloured'],
   
   // NEW: Comprehensive condition-treatment mappings from Batch 1
   // Caries variations
@@ -484,6 +484,70 @@ export function getSuggestedTreatments(condition: string): SearchableSelectOptio
   ).map(t => ({ ...t, pinned: false }))
 
   return [...suggestedOptions, ...otherTreatments]
+}
+
+// Smart treatment suggestion that works with database treatments
+export function getSmartTreatmentSuggestion(condition: string, availableTreatments: SearchableSelectOption[]): string | null {
+  const normalizedCondition = condition.toLowerCase().trim();
+  const suggestions = CONDITION_TREATMENT_SUGGESTIONS[normalizedCondition] || [];
+  
+  // Try to find the first suggested treatment that exists in the database
+  for (const suggestion of suggestions) {
+    const exists = availableTreatments.find(t => t.value === suggestion);
+    if (exists) {
+      return suggestion;
+    }
+  }
+  
+  // Fallback: try to find similar treatments by partial matching
+  for (const suggestion of suggestions) {
+    // For caries -> filling, try to find any composite filling
+    if (suggestion.includes('resto_comp') || suggestion === 'filling') {
+      const compositeFillings = availableTreatments.filter(t => 
+        t.value.includes('resto_comp') || 
+        t.label.toLowerCase().includes('composite') ||
+        t.label.toLowerCase().includes('filling')
+      );
+      if (compositeFillings.length > 0) {
+        return compositeFillings[0].value;
+      }
+    }
+    
+    // For root canal treatments
+    if (suggestion.includes('endo_rct') || suggestion === 'root-canal-treatment') {
+      const rctTreatments = availableTreatments.filter(t => 
+        t.value.includes('endo_rct') || 
+        t.label.toLowerCase().includes('root canal')
+      );
+      if (rctTreatments.length > 0) {
+        return rctTreatments[0].value;
+      }
+    }
+    
+    // For extractions
+    if (suggestion.includes('surg_') && suggestion.includes('extraction')) {
+      const extractions = availableTreatments.filter(t => 
+        t.value.includes('extraction') || 
+        t.label.toLowerCase().includes('extraction')
+      );
+      if (extractions.length > 0) {
+        return extractions[0].value;
+      }
+    }
+    
+    // For crowns
+    if (suggestion.includes('crown')) {
+      const crowns = availableTreatments.filter(t => 
+        t.value.includes('crown') || 
+        t.label.toLowerCase().includes('crown')
+      );
+      if (crowns.length > 0) {
+        return crowns[0].value;
+      }
+    }
+  }
+  
+  return null;
 }
 
 // Get replacement options for extracted teeth based on tooth number
