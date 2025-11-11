@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Brain, Plus, Calendar, FileText, User, Settings, LogOut, Search, Filter, Loader2, Shield, Cloud, AlertTriangle, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, FileText, User, Settings, LogOut, Search, Filter, Loader2, Cloud, ArrowRight, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from '@/services/api';
 import { supabase } from '@/services/supabase';
@@ -550,27 +550,17 @@ const Dashboard = () => {
       {/* Header */}
       <header className="bg-white border-b shadow-sm">
         <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center">
-                                <Brain className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-                Scanwise
-              </span>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center p-1.5">
+              <img 
+                src="/scanwise-logo.png" 
+                alt="ScanWise Logo" 
+                className="h-full w-full object-contain"
+              />
             </div>
-            
-            <nav className="hidden md:flex items-center space-x-6">
-              <button className="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">
-                {t.dashboard.title}
-              </button>
-              <button className="text-gray-600 hover:text-gray-900">
-                Reports
-              </button>
-              <button className="text-gray-600 hover:text-gray-900">
-                Analytics
-              </button>
-            </nav>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+              Scanwise
+            </span>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -596,7 +586,7 @@ const Dashboard = () => {
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
           {/* Welcome Section */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {t.dashboard.welcome}, Dr. {userName}
             </h1>
@@ -605,8 +595,8 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
+          {/* Top Stats Cards - Total Reports and Manual Uploads */}
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -625,53 +615,17 @@ const Dashboard = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">This Month</p>
+                    <p className="text-sm text-gray-600">Manual Uploads</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.thisMonth}
+                      {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : reports.filter(r => r.source === 'manual').length}
                     </p>
                   </div>
-                  <Calendar className="h-8 w-8 text-teal-600" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Avg. Processing</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.avgProcessing}</p>
-                  </div>
-                  <Brain className="h-8 w-8 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Success Rate</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.successRate}</p>
-                  </div>
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-green-600 font-bold">✓</span>
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-bold text-xl">↑</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Main Action Button */}
-          <div className="mb-8">
-            <Button 
-              size="lg"
-              onClick={() => navigate("/create-report")}
-              className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-4"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Create New Report
-            </Button>
           </div>
 
           {/* AWS Integration Status */}
@@ -761,7 +715,7 @@ const Dashboard = () => {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-yellow-600">
-                        {reports.filter(r => r.source === 'aws_s3' && r.status === 'In Progress').length}
+                        {reports.filter(r => r.source === 'aws_s3' && (r.status === 'In Progress' || r.status === 'Processing' || r.status === 'processing')).length}
                       </div>
                       <div className="text-xs text-gray-600">Processing</div>
                     </div>
@@ -777,54 +731,17 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Reports Summary */}
-          {!loading && reports.length > 0 && (
-            <div className="mb-6">
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Total Reports</p>
-                        <p className="text-xl font-bold text-gray-900">{stats.totalReports}</p>
-                      </div>
-                      <FileText className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Manual Uploads</p>
-                        <p className="text-xl font-bold text-gray-900">
-                          {reports.filter(r => r.source === 'manual').length}
-                        </p>
-                      </div>
-                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <span className="text-blue-600 font-bold">↑</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">AWS Images</p>
-                        <p className="text-xl font-bold text-gray-900">
-                          {reports.filter(r => r.source === 'aws_s3').length}
-                        </p>
-                      </div>
-                      <Cloud className="h-6 w-6 text-green-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
+          {/* Create New Report Button - Full Width, Centered */}
+          <div className="mb-8 flex justify-center">
+            <Button 
+              size="lg"
+              onClick={() => navigate("/create-report")}
+              className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-xl px-12 py-6 w-full max-w-2xl"
+            >
+              <Plus className="mr-3 h-6 w-6" />
+              Create New Report
+            </Button>
+          </div>
 
           {/* Recent Reports */}
           <Card>

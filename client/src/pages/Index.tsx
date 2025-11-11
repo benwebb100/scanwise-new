@@ -1,168 +1,292 @@
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { Brain, Shield, Zap, CheckCircle, ArrowRight } from "lucide-react";
-
-const Index = () => {
-  const navigate = useNavigate();
-
+export default function Index() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center">
-              <Brain className="h-5 w-5 text-white" />
+      <header className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center p-1.5">
+                <img 
+                  src="/scanwise-logo.png" 
+                  alt="ScanWise Logo" 
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <span className="text-2xl font-bold text-blue-600">ScanWise</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-              Scanwise
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate("/login")}>
-              Sign In
-            </Button>
-            <Button onClick={() => navigate("/register")} className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700">
-              Get Started
-            </Button>
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">
+                Sign In
+              </Link>
+              <Link to="/register-improved">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto text-center max-w-4xl">
-          <Badge className="mb-6 bg-blue-100 text-blue-700 border-blue-200">
-            AI-Powered Dental Analysis
-          </Badge>
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-            Transform Your Panoramic X-Ray Analysis
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Generate comprehensive, AI-enhanced treatment reports from OPG scans in minutes. 
-            Streamline your diagnosis workflow and improve patient communication.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={() => navigate("/register")}
-              className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg px-8 py-3"
-            >
-              Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-3">
-              Watch Demo
-            </Button>
+      <section className="relative bg-gradient-to-br from-blue-50 via-white to-teal-50 py-20 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-6">
+              <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+              AI-Powered Report Generation
+            </div>
+            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+              Automated Dental Report Generation
+              <span className="block text-blue-600 mt-2">in Minutes, Not Hours</span>
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
+              Connect your imaging software, let AI analyze X-rays, and generate comprehensive patient reports 
+              with annotated images, treatment plans, insurance codes, and educational videos—all automatically.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/register-improved">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg">
+                  Start Free Trial →
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2">
+                Watch Demo
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-16 px-6 bg-white">
-        <div className="container mx-auto max-w-6xl">
+      {/* How It Works Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Why Choose Scanwise?</h2>
-            <p className="text-gray-600 text-lg">Advanced AI meets dental expertise</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">How ScanWise Works</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              From X-ray to patient-ready report in four simple steps
+            </p>
           </div>
-          
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Step 1 */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-blue-600">1</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Auto-Connect</h3>
+              <p className="text-gray-600">
+                Seamlessly connects to your imaging software via AWS. New X-rays automatically flow into ScanWise.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-teal-600">2</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis</h3>
+              <p className="text-gray-600">
+                Advanced AI analyzes your panoramic X-rays in seconds, detecting conditions, mapping teeth, and identifying treatment needs.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-purple-600">3</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Review & Customize</h3>
+              <p className="text-gray-600">
+                Review AI findings, adjust treatments, organize into stages, and customize pricing—all in one intuitive interface.
+              </p>
+            </div>
+
+            {/* Step 4 */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-green-600">4</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Generate Report</h3>
+              <p className="text-gray-600">
+                One click generates a professional PDF report with annotated X-rays, treatment plans, insurance codes, and patient education videos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose ScanWise?</h2>
+            <p className="text-xl text-gray-600">Everything you need for professional patient reports</p>
+          </div>
+
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                  <Brain className="h-6 w-6 text-blue-600" />
-                </div>
-                <CardTitle>AI-Enhanced Analysis</CardTitle>
-                <CardDescription>
-                  Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Automated tooth mapping</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Condition detection</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Treatment suggestions</li>
-                </ul>
-              </CardContent>
-            </Card>
+            {/* Feature 1 */}
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">AI-Enhanced Analysis</h3>
+              <p className="text-gray-600 mb-4">
+                Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues with precision.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Automated tooth mapping</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Condition detection</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Tooth-aware treatment suggestions</span>
+                </li>
+              </ul>
+            </div>
 
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
-                  <Zap className="h-6 w-6 text-teal-600" />
-                </div>
-                <CardTitle>Streamlined Workflow</CardTitle>
-                <CardDescription>
-                  Generate comprehensive reports in minutes, not hours
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />One-click report generation</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />EHR integration ready</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Patient communication tools</li>
-                </ul>
-              </CardContent>
-            </Card>
+            {/* Feature 2 */}
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Streamlined Workflow</h3>
+              <p className="text-gray-600 mb-4">
+                Generate comprehensive reports in minutes, not hours. Focus on patient care, not paperwork.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">One-click report generation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Treatment stage organization</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Automated insurance code mapping</span>
+                </li>
+              </ul>
+            </div>
 
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                  <Shield className="h-6 w-6 text-green-600" />
-                </div>
-                <CardTitle>HIPAA Compliant</CardTitle>
-                <CardDescription>
-                  Enterprise-grade security for patient data protection
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />End-to-end encryption</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />SOC 2 certified</li>
-                  <li className="flex items-center"><CheckCircle className="h-4 w-4 text-green-500 mr-2" />Audit trail logging</li>
-                </ul>
-              </CardContent>
-            </Card>
+            {/* Feature 3 */}
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">HIPAA Compliant</h3>
+              <p className="text-gray-600 mb-4">
+                Enterprise-grade security for patient data protection. Built for healthcare compliance.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">End-to-end encryption</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Secure cloud storage</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Audit trail logging</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Report Features Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">What's Included in Every Report</h2>
+            <p className="text-xl text-gray-600">Professional, comprehensive patient communication tools</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">📊 Annotated X-Ray Images</h4>
+              <p className="text-gray-600 text-sm">AI-highlighted conditions with color-coded legend</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">📋 Treatment Plan Stages</h4>
+              <p className="text-gray-600 text-sm">Organized treatment phases with duration and cost</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">💡 Condition Explanations</h4>
+              <p className="text-gray-600 text-sm">Patient-friendly explanations of each condition</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">🏥 Insurance Codes</h4>
+              <p className="text-gray-600 text-sm">ADA codes automatically mapped to treatments</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">🎥 Educational Videos</h4>
+              <p className="text-gray-600 text-sm">AI-generated personalized patient education videos</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">📧 Email-Ready PDFs</h4>
+              <p className="text-gray-600 text-sm">Professional PDF reports ready to email to patients</p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-gradient-to-r from-blue-600 to-teal-600">
-        <div className="container mx-auto text-center max-w-3xl">
-          <h2 className="text-3xl font-bold text-white mb-6">
+      <section className="py-20 bg-gradient-to-r from-blue-600 via-blue-700 to-teal-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4">
             Ready to Transform Your Practice?
           </h2>
-          <p className="text-blue-100 text-lg mb-8">
-            Join hundreds of dental clinics already using Scanwise to improve their diagnostic workflow
+          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            Join dental clinics already using ScanWise to streamline their report generation workflow 
+            and improve patient communication.
           </p>
-          <Button 
-            size="lg"
-            onClick={() => navigate("/register")}
-            className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-3"
-          >
-            Start Your Free Trial Today
-          </Button>
+          <Link to="/register-improved">
+            <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-6 text-lg font-semibold">
+              Start Your Free Trial Today
+            </Button>
+          </Link>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 px-6">
-        <div className="container mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-teal-400 rounded-lg flex items-center justify-center">
-              <Brain className="h-4 w-4 text-white" />
+      <footer className="bg-gray-900 text-gray-400 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center p-1.5">
+              <img 
+                src="/scanwise-logo.png" 
+                alt="ScanWise Logo" 
+                className="h-full w-full object-contain"
+              />
             </div>
-            <span className="text-xl font-bold">Scanwise</span>
+            <span className="text-xl font-bold text-white">ScanWise</span>
           </div>
-          <p className="text-gray-400">© 2024 Scanwise. All rights reserved.</p>
+          <p className="text-center text-sm">
+            © {new Date().getFullYear()} ScanWise. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
   );
-};
-
-export default Index;
+}
