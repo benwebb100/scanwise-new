@@ -23,33 +23,9 @@ class HtmlPdfService:
             import playwright  # type: ignore
             self._playwright_available = True
             logger.info("✅ Playwright library imported successfully")
-            
-            # Additional check: verify browsers are installed
-            try:
-                logger.info("🔍 Testing Playwright browser launch...")
-                from playwright.sync_api import sync_playwright
-                
-                with sync_playwright() as p:
-                    logger.info("🔍 Playwright context created, attempting browser launch...")
-                    # This will fail if browsers aren't installed
-                    browser = p.chromium.launch(args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
-                    logger.info("🔍 Browser launched successfully, closing...")
-                    browser.close()
-                    logger.info("🔍 Browser closed successfully")
-                logger.info("✅ Playwright browsers verified and working")
-            except Exception as browser_error:
-                logger.error("=" * 80)
-                logger.error(f"❌ Playwright browser verification FAILED!")
-                logger.error(f"❌ Error type: {type(browser_error).__name__}")
-                logger.error(f"❌ Error message: {str(browser_error)}")
-                logger.error("❌ This usually means:")
-                logger.error("   1. Chromium browser not installed: playwright install chromium")
-                logger.error("   2. Missing system dependencies: apt-get install libnss3 libatk1.0-0...")
-                logger.error("   3. Render.com environment restrictions")
-                logger.error("=" * 80)
-                import traceback
-                logger.error(f"❌ Full traceback: {traceback.format_exc()}")
-                self._playwright_available = False
+            logger.info("✅ Playwright will be used for PDF generation (async mode)")
+            # Note: We skip the browser launch test here to avoid async/sync conflicts
+            # The actual test happens during the first PDF generation
         except Exception as e:
             logger.warning("=" * 80)
             logger.warning("⚠️  PLAYWRIGHT NOT AVAILABLE - EMAILED PDFs WILL LOOK BROKEN!")
@@ -65,7 +41,7 @@ class HtmlPdfService:
             logger.warning("💡 After install, verify logs show: '✅ Using Playwright for PDF'")
             logger.warning("=" * 80)
 
-    def render_html_to_pdf(self, html: str, base_url: Optional[str] = None) -> str:
+    async def render_html_to_pdf(self, html: str, base_url: Optional[str] = None) -> str:
         """Render given HTML string to a temporary PDF file and return its path."""
         logger.info(f"🎨 Starting PDF generation. HTML length: {len(html)} chars")
         logger.info(f"🎨 Playwright available: {self._playwright_available}")
@@ -85,13 +61,15 @@ class HtmlPdfService:
             if self._playwright_available:
                 logger.info("✅ Using Playwright for PDF generation")
                 try:
-                    result = self._render_with_playwright(html_tmp.name, base_url)
+                    result = await self._render_with_playwright(html_tmp.name, base_url)
                     logger.info(f"✅ Playwright PDF generation successful: {result}")
                     return result
                 except Exception as playwright_error:
                     logger.error(f"❌ Playwright PDF generation FAILED: {str(playwright_error)}")
                     logger.error(f"❌ Error type: {type(playwright_error).__name__}")
                     logger.error(f"❌ Falling back to xhtml2pdf (LIMITED CSS SUPPORT - WILL BE UGLY)")
+                    import traceback
+                    logger.error(f"❌ Traceback: {traceback.format_exc()}")
                     return self._render_with_xhtml2pdf(html)
             else:
                 logger.warning("⚠️ Playwright NOT available, using xhtml2pdf fallback (LIMITED CSS SUPPORT)")
@@ -102,38 +80,39 @@ class HtmlPdfService:
             except Exception:
                 pass
 
-    def _render_with_playwright(self, html_path: str, base_url: Optional[str]) -> str:
-        from playwright.sync_api import sync_playwright  # type: ignore
+    async def _render_with_playwright(self, html_path: str, base_url: Optional[str]) -> str:
+        from playwright.async_api import async_playwright  # type: ignore
 
         pdf_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         pdf_path = pdf_tmp.name
         pdf_tmp.close()
 
-        logger.info("Rendering PDF with Playwright…")
-        with sync_playwright() as p:
-            browser = p.chromium.launch(args=[
+        logger.info("Rendering PDF with Playwright (async)…")
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(args=[
                 "--no-sandbox",
                 "--disable-gpu",
+                "--disable-dev-shm-usage",
             ])
             try:
-                page = browser.new_page()
+                page = await browser.new_page()
                 file_url = f"file://{html_path}"
                 logger.info(f"📄 Loading HTML from: {file_url}")
                 
                 # Wait for the page to fully load including all resources
-                page.goto(file_url, wait_until="networkidle", timeout=60000)
+                await page.goto(file_url, wait_until="networkidle", timeout=60000)
                 
                 # Give any dynamic content a moment to render
-                page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1000)
                 
                 logger.info("📄 Generating PDF from loaded page...")
-                page.pdf(path=pdf_path, print_background=True, format="A4", margin={
+                await page.pdf(path=pdf_path, print_background=True, format="A4", margin={
                     "top": "14mm", "bottom": "14mm", "left": "14mm", "right": "14mm"
                 })
                 
                 logger.info(f"✅ PDF generated successfully: {pdf_path}")
             finally:
-                browser.close()
+                await browser.close()
         logger.info(f"PDF written: {pdf_path}")
         return pdf_path
 

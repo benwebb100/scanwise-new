@@ -20,7 +20,7 @@ class EmailService:
         logger.info(f"Email service initialized with sender: {self.sender_email}")
         logger.info(f"App password configured: {'Yes' if self.app_password else 'No'}")
         
-    def send_dental_report(self, patient_email: str, patient_name: str, report_data: dict, clinic_branding: dict):
+    async def send_dental_report(self, patient_email: str, patient_name: str, report_data: dict, clinic_branding: dict):
         """
         Send dental report to patient via email with PDF attachment
         
@@ -88,7 +88,7 @@ class EmailService:
                 logger.info(f"📧 Final rendered HTML length: {len(html)} characters")
                 logger.info(f"📧 Final HTML starts with: {html[:150]}")
 
-                pdf_path = html_pdf_service.render_html_to_pdf(html)
+                pdf_path = await html_pdf_service.render_html_to_pdf(html)
             except Exception as html_err:
                 logger.warning(f"HTML PDF render failed ({html_err}); falling back to ReportLab.")
                 from services.pdf_generator import pdf_generator

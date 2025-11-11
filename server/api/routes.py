@@ -1088,8 +1088,8 @@ async def generate_pdf_download(
         from services.html_pdf_service import HtmlPdfService
         html_pdf_service = HtmlPdfService()
         
-        # Render HTML to PDF
-        pdf_path = html_pdf_service.render_html_to_pdf(report_html)
+        # Render HTML to PDF (async)
+        pdf_path = await html_pdf_service.render_html_to_pdf(report_html)
         
         # Read the PDF file
         with open(pdf_path, 'rb') as pdf_file:
@@ -1271,8 +1271,10 @@ async def get_treatment_settings(
     try:
         logger.info("Fetching treatment settings for clinic")
         
-        # Hardcoded defaults as fallback (matching dental-data.ts)
+        # Hardcoded defaults as fallback (matching dental-data.ts exactly)
+        # This ensures prices/durations work even if database is empty
         HARDCODED_DEFAULTS = {
+            # Legacy codes (for backwards compatibility)
             'filling': {'duration': 30, 'price': 220},
             'extraction': {'duration': 30, 'price': 250},
             'root-canal-treatment': {'duration': 90, 'price': 1100},
@@ -1281,16 +1283,162 @@ async def get_treatment_settings(
             'implant-placement': {'duration': 90, 'price': 2300},
             'partial-denture': {'duration': 60, 'price': 1600},
             'scale-and-clean': {'duration': 30, 'price': 190},
-            'whitening': {'duration': 60, 'price': 500},
-            'veneer': {'duration': 60, 'price': 1200},
+            'periodontal-treatment': {'duration': 60, 'price': 280},
+            'veneer': {'duration': 60, 'price': 1500},
             'fluoride-treatment': {'duration': 15, 'price': 40},
             'composite-build-up': {'duration': 45, 'price': 200},
             'surgical-extraction': {'duration': 45, 'price': 450},
             'deep-cleaning': {'duration': 60, 'price': 280},
             'complete-denture': {'duration': 90, 'price': 2500},
-            'periodontal-treatment': {'duration': 60, 'price': 350},
+            'inlay': {'duration': 60, 'price': 1400},
+            'onlay': {'duration': 60, 'price': 1400},
+            'whitening': {'duration': 60, 'price': 750},
+            'bonding': {'duration': 30, 'price': 150},
+            'sealant': {'duration': 15, 'price': 70},
+            'night-guard': {'duration': 30, 'price': 600},
+            'orthodontic-treatment': {'duration': 60, 'price': 4000},
+            'braces': {'duration': 60, 'price': 3500},
+            'invisalign': {'duration': 60, 'price': 4500},
+            'retainer': {'duration': 30, 'price': 200},
+            'space-maintainer': {'duration': 30, 'price': 180},
+            'apicoectomy': {'duration': 90, 'price': 950},
             'bone-graft': {'duration': 90, 'price': 800},
-            'sinus-lift': {'duration': 120, 'price': 1500},
+            'sinus-lift': {'duration': 120, 'price': 1200},
+            'gum-graft': {'duration': 90, 'price': 750},
+            
+            # NEW: Current dental codes (matching dental-data.ts)
+            # Examinations
+            'exam_emergency': {'duration': 20, 'price': 100},
+            'exam_comprehensive': {'duration': 40, 'price': 120},
+            'radiograph_intraoral': {'duration': 10, 'price': 45},
+            'radiograph_opg': {'duration': 15, 'price': 100},
+            
+            # Preventive
+            'scale_clean_polish': {'duration': 30, 'price': 190},
+            'fluoride_application': {'duration': 15, 'price': 40},
+            'fissure_sealant': {'duration': 15, 'price': 70},
+            'desensitising': {'duration': 15, 'price': 55},
+            'oh_instructions': {'duration': 15, 'price': 40},
+            'whitening_inchair': {'duration': 90, 'price': 750},
+            'whitening_takehome': {'duration': 20, 'price': 450},
+            
+            # Restorative - Composite
+            'resto_comp_one_surface_ant': {'duration': 30, 'price': 220},
+            'resto_comp_two_surface_ant': {'duration': 40, 'price': 280},
+            'resto_comp_three_plus_ant': {'duration': 50, 'price': 340},
+            'resto_comp_one_surface_post': {'duration': 35, 'price': 260},
+            'resto_comp_two_surface_post': {'duration': 45, 'price': 320},
+            'resto_comp_three_plus_post': {'duration': 55, 'price': 380},
+            'resto_glassionomer': {'duration': 25, 'price': 160},
+            'resto_amalgam_post': {'duration': 35, 'price': 290},
+            
+            # Crowns and indirect restorations
+            'crown_temp': {'duration': 30, 'price': 180},
+            'crown_full_tooth_coloured': {'duration': 60, 'price': 1800},
+            'crown_full_metal': {'duration': 60, 'price': 1650},
+            'onlay_inlay_indirect_tc': {'duration': 60, 'price': 1400},
+            'veneer_indirect': {'duration': 60, 'price': 1500},
+            'veneer_direct': {'duration': 45, 'price': 650},
+            
+            # Endodontic
+            'endo_direct_pulp_cap': {'duration': 30, 'price': 120},
+            'endo_indirect_pulp_cap': {'duration': 25, 'price': 120},
+            'endo_pulpotomy': {'duration': 35, 'price': 220},
+            'endo_extirpation': {'duration': 40, 'price': 180},
+            'endo_rct_single': {'duration': 90, 'price': 1100},
+            'endo_rct_multi': {'duration': 120, 'price': 1600},
+            'endo_retx': {'duration': 150, 'price': 1900},
+            'endo_apicectomy': {'duration': 90, 'price': 950},
+            'endo_rct_1_canal': {'duration': 90, 'price': 1100},
+            'endo_rct_2_canals': {'duration': 105, 'price': 1350},
+            'endo_rct_3_canals': {'duration': 120, 'price': 1650},
+            'endo_rct_4_canals': {'duration': 135, 'price': 1850},
+            'endo_retx_load': {'duration': 30, 'price': 300},
+            'endo_calcified_per_canal': {'duration': 20, 'price': 150},
+            'endo_remove_post': {'duration': 25, 'price': 180},
+            'endo_remove_root_filling_per_canal': {'duration': 15, 'price': 120},
+            'endo_additional_irrigation_visit': {'duration': 20, 'price': 120},
+            'endo_interim_therapeutic_fill': {'duration': 25, 'price': 180},
+            'endo_apicectomy_per_root': {'duration': 90, 'price': 950},
+            'endo_extirpation_emergency': {'duration': 40, 'price': 180},
+            
+            # Periodontal
+            'perio_scale_root_planing': {'duration': 60, 'price': 280},
+            'perio_curettage': {'duration': 60, 'price': 280},
+            'perio_flap_surgery': {'duration': 90, 'price': 950},
+            'perio_graft': {'duration': 90, 'price': 750},
+            'perio_crown_lengthening': {'duration': 90, 'price': 950},
+            'perio_guided_tissue_regen': {'duration': 120, 'price': 1100},
+            'perio_bone_graft': {'duration': 90, 'price': 950},
+            
+            # Surgical
+            'surg_simple_extraction': {'duration': 30, 'price': 250},
+            'surg_surgical_extraction': {'duration': 45, 'price': 450},
+            'surg_incision_drainage': {'duration': 30, 'price': 200},
+            'surg_replantation': {'duration': 60, 'price': 500},
+            'surg_frenectomy': {'duration': 45, 'price': 400},
+            'surg_biopsy': {'duration': 40, 'price': 350},
+            'surg_exposure_unerupted': {'duration': 60, 'price': 400},
+            'surg_alveoloplasty': {'duration': 60, 'price': 500},
+            'surg_tori_removal': {'duration': 90, 'price': 850},
+            'surg_minor_soft_tissue': {'duration': 45, 'price': 400},
+            'surg_apical_cystectomy': {'duration': 120, 'price': 1200},
+            
+            # Prosthodontic
+            'prost_partial_denture_resin': {'duration': 60, 'price': 1600},
+            'prost_partial_denture_cast': {'duration': 75, 'price': 2200},
+            'prost_full_denture_resin': {'duration': 90, 'price': 2500},
+            'prost_denture_reline': {'duration': 45, 'price': 550},
+            'prost_denture_repair': {'duration': 30, 'price': 300},
+            'prost_partial_denture_resin_1to3': {'duration': 55, 'price': 1450},
+            'prost_partial_denture_resin_4plus': {'duration': 65, 'price': 1700},
+            'prost_partial_denture_cast_1to3': {'duration': 70, 'price': 2100},
+            'prost_partial_denture_cast_4plus': {'duration': 80, 'price': 2400},
+            'prost_immediate_denture_partial': {'duration': 70, 'price': 1850},
+            'prost_immediate_denture_full': {'duration': 95, 'price': 2700},
+            'prost_full_denture_upper': {'duration': 90, 'price': 2500},
+            'prost_full_denture_lower': {'duration': 90, 'price': 2600},
+            'prost_add_to_denture': {'duration': 30, 'price': 300},
+            'prost_soft_reline': {'duration': 40, 'price': 380},
+            'prost_hard_reline_lab': {'duration': 50, 'price': 550},
+            'prost_denture_repair_fracture': {'duration': 30, 'price': 300},
+            'prost_denture_adjustment': {'duration': 20, 'price': 120},
+            'prost_resilient_lining': {'duration': 45, 'price': 400},
+            'prost_overdenture': {'duration': 120, 'price': 2800},
+            
+            # Posts and Bridges
+            'post_core_direct': {'duration': 40, 'price': 420},
+            'post_core_indirect': {'duration': 60, 'price': 650},
+            'bridge_temp': {'duration': 35, 'price': 220},
+            'bridge_pontic_indirect_tc': {'duration': 60, 'price': 1600},
+            'bridge_abutment_crown_tc': {'duration': 65, 'price': 1700},
+            'bridge_recement': {'duration': 25, 'price': 220},
+            'crown_recement': {'duration': 20, 'price': 180},
+            
+            # Implant Restorative
+            'crown_implant_supported_tc': {'duration': 70, 'price': 1950},
+            'abutment_custom': {'duration': 40, 'price': 420},
+            
+            # Functional
+            'splint_occlusal': {'duration': 30, 'price': 600},
+            'tmj_adjustment': {'duration': 30, 'price': 250},
+            
+            # Palliative/Sedation
+            'palliative_care': {'duration': 25, 'price': 120},
+            'postop_review_simple': {'duration': 15, 'price': 60},
+            'medication_prescription': {'duration': 10, 'price': 30},
+            'nitrous_sedation': {'duration': 30, 'price': 180},
+            'iv_sedation_inhouse': {'duration': 60, 'price': 800},
+            'mouthguard_custom': {'duration': 30, 'price': 220},
+            
+            # Trauma
+            'trauma_splinting': {'duration': 45, 'price': 350},
+            'trauma_pulpotomy_temp': {'duration': 30, 'price': 200},
+            
+            # Orthodontic
+            'ortho_removable_appliance': {'duration': 45, 'price': 750},
+            'ortho_clear_aligner_simple': {'duration': 60, 'price': 2500},
+            'ortho_retainer': {'duration': 30, 'price': 400},
         }
         
         # Pass the token to the service method
@@ -3402,7 +3550,7 @@ async def send_report_email(
                 logger.info(f"⚠️ Using default clinic branding: {clinic_branding}")
             
             # Send the email with PDF attachment
-            email_sent = email_service.send_dental_report(
+            email_sent = await email_service.send_dental_report(
                 patient_email=patient_email,
                 patient_name=report_data.get('patient_name', 'Patient'),
                 report_data=report_data,
@@ -3539,7 +3687,7 @@ async def send_preview_report_email(
             }
             
             # Send the email with PDF attachment
-            email_sent = email_service.send_dental_report(
+            email_sent = await email_service.send_dental_report(
                 patient_email=patient_email,
                 patient_name=patient_name,
                 report_data=preview_report_data,
