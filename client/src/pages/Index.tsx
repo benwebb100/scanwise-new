@@ -1,8 +1,30 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function Index() {
+  const rotatingPhrases = [
+    "AI-powered X-ray analysis",
+    "one-click treatment plan generation",
+    "personalized patient explainer videos"
+  ];
+
+  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsVisible(false);
+      setTimeout(() => {
+        setCurrentPhraseIndex((prev) => (prev + 1) % rotatingPhrases.length);
+        setIsVisible(true);
+      }, 300); // Fade out duration
+    }, 2000); // Show each phrase for 2 seconds
+
+    return () => clearInterval(interval);
+  }, [rotatingPhrases.length]);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -37,13 +59,24 @@ export default function Index() {
       <section className="relative bg-gradient-to-br from-blue-50 via-white to-teal-50 py-20 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-6">
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
-              AI-Powered Report Generation
+            <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-full text-base font-semibold mb-8 shadow-lg">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              AI-Powered Dental Report Generation
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-              Automated Dental Report Generation
-              <span className="block text-blue-600 mt-2">in Minutes, Not Hours</span>
+            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              Free up your time and increase treatment acceptance — with{" "}
+              <span 
+                className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-opacity duration-300 ${
+                  isVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ 
+                  display: 'inline-block',
+                  minHeight: '1.2em',
+                  verticalAlign: 'bottom'
+                }}
+              >
+                {rotatingPhrases[currentPhraseIndex]}
+              </span>
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
               Connect your imaging software, let AI analyze X-rays, and generate comprehensive patient reports 
@@ -51,7 +84,7 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/register-improved">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg">
+                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white px-8 py-6 text-lg shadow-lg">
                   Start Free Trial →
                 </Button>
               </Link>
@@ -122,93 +155,105 @@ export default function Index() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-20 bg-gradient-to-r from-blue-50 via-blue-100 to-teal-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose ScanWise?</h2>
-            <p className="text-xl text-gray-600">Everything you need for professional patient reports</p>
+            <p className="text-xl text-gray-700">Everything you need for professional patient reports</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="space-y-6">
             {/* Feature 1 */}
-            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
+              <div className="flex items-start gap-6">
+                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">AI-Enhanced Analysis</h3>
+                  <p className="text-gray-600 mb-4 text-lg">
+                    Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues with precision.
+                  </p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Automated tooth mapping</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Condition detection</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Tooth-aware treatment suggestions</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">AI-Enhanced Analysis</h3>
-              <p className="text-gray-600 mb-4">
-                Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues with precision.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Automated tooth mapping</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Condition detection</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Tooth-aware treatment suggestions</span>
-                </li>
-              </ul>
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
-              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
+              <div className="flex items-start gap-6">
+                <div className="w-16 h-16 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">Streamlined Workflow</h3>
+                  <p className="text-gray-600 mb-4 text-lg">
+                    Generate comprehensive reports in minutes, not hours. Focus on patient care, not paperwork.
+                  </p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">One-click report generation</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Treatment stage organization</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Automated insurance code mapping</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Streamlined Workflow</h3>
-              <p className="text-gray-600 mb-4">
-                Generate comprehensive reports in minutes, not hours. Focus on patient care, not paperwork.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">One-click report generation</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Treatment stage organization</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Automated insurance code mapping</span>
-                </li>
-              </ul>
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
+              <div className="flex items-start gap-6">
+                <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">HIPAA Compliant</h3>
+                  <p className="text-gray-600 mb-4 text-lg">
+                    Enterprise-grade security for patient data protection. Built for healthcare compliance.
+                  </p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">End-to-end encryption</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Secure cloud storage</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">Audit trail logging</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">HIPAA Compliant</h3>
-              <p className="text-gray-600 mb-4">
-                Enterprise-grade security for patient data protection. Built for healthcare compliance.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">End-to-end encryption</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Secure cloud storage</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">Audit trail logging</span>
-                </li>
-              </ul>
             </div>
           </div>
         </div>
