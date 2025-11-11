@@ -363,11 +363,9 @@ const generateReportHTML = (data: any) => {
           ` : ''}
           <div>
             <div style="font-size: 26px; font-weight: bold; margin-bottom: 5px;">${clinicName}</div>
-            ${clinicPhone || clinicAddress ? `
+            ${clinicAddress ? `
               <div style="font-size: 13px; opacity: 0.95; line-height: 1.4;">
-                ${clinicPhone ? `<strong>Phone:</strong> ${clinicPhone}` : ''}
-                ${clinicPhone && clinicAddress ? ' • ' : ''}
-                ${clinicAddress ? `<strong>Address:</strong> ${clinicAddress}` : ''}
+                ${clinicAddress}
               </div>
             ` : ''}
           </div>
@@ -379,7 +377,6 @@ const generateReportHTML = (data: any) => {
         <h1 style="font-size: 28px; margin: 0 0 12px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
         <div style="font-size: 14px; color: #6b7280; line-height: 1.6;">
           ${clinicName ? `<div style="margin-bottom: 4px;"><strong>${clinicName}</strong></div>` : ''}
-          ${clinicAddress ? `<div style="margin-bottom: 4px;"><strong>Address:</strong> ${clinicAddress}</div>` : ''}
           ${clinicPhone ? `<div style="margin-bottom: 4px;"><strong>Phone:</strong> ${clinicPhone}</div>` : ''}
           ${clinicEmail ? `<div style="margin-bottom: 4px;"><strong>Email:</strong> ${clinicEmail}</div>` : ''}
           ${clinicWebsite ? `<div style="margin-bottom: 4px;"><strong>Website:</strong> ${clinicWebsite}</div>` : ''}
@@ -513,7 +510,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                   <strong style="color: #666; font-size: 15px; display: block; margin-bottom: 10px;">Treatments in this stage:</strong>
                   <ul style="margin: 0; padding-left: 20px; list-style: none;">
                     ${stage.items.map((item: any) => `
-                      <li style="margin-bottom: 10px; padding: 10px; background: #f9fafb; border-left: 3px solid #1e88e5; border-radius: 4px;">
+                      <li style="margin-bottom: 10px; padding: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
                         <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
                           Tooth ${item.toothNumber || item.tooth}: ${(item.treatment || '').replace(/-/g, ' ')}
                         </div>
@@ -522,7 +519,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                         </div>
                         ${item.estimatedTime ? `
                           <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
-                            ⏱️ ${item.estimatedTime} minutes • 💰 $${item.price || 0}
+                            ${item.estimatedTime} minutes • $${item.price || 0}
                           </div>
                         ` : ''}
                       </li>
@@ -760,6 +757,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
 
   return `
     <div style="padding: 20px;">
+      <h3 style="font-size: 20px; margin-bottom: 20px; color: #111827;">Understanding Your Treatment Conditions</h3>
       ${Object.entries(treatmentGroups).map(([treatmentKey, findings]) => {
         if (treatmentKey === 'extraction-with-replacement') {
           return findings.map((finding: any) => {
@@ -768,11 +766,10 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
             
             return `
               <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="background-color: #ffeb3b; padding: 8px 16px;">
-                  <strong style="font-size: 14px;">Extraction with Replacement</strong>
+                <div style="background-color: #ffeb3b; padding: 12px 16px;">
+                  <strong style="font-size: 16px; color: #111827;">Extraction and ${replacement.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</strong>
                 </div>
                 <div style="padding: 20px;">
-                  <h3 style="font-size: 20px; margin-bottom: 15px;">Extraction and ${replacement.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for Tooth ${tooth}</h3>
                   
                   <p style="margin-bottom: 15px;"><strong>Tooth ${tooth}</strong> requires extraction followed by replacement with a ${replacement.replace(/-/g, ' ')}.</p>
                   
@@ -797,11 +794,10 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
         
         return `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-            <div style="background-color: #ffeb3b; padding: 8px 16px;">
-              <strong style="font-size: 14px;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</strong>
+            <div style="background-color: #ffeb3b; padding: 12px 16px;">
+              <strong style="font-size: 16px; color: #111827;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</strong>
             </div>
             <div style="padding: 20px;">
-              <h3 style="font-size: 20px; margin-bottom: 15px;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</h3>
               
               <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace(/-/g, ' ')).join(', ')} that requires ${treatmentKey.replace(/-/g, ' ')}.</p>
               
@@ -947,7 +943,7 @@ const renderLegend = (detections: any[]) => {
   }
 
   return `
-    <div style="text-align: center; margin-bottom: 30px; padding: 15px; background-color: #f9f9f9; border: 1px solid #ddd;">
+    <div style="text-align: center; margin-bottom: 30px; padding: 15px;">
       <h4 style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold;">Annotation Color Legend</h4>
       <table style="margin: 0 auto; border-collapse: separate; border-spacing: 15px 8px;">
         <tr>
