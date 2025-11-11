@@ -11,7 +11,13 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libxss1 \
     libgtk-3-0 \
-    libgconf-2-4 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2t64 \
+    libatspi2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
