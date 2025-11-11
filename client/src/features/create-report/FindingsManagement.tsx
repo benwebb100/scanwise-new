@@ -16,6 +16,7 @@ import {
   ALL_CONDITIONS,
   ALL_TREATMENTS
 } from '@/data/dental-data';
+import { useDentalData } from '@/hooks/useDentalData';
 import { useTranslation } from '@/contexts/TranslationContext';
 
 export interface Finding {
@@ -67,6 +68,7 @@ export const FindingsManagement = ({
   findingsErrors = []
 }: FindingsManagementProps) => {
   const { t } = useTranslation();
+  const { treatments: databaseTreatments, isLoading: treatmentsLoading } = useDentalData();
 
   const handleFindingChange = (idx: number, field: string, value: string | number) => {
     const updated = [...findings];
@@ -79,11 +81,18 @@ export const FindingsManagement = ({
         const suggestedTreatments = getSuggestedTreatments(value);
         if (suggestedTreatments && suggestedTreatments.length > 0) {
           const recommendedTreatment = suggestedTreatments[0].value;
-          updated[idx].treatment = recommendedTreatment;
           
-          const price = getPrice(recommendedTreatment);
-          if (price) {
-            updated[idx].price = price;
+          // Check if suggested treatment exists in database treatments
+          const treatmentOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
+          const treatmentExists = treatmentOptions.find(t => t.value === recommendedTreatment);
+          
+          if (treatmentExists) {
+            updated[idx].treatment = recommendedTreatment;
+            
+            const price = getPrice(recommendedTreatment);
+            if (price) {
+              updated[idx].price = price;
+            }
           }
         }
       }
@@ -212,12 +221,12 @@ export const FindingsManagement = ({
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-sm font-medium">Treatment</Label>
                 <SearchableSelect
-                  options={ALL_TREATMENTS}
+                  options={treatmentsLoading ? ALL_TREATMENTS : databaseTreatments}
                   value={f.treatment}
                   onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
-                  placeholder="Select treatment"
+                  placeholder={treatmentsLoading ? "Loading treatments..." : "Select treatment"}
                   searchPlaceholder="Search treatments..."
-                  disabled={isProcessing}
+                  disabled={isProcessing || treatmentsLoading}
                 />
               </div>
 
