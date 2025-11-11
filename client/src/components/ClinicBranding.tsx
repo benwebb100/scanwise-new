@@ -433,7 +433,8 @@ export function useClinicBranding() {
       // Only try to replace header if we have header template
       if (brandingData.headerTemplate) {
         console.log('🎨 BRANDING: Attempting to replace header');
-        const headerRegex = /<div[^>]*class="report-container"[^>]*>[\s\S]*?<div[^>]*background-color:\s*#1e88e5[^>]*>[\s\S]*?<\/div>/;
+        // Updated regex to match any hex color (not just #1e88e5)
+        const headerRegex = /<div[^>]*class="report-container"[^>]*>[\s\S]*?<div[^>]*background-color:\s*#[0-9a-fA-F]{6}[^>]*>[\s\S]*?<\/div>/;
         if (headerRegex.test(brandedReport)) {
           brandedReport = brandedReport.replace(headerRegex, `<div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">${brandingData.headerTemplate}`);
           console.log('🎨 BRANDING: Header replaced successfully');

@@ -135,6 +135,9 @@ const useReportGeneration = () => {
     
     // If backend didn't provide HTML, generate it locally
     if (!reportHtml) {
+      console.log('🏥 Clinic Branding Data:', brandingData);
+      console.log('🔬 Analysis Result Detections:', analysisResult.detections);
+      
       reportHtml = generateReportHTML({
         ...analysisResult,
         findings,
@@ -142,6 +145,7 @@ const useReportGeneration = () => {
         treatmentSettings,
         showReplacementOptionsTable,
         annotated_image_url: immediateAnalysisData?.annotated_image_url || analysisResult.annotated_image_url,
+        detections: analysisResult.detections || immediateAnalysisData?.detections || [], // Explicitly pass detections
         clinicBranding: brandingData
       });
     }
@@ -187,6 +191,10 @@ const useReportGeneration = () => {
 // WORKING generateReportHTML from commit 2784580 (adapted)
 const generateReportHTML = (data: any) => {
   const { findings, patientName, treatmentSettings, showReplacementOptionsTable, clinicBranding } = data;
+  
+  // DEBUG: Log clinic branding to diagnose issue
+  console.log('📊 generateReportHTML - clinicBranding received:', clinicBranding);
+  console.log('📊 generateReportHTML - detections received:', data.detections);
   
   // Extract clinic branding with defaults
   const clinicName = clinicBranding?.clinicName || 'Dental Clinic';
@@ -385,7 +393,7 @@ const generateReportHTML = (data: any) => {
       </div>
 
       <!-- Treatment Overview Table -->
-      <div style="padding: 0 20px; margin-bottom: 40px;">
+      <div style="padding: 0 20px; margin-bottom: 40px; margin-top: 30px;">
         <h3 style="font-size: 20px; margin-bottom: 20px;">Treatment Overview Table</h3>
         <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <thead>
@@ -757,7 +765,10 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
 
   return `
     <div style="padding: 20px;">
-      <h3 style="font-size: 20px; margin-bottom: 20px; color: #111827;">Understanding Your Treatment Conditions</h3>
+      <h3 style="font-size: 20px; margin-bottom: 10px; color: #111827;">Understanding Your Treatment Conditions</h3>
+      <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px; line-height: 1.6;">
+        Below you'll find detailed explanations for each recommended treatment. Each section describes what the condition means, why treatment is important, and what to expect from the procedure.
+      </p>
       ${Object.entries(treatmentGroups).map(([treatmentKey, findings]) => {
         if (treatmentKey === 'extraction-with-replacement') {
           return findings.map((finding: any) => {
