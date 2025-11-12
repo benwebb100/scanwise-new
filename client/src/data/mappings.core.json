@@ -1,5 +1,65 @@
 [
   {
+    "condition": "complete_edentulism",
+    "treatments": [
+      {
+        "treatment": "prost_full_denture_upper",
+        "priority": 1,
+        "stage": 3
+      },
+      {
+        "treatment": "prost_full_denture_lower",
+        "priority": 2,
+        "stage": 3
+      },
+      {
+        "treatment": "surg_alveoloplasty_quadrant",
+        "priority": 3,
+        "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "dry_socket",
+    "treatments": [
+      {
+        "treatment": "surg_dry_socket_management",
+        "priority": 1,
+        "stage": 1
+      }
+    ]
+  },
+  {
+    "condition": "impacted-tooth",
+    "treatments": [
+      {
+        "treatment": "surg_surgical_extraction",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "surg_exposure_unerupted",
+        "priority": 2,
+        "stage": 1
+      }
+    ]
+  },
+  {
+    "condition": "impacted_tooth",
+    "treatments": [
+      {
+        "treatment": "surg_surgical_extraction",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "surg_exposure_unerupted",
+        "priority": 2,
+        "stage": 1
+      }
+    ]
+  },
+  {
     "condition": "irreversible_pulpitis",
     "treatments": [
       {
@@ -16,6 +76,26 @@
         "treatment": "endo_rct_obt_1",
         "priority": 3,
         "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "missing_single_tooth",
+    "treatments": [
+      {
+        "treatment": "crown_implant_supported_tc",
+        "priority": 1,
+        "stage": 3
+      },
+      {
+        "treatment": "bridge_abutment_crown_tc",
+        "priority": 2,
+        "stage": 3
+      },
+      {
+        "treatment": "prost_partial_denture_resin_1to3",
+        "priority": 3,
+        "stage": 3
       }
     ]
   },
@@ -40,26 +120,21 @@
     ]
   },
   {
-    "condition": "periapical_abscess",
+    "condition": "partial_edentulism",
     "treatments": [
       {
-        "treatment": "endo_extirpation",
+        "treatment": "prost_partial_denture_resin_4plus",
         "priority": 1,
-        "stage": 1
+        "stage": 3
       },
       {
-        "treatment": "endo_additional_irrigation_visit",
+        "treatment": "prost_partial_denture_cast_4plus",
         "priority": 2,
-        "stage": 1
+        "stage": 3
       },
       {
-        "treatment": "endo_rct_prep_1",
+        "treatment": "surg_alveoloplasty_quadrant",
         "priority": 3,
-        "stage": 2
-      },
-      {
-        "treatment": "endo_rct_obt_1",
-        "priority": 4,
         "stage": 2
       }
     ]
@@ -95,6 +170,71 @@
     ]
   },
   {
+    "condition": "periapical_abscess",
+    "treatments": [
+      {
+        "treatment": "surg_incision_drainage",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_extirpation",
+        "priority": 2,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_additional_irrigation_visit",
+        "priority": 3,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 4,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 5,
+        "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "pericoronitis",
+    "treatments": [
+      {
+        "treatment": "surg_incision_drainage",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "surg_surgical_extraction",
+        "priority": 2,
+        "stage": 1
+      }
+    ]
+  },
+  {
+    "condition": "periodontal_abscess",
+    "treatments": [
+      {
+        "treatment": "surg_incision_drainage",
+        "priority": 1,
+        "stage": 1
+      }
+    ]
+  },
+  {
+    "condition": "retained_root",
+    "treatments": [
+      {
+        "treatment": "surg_root_extraction_fragment",
+        "priority": 1,
+        "stage": 1
+      }
+    ]
+  },
+  {
     "condition": "symptomatic_apical_periodontitis",
     "treatments": [
       {
@@ -116,6 +256,26 @@
         "treatment": "endo_rct_obt_1",
         "priority": 4,
         "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "tooth_nonrestorable",
+    "treatments": [
+      {
+        "treatment": "surg_simple_extraction",
+        "priority": 1,
+        "stage": 1
+      }
+    ]
+  },
+  {
+    "condition": "trauma_avulsion",
+    "treatments": [
+      {
+        "treatment": "surg_replantation",
+        "priority": 1,
+        "stage": 1
       }
     ]
   }

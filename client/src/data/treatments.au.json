@@ -410,5 +410,227 @@
       "perUnit": "canal",
       "retreatment": true
     }
+  },
+  {
+    "code": "surg_alveoloplasty_quadrant",
+    "displayName": "Alveoloplasty (per quadrant)",
+    "friendlyPatientName": "Smooth bone for denture",
+    "category": "oral-surgery",
+    "description": "Surgical recontouring of alveolar bone, typically to aid denture fit.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 500,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "partial_edentulism",
+      "complete_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "surg_dry_socket_management",
+    "displayName": "Dry Socket Management (Alveolar Osteitis)",
+    "friendlyPatientName": "Treat dry socket",
+    "category": "oral-surgery",
+    "description": "Irrigation, medicated dressing and review for alveolar osteitis post-extraction.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "dry_socket"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "surg_exposure_unerupted",
+    "displayName": "Exposure of Unerupted Tooth",
+    "friendlyPatientName": "Expose unerupted tooth",
+    "category": "oral-surgery",
+    "description": "Surgical exposure of an unerupted tooth (often for orthodontic traction).",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 400,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "impacted_tooth",
+      "impacted-tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "surg_incision_drainage",
+    "displayName": "Incision & Drainage of Abscess",
+    "friendlyPatientName": "Drain dental abscess",
+    "category": "oral-surgery",
+    "description": "Incision and drainage of an odontogenic abscess to relieve infection and pain.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 200,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_abscess",
+      "periodontal_abscess",
+      "pericoronitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "surg_replantation",
+    "displayName": "Replantation of Avulsed Tooth",
+    "friendlyPatientName": "Replant knocked-out tooth",
+    "category": "oral-surgery",
+    "description": "Replant and stabilise an avulsed permanent tooth when clinically indicated.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 500,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "trauma_avulsion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "surg_root_extraction_fragment",
+    "displayName": "Extraction — Root Fragment / Retained Root",
+    "friendlyPatientName": "Remove retained root",
+    "category": "oral-surgery",
+    "description": "Removal of a retained root piece or fragment.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 300,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "retained_root"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [
+      "crown_implant_supported_tc",
+      "bridge_abutment_crown_tc",
+      "prost_partial_denture_resin_1to3"
+    ],
+    "metadata": {}
+  },
+  {
+    "code": "surg_simple_extraction",
+    "displayName": "Extraction — Simple",
+    "friendlyPatientName": "Simple tooth removal",
+    "category": "oral-surgery",
+    "description": "Routine extraction of an erupted tooth using forceps/elevators without flap or bone removal.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 250,
+    "insuranceCodes": {
+      "AU": "311",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "fracture",
+      "tooth_nonrestorable",
+      "retained_root",
+      "periodontitis_stage_iii_iv"
+    ],
+    "toothNumberRules": {
+      "specificFDI": {
+        "18": {
+          "overrideCode": "surg_surgical_extraction"
+        },
+        "28": {
+          "overrideCode": "surg_surgical_extraction"
+        },
+        "38": {
+          "overrideCode": "surg_surgical_extraction"
+        },
+        "48": {
+          "overrideCode": "surg_surgical_extraction"
+        }
+      },
+      "notes": "Wisdom teeth default to surgical."
+    },
+    "replacementOptions": [
+      "crown_implant_supported_tc",
+      "bridge_abutment_crown_tc",
+      "prost_partial_denture_resin_1to3"
+    ],
+    "metadata": {}
+  },
+  {
+    "code": "surg_surgical_extraction",
+    "displayName": "Extraction — Surgical",
+    "friendlyPatientName": "Surgical tooth removal",
+    "category": "oral-surgery",
+    "description": "Extraction requiring surgical flap and/or bone removal and tooth sectioning.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 450,
+    "insuranceCodes": {
+      "AU": "322",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "impacted_tooth",
+      "retained_root",
+      "pericoronitis",
+      "fracture"
+    ],
+    "toothNumberRules": {
+      "specificFDI": {
+        "18": {},
+        "28": {},
+        "38": {},
+        "48": {}
+      },
+      "notes": "Default for third molars and impacted teeth."
+    },
+    "replacementOptions": [
+      "crown_implant_supported_tc",
+      "bridge_abutment_crown_tc",
+      "prost_partial_denture_resin_4plus"
+    ],
+    "metadata": {}
   }
 ]
