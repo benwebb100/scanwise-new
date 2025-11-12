@@ -1,6 +1,7 @@
 import { api } from '@/services/api';
 import { useClinicBranding } from '@/components/ClinicBranding';
 import { generateReplacementOptionsTable } from '@/lib/replacementOptionsTemplate';
+import { TreatmentService } from '@/lib/treatment-service';
 
 interface ReportGenerationData {
   patientName: string;
@@ -252,24 +253,16 @@ const generateReportHTML = (data: any) => {
   console.log('🔧 Current findings state:', findings);
   console.log('🔧 Data parameter:', data);
   
-  // Helper functions
+  // ✅ NEW: Use master database for insurance codes
   const generateADACode = (treatment: string) => {
-    const adaCodes: Record<string, string> = {
-      'filling': 'D2330',
-      'extraction': 'D7140',
-      'root-canal-treatment': 'D3310',
-      'crown': 'D2740',
-      'bridge': 'D6240',
-      'implant-placement': 'D6010',
-      'partial-denture': 'D5213',
-      'scale-and-clean': 'D1110',
-      'deep-cleaning': 'D4341',
-      'veneer': 'D2962',
-      'fluoride-treatment': 'D1206'
-    };
-    
-    const key = Object.keys(adaCodes).find(k => treatment.toLowerCase().includes(k.replace('-', ' ')));
-    return key ? adaCodes[key] : 'D0000';
+    // Get insurance code from master database
+    const insuranceCode = TreatmentService.getInsuranceCode(treatment, 'AU');
+    return insuranceCode || 'N/A';
+  };
+  
+  // ✅ NEW: Get friendly patient name for report
+  const getTreatmentFriendlyName = (treatment: string) => {
+    return TreatmentService.getFriendlyName(treatment);
   };
 
   const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
@@ -348,8 +341,8 @@ const generateReportHTML = (data: any) => {
   
   uniqueFindings.forEach((finding: any) => {
     treatmentItems.push({
-      procedure: finding.treatment,
-      adaCode: generateADACode(finding.treatment),
+      procedure: getTreatmentFriendlyName(finding.treatment), // ✅ Use friendly patient name
+      adaCode: generateADACode(finding.treatment), // ✅ Use AU insurance code
       unitPrice: getTreatmentPrice(finding.treatment, finding.price),
       quantity: 1,
       tooth: finding.tooth,
@@ -665,7 +658,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                 <strong style="color: #666;">Treatments in this stage:</strong>
                 <ul style="margin: 10px 0 0 20px; color: #666;">
                   ${findings.map((finding: any) => `
-                    <li>${finding.treatment.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} on Tooth ${finding.tooth} for ${finding.condition.replace(/-/g, ' ')}</li>
+                    <li>${getTreatmentFriendlyName(finding.treatment)} on Tooth ${finding.tooth} for ${finding.condition.replace(/-/g, ' ')}</li>
                   `).join('')}
                 </ul>
               </div>
@@ -949,7 +942,7 @@ const renderLegend = (detections: any[]) => {
 
   return `
     <div style="text-align: center; margin-bottom: 30px; padding: 15px;">
-      <h4 style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold;">Annotation Color Legend</h4>
+      <h4 style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold;">Key</h4>
       <table style="margin: 0 auto; border-collapse: separate; border-spacing: 15px 8px;">
         <tr>
           ${displayConditions.map(({name, color}, index) => `
