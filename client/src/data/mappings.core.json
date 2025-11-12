@@ -65,7 +65,7 @@
     ]
   },
   {
-    "condition": "periapical_lesion",
+    "condition": "periapical-lesion",
     "treatments": [
       {
         "treatment": "endo_rct_prep_1",
