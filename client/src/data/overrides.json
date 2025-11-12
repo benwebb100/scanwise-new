@@ -1,0 +1,5 @@
+{
+  "_comment": "Clinic-specific overrides for price/duration/ADA codes. Never overwrite when importing batches.",
+  "overrides": {}
+}
+

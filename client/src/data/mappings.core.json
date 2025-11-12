@@ -1,0 +1,11 @@
+[
+  {
+    "condition": "irreversible_pulpitis",
+    "treatments": [
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 1
+      }
+    ]
+  }
+]

@@ -383,12 +383,6 @@ const generateReportHTML = (data: any) => {
       <!-- Patient Info & Title -->
       <div style="padding: 25px 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
         <h1 style="font-size: 28px; margin: 0 0 12px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
-        <div style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-          ${clinicName ? `<div style="margin-bottom: 4px;"><strong>${clinicName}</strong></div>` : ''}
-          ${clinicPhone ? `<div style="margin-bottom: 4px;"><strong>Phone:</strong> ${clinicPhone}</div>` : ''}
-          ${clinicEmail ? `<div style="margin-bottom: 4px;"><strong>Email:</strong> ${clinicEmail}</div>` : ''}
-          ${clinicWebsite ? `<div style="margin-bottom: 4px;"><strong>Website:</strong> ${clinicWebsite}</div>` : ''}
-        </div>
         <p style="text-align: center; color: #6b7280; margin: 20px 0 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
       </div>
 
@@ -871,9 +865,9 @@ const renderXraySection = (reportImageUrl: string | null, data: any) => {
       <h3 style="font-size: 24px; margin-bottom: 10px;">Annotated X-Ray Image</h3>
       <p style="color: #666; margin-bottom: 30px;">Below is your panoramic X-ray with AI-generated highlights of all detected conditions.</p>
       
-      ${renderLegend(data.detections)}
+      <img src="${reportImageUrl}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; margin-bottom: 30px;" />
       
-      <img src="${reportImageUrl}" alt="Annotated X-ray" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px;" />
+      ${renderLegend(data.detections)}
     </div>
   `;
 };

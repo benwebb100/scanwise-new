@@ -1,0 +1,37 @@
+[
+  {
+    "code": "endo_rct_prep_1",
+    "displayName": "Chemo-mechanical Preparation — 1 Canal",
+    "friendlyPatientName": "Root canal cleaning (1 canal)",
+    "category": "endodontics",
+    "description": "Preparation and disinfection of a single canal prior to obturation.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 500,
+    "insuranceCodes": {
+      "AU": "415",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "periapical_lesion",
+      "necrotic_pulp"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        11,
+        12,
+        13,
+        21,
+        22,
+        23
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "canal"
+    }
+  }
+]
