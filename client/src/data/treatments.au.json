@@ -1,10 +1,283 @@
 [
   {
+    "code": "endo_additional_irrigation_visit",
+    "displayName": "Additional Irrigation/Dressing Visit",
+    "friendlyPatientName": "Extra disinfecting visit",
+    "category": "endodontics",
+    "description": "An extra visit for irrigation/medication when more disinfection time is required.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": "455",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "necrotic_pulp",
+      "periapical_abscess"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "visit"
+    }
+  },
+  {
+    "code": "endo_apicectomy_per_root",
+    "displayName": "Apicectomy — per root",
+    "friendlyPatientName": "Root-end surgery",
+    "category": "endodontics",
+    "description": "Surgical root-end resection and sealing to manage persistent apical pathology.",
+    "defaultDuration": 75,
+    "defaultPriceAUD": 950,
+    "insuranceCodes": {
+      "AU": "432",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "root",
+      "surgical": true
+    }
+  },
+  {
+    "code": "endo_bypass_fractured_instrument",
+    "displayName": "Bypass/Remove Fractured Instrument",
+    "friendlyPatientName": "Remove broken file",
+    "category": "endodontics",
+    "description": "Manage a separated instrument to re-establish canal patency.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": "453",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "complexity": true
+    }
+  },
+  {
+    "code": "endo_calcified_per_canal",
+    "displayName": "Calcified Canal Negotiation — per canal",
+    "friendlyPatientName": "Calcified canal work",
+    "category": "endodontics",
+    "description": "Additional time to negotiate and instrument a calcified or sclerosed canal.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 150,
+    "insuranceCodes": {
+      "AU": "445",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion",
+      "necrotic_pulp"
+    ],
+    "toothNumberRules": {
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "canal",
+      "complexity": true
+    }
+  },
+  {
+    "code": "endo_extirpation",
+    "displayName": "Emergency Extirpation / Opening & Dressing",
+    "friendlyPatientName": "Emergency nerve treatment",
+    "category": "endodontics",
+    "description": "Emergency access, pulp removal and dressing for acute pain relief; definitive RCT to follow.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 200,
+    "insuranceCodes": {
+      "AU": "419",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "symptomatic_apical_periodontitis",
+      "periapical_abscess"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "stageHint": 1
+    }
+  },
+  {
+    "code": "endo_interim_root_fill",
+    "displayName": "Interim Therapeutic Root Filling",
+    "friendlyPatientName": "Temporary root filling",
+    "category": "endodontics",
+    "description": "Temporary obturation or medicated filling between appointments.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 150,
+    "insuranceCodes": {
+      "AU": "458",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "necrotic_pulp",
+      "periapical_lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "endo_periapical_curettage_per_root",
+    "displayName": "Periapical Curettage — per root",
+    "friendlyPatientName": "Periapical curettage",
+    "category": "endodontics",
+    "description": "Surgical debridement of periapical tissues associated with a root apex.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 400,
+    "insuranceCodes": {
+      "AU": "431",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "root",
+      "surgical": true
+    }
+  },
+  {
+    "code": "endo_rct_obt_1",
+    "displayName": "Obturation — 1 Canal",
+    "friendlyPatientName": "Root canal fill (1 canal)",
+    "category": "endodontics",
+    "description": "Filling/sealing of a single root canal following preparation.",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 600,
+    "insuranceCodes": {
+      "AU": "417",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion",
+      "necrotic_pulp",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        11,
+        12,
+        13,
+        21,
+        22,
+        23,
+        31,
+        32,
+        33,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "tooth"
+    }
+  },
+  {
+    "code": "endo_rct_obt_addl",
+    "displayName": "Obturation — Each Additional Canal",
+    "friendlyPatientName": "Extra canal fill",
+    "category": "endodontics",
+    "description": "Filling/sealing for each additional canal beyond the first.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 230,
+    "insuranceCodes": {
+      "AU": "418",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion",
+      "necrotic_pulp"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "canal"
+    }
+  },
+  {
     "code": "endo_rct_prep_1",
     "displayName": "Chemo-mechanical Preparation — 1 Canal",
     "friendlyPatientName": "Root canal cleaning (1 canal)",
     "category": "endodontics",
-    "description": "Preparation and disinfection of a single canal prior to obturation.",
+    "description": "Preparation and disinfection of a single root canal prior to obturation.",
     "defaultDuration": 40,
     "defaultPriceAUD": 500,
     "insuranceCodes": {
@@ -17,7 +290,8 @@
     "autoMapConditions": [
       "irreversible_pulpitis",
       "periapical_lesion",
-      "necrotic_pulp"
+      "necrotic_pulp",
+      "symptomatic_apical_periodontitis"
     ],
     "toothNumberRules": {
       "anteriorFDI": [
@@ -26,12 +300,115 @@
         13,
         21,
         22,
-        23
+        23,
+        31,
+        32,
+        33,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "tooth"
+    }
+  },
+  {
+    "code": "endo_rct_prep_addl",
+    "displayName": "Chemo-mechanical Preparation — Each Additional Canal",
+    "friendlyPatientName": "Extra canal cleaning",
+    "category": "endodontics",
+    "description": "Preparation and disinfection for each additional canal beyond the first.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": "416",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "periapical_lesion",
+      "necrotic_pulp"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
       ]
     },
     "replacementOptions": [],
     "metadata": {
       "perUnit": "canal"
+    }
+  },
+  {
+    "code": "endo_remove_post",
+    "displayName": "Removal of Post",
+    "friendlyPatientName": "Remove post",
+    "category": "endodontics",
+    "description": "Remove a post to gain canal access for endodontic retreatment.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 200,
+    "insuranceCodes": {
+      "AU": "452",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "retreatment": true
+    }
+  },
+  {
+    "code": "endo_remove_root_filling_per_canal",
+    "displayName": "Removal of Existing Root Filling — per canal",
+    "friendlyPatientName": "Remove old root filling",
+    "category": "endodontics",
+    "description": "Retreatment: remove gutta-percha/sealer or other material from a canal.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": "451",
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_lesion",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "canal",
+      "retreatment": true
     }
   }
 ]

@@ -60,6 +60,7 @@ export type ConditionMapping = {
   treatments: Array<{
     treatment: string;                   // treatment code
     priority: number;                    // lower = higher priority (1 = first choice)
+    stage?: number;                      // optional stage hint (1, 2, 3) - user can override
   }>;
 };
 

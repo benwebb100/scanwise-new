@@ -4,5 +4,29 @@
     "label": "Irreversible Pulpitis",
     "urgency": "high",
     "category": "infection-control"
+  },
+  {
+    "value": "necrotic_pulp",
+    "label": "Necrotic Pulp",
+    "urgency": "high",
+    "category": "infection-control"
+  },
+  {
+    "value": "periapical_abscess",
+    "label": "Periapical Abscess",
+    "urgency": "high",
+    "category": "infection-control"
+  },
+  {
+    "value": "periapical_lesion",
+    "label": "Periapical Lesion",
+    "urgency": "high",
+    "category": "infection-control"
+  },
+  {
+    "value": "symptomatic_apical_periodontitis",
+    "label": "Symptomatic Apical Periodontitis",
+    "urgency": "high",
+    "category": "infection-control"
   }
 ]

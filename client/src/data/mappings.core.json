@@ -3,8 +3,119 @@
     "condition": "irreversible_pulpitis",
     "treatments": [
       {
+        "treatment": "endo_extirpation",
+        "priority": 1,
+        "stage": 1
+      },
+      {
         "treatment": "endo_rct_prep_1",
-        "priority": 1
+        "priority": 2,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 3,
+        "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "necrotic_pulp",
+    "treatments": [
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 1,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_additional_irrigation_visit",
+        "priority": 2,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 3,
+        "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "periapical_abscess",
+    "treatments": [
+      {
+        "treatment": "endo_extirpation",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_additional_irrigation_visit",
+        "priority": 2,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 3,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 4,
+        "stage": 2
+      }
+    ]
+  },
+  {
+    "condition": "periapical_lesion",
+    "treatments": [
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 1,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 2,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_calcified_per_canal",
+        "priority": 3,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_remove_root_filling_per_canal",
+        "priority": 4,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_apicectomy_per_root",
+        "priority": 5,
+        "stage": 3
+      }
+    ]
+  },
+  {
+    "condition": "symptomatic_apical_periodontitis",
+    "treatments": [
+      {
+        "treatment": "endo_extirpation",
+        "priority": 1,
+        "stage": 1
+      },
+      {
+        "treatment": "endo_rct_prep_1",
+        "priority": 2,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_additional_irrigation_visit",
+        "priority": 3,
+        "stage": 2
+      },
+      {
+        "treatment": "endo_rct_obt_1",
+        "priority": 4,
+        "stage": 2
       }
     ]
   }
