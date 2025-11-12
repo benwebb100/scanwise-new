@@ -11,25 +11,20 @@ export default function Index() {
   ];
 
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
-  const [nextPhraseIndex, setNextPhraseIndex] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setIsAnimating(true);
-      setNextPhraseIndex((currentPhraseIndex + 1) % rotatingPhrases.length);
       
       setTimeout(() => {
         setCurrentPhraseIndex((prev) => (prev + 1) % rotatingPhrases.length);
-      }, 300); // Switch phrase mid-animation
-      
-      setTimeout(() => {
         setIsAnimating(false);
-      }, 800); // Complete animation duration
+      }, 600); // Fade duration
     }, 3500); // Show each phrase for 3.5 seconds
 
     return () => clearInterval(interval);
-  }, [currentPhraseIndex, rotatingPhrases.length]);
+  }, [rotatingPhrases.length]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -51,7 +46,7 @@ export default function Index() {
               <Link to="/login" className="text-sm sm:text-base text-gray-700 hover:text-gray-900 font-medium">
                 Sign In
               </Link>
-              <Link to="/register-improved">
+              <Link to="/register">
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base px-3 sm:px-4 py-2">
                   Get Started
                 </Button>
@@ -72,32 +67,15 @@ export default function Index() {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight px-4 sm:px-0">
               Automate Treatment Plan Generation &<br />
               Increase Case Acceptance With<br />
-              <span className="relative inline-block" style={{ minHeight: '1.2em', verticalAlign: 'bottom', overflow: 'hidden' }}>
-                {/* Current phrase sliding out */}
+              <span className="relative inline-block" style={{ minHeight: '1.2em', verticalAlign: 'bottom' }}>
                 <span 
-                  className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-all duration-500 ease-in-out ${
-                    isAnimating ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+                  key={currentPhraseIndex}
+                  className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-all duration-600 ease-in-out ${
+                    isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                   }`}
-                  style={{ 
-                    position: isAnimating ? 'absolute' : 'relative',
-                    top: 0,
-                    left: 0
-                  }}
+                  style={{ display: 'inline-block' }}
                 >
                   {rotatingPhrases[currentPhraseIndex]}
-                </span>
-                {/* Next phrase sliding in from below with bounce */}
-                <span 
-                  className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent ${
-                    isAnimating ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ 
-                    position: isAnimating ? 'relative' : 'absolute',
-                    animation: isAnimating ? 'slideInBounce 0.5s ease-out forwards' : 'none',
-                    transform: isAnimating ? 'none' : 'translateY(100%)'
-                  }}
-                >
-                  {rotatingPhrases[nextPhraseIndex]}
                 </span>
               </span>
             </h1>
@@ -106,7 +84,7 @@ export default function Index() {
               with annotated images, treatment plans, insurance codes, and educational videos—all automatically.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0">
-              <Link to="/register-improved" className="w-full sm:w-auto">
+              <Link to="/register" className="w-full sm:w-auto">
                 <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg shadow-lg">
                   Start Free Trial →
                 </Button>
@@ -329,7 +307,7 @@ export default function Index() {
             Join dental clinics already using ScanWise to streamline their report generation workflow 
             and improve patient communication.
           </p>
-          <Link to="/register-improved">
+          <Link to="/register">
             <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-6 text-lg font-semibold">
               Start Your Free Trial Today
             </Button>

@@ -40,22 +40,3 @@
 .read-the-docs {
   color: #888;
 }
-
-/* Smooth slide-in bounce animation for rotating hero text */
-@keyframes slideInBounce {
-  0% {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(-8%);
-    opacity: 1;
-  }
-  80% {
-    transform: translateY(4%);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
