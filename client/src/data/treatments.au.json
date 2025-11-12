@@ -1,5 +1,87 @@
 [
   {
+    "code": "crown_full_tooth_coloured",
+    "displayName": "Crown — Full Tooth-Coloured",
+    "friendlyPatientName": "Full crown (tooth-coloured)",
+    "category": "restorative",
+    "description": "Full-coverage crown (e.g., lithium disilicate/zirconia) for strength and aesthetics.",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 1700,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "fractured_cusp_restorable",
+      "cracked_tooth_vital",
+      "existing-large-filling",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true,
+      "postEndoRecommended": true
+    }
+  },
+  {
+    "code": "crown_temp",
+    "displayName": "Temporary Crown",
+    "friendlyPatientName": "Temporary crown",
+    "category": "restorative",
+    "description": "Provisional crown to protect the tooth while a definitive crown is being fabricated.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "fractured_cusp_restorable",
+      "cracked_tooth_vital",
+      "existing-large-filling",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "provisional": true
+    }
+  },
+  {
+    "code": "desensitise_dentine_per_tooth",
+    "displayName": "Dentine Desensitising (per tooth)",
+    "friendlyPatientName": "Tooth desensitiser",
+    "category": "preventive",
+    "description": "Apply desensitising agents to exposed or sensitive dentine.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 40,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "dentine_hypersensitivity",
+      "tooth_wear_abfraction",
+      "tooth_wear_erosion",
+      "tooth_wear_attrition"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "tooth"
+    }
+  },
+  {
     "code": "endo_additional_irrigation_visit",
     "displayName": "Additional Irrigation/Dressing Visit",
     "friendlyPatientName": "Extra disinfecting visit",
@@ -412,6 +494,491 @@
     }
   },
   {
+    "code": "fissure_sealant_per_tooth",
+    "displayName": "Fissure Sealant (per tooth)",
+    "friendlyPatientName": "Fissure sealant",
+    "category": "preventive",
+    "description": "Resin sealant applied to pits and fissures of posterior teeth to prevent decay.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 60,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_enamel",
+      "caries_dentine",
+      "caries_root"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "tooth"
+    }
+  },
+  {
+    "code": "fluoride_varnish",
+    "displayName": "Fluoride Varnish (Topical)",
+    "friendlyPatientName": "Fluoride treatment",
+    "category": "preventive",
+    "description": "Topical fluoride varnish to strengthen enamel and reduce caries risk.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 40,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_enamel",
+      "gingivitis_plaque",
+      "aesthetic_discolouration"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "oh_instructions",
+    "displayName": "Oral Hygiene Instructions",
+    "friendlyPatientName": "Home-care coaching",
+    "category": "preventive",
+    "description": "Personalised oral hygiene instruction including brushing, flossing and interdental cleaning advice.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 30,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "gingivitis_plaque",
+      "periodontitis_stage_i_ii",
+      "halitosis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "onlay_inlay_indirect_tc",
+    "displayName": "Indirect Inlay/Onlay — Tooth-Coloured",
+    "friendlyPatientName": "Lab-made onlay/inlay (tooth-coloured)",
+    "category": "restorative",
+    "description": "Laboratory-fabricated inlay/onlay (e.g., ceramic/composite) for moderate to extensive posterior restorations.",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 1100,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "fractured_cusp_restorable",
+      "caries_recurrent",
+      "failed_restoration",
+      "cracked_tooth_vital"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "resto_comp_one_surface_ant",
+    "displayName": "Composite Restoration — 1 Surface (Anterior)",
+    "friendlyPatientName": "Front tooth filling (1 surface)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration involving a single surface (buccal/lingual/incisal) on an anterior tooth.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_enamel",
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration",
+      "aesthetic_discolouration"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        13,
+        12,
+        11,
+        21,
+        22,
+        23,
+        33,
+        32,
+        31,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 1
+    }
+  },
+  {
+    "code": "resto_comp_one_surface_post",
+    "displayName": "Composite Restoration — 1 Surface (Posterior)",
+    "friendlyPatientName": "Back tooth filling (1 surface)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration of a single surface on a premolar or molar.",
+    "defaultDuration": 35,
+    "defaultPriceAUD": 240,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_enamel",
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 1
+    }
+  },
+  {
+    "code": "resto_comp_three_plus_ant",
+    "displayName": "Composite Restoration — 3+ Surfaces (Anterior)",
+    "friendlyPatientName": "Front tooth filling (3+ surfaces)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration involving three or more surfaces on an anterior tooth.",
+    "defaultDuration": 50,
+    "defaultPriceAUD": 360,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        13,
+        12,
+        11,
+        21,
+        22,
+        23,
+        33,
+        32,
+        31,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 3
+    }
+  },
+  {
+    "code": "resto_comp_three_plus_post",
+    "displayName": "Composite Restoration — 3+ Surfaces (Posterior)",
+    "friendlyPatientName": "Back tooth filling (3+ surfaces)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration of three or more surfaces on a premolar or molar.",
+    "defaultDuration": 55,
+    "defaultPriceAUD": 380,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration",
+      "fractured_cusp_restorable"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 3
+    }
+  },
+  {
+    "code": "resto_comp_two_surface_ant",
+    "displayName": "Composite Restoration — 2 Surfaces (Anterior)",
+    "friendlyPatientName": "Front tooth filling (2 surfaces)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration involving two surfaces on an anterior tooth.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 290,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        13,
+        12,
+        11,
+        21,
+        22,
+        23,
+        33,
+        32,
+        31,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 2
+    }
+  },
+  {
+    "code": "resto_comp_two_surface_post",
+    "displayName": "Composite Restoration — 2 Surfaces (Posterior)",
+    "friendlyPatientName": "Back tooth filling (2 surfaces)",
+    "category": "restorative",
+    "description": "Direct composite resin restoration of two surfaces on a premolar or molar.",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 320,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration",
+      "fractured_cusp_restorable"
+    ],
+    "toothNumberRules": {
+      "premolarFDI": [
+        14,
+        15,
+        24,
+        25,
+        34,
+        35,
+        44,
+        45
+      ],
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27,
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surfaces": 2
+    }
+  },
+  {
+    "code": "resto_gic_single_surface",
+    "displayName": "Glass Ionomer Restoration — Single Surface",
+    "friendlyPatientName": "Glass ionomer filling",
+    "category": "restorative",
+    "description": "Glass ionomer restoration, commonly for cervical/root caries or interim restoration.",
+    "defaultDuration": 25,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_root",
+      "dentine_hypersensitivity",
+      "failed_restoration"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "resto_temp_cavosurface",
+    "displayName": "Temporary Restoration / Sedative Filling",
+    "friendlyPatientName": "Temporary filling",
+    "category": "restorative",
+    "description": "Short-term sedative or protective restoration pending definitive treatment.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent",
+      "failed_restoration",
+      "flare_up_post_endo"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "scale_clean_polish",
+    "displayName": "Scale, Clean & Polish",
+    "friendlyPatientName": "Professional clean",
+    "category": "preventive",
+    "description": "Removal of plaque and calculus with polishing to improve gum health and hygiene.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "gingivitis_plaque",
+      "calculus",
+      "halitosis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
     "code": "surg_alveoloplasty_quadrant",
     "displayName": "Alveoloplasty (per quadrant)",
     "friendlyPatientName": "Smooth bone for denture",
@@ -631,6 +1198,140 @@
       "bridge_abutment_crown_tc",
       "prost_partial_denture_resin_4plus"
     ],
+    "metadata": {}
+  },
+  {
+    "code": "veneer_composite_direct",
+    "displayName": "Veneer — Direct Composite (per tooth)",
+    "friendlyPatientName": "Composite veneer",
+    "category": "restorative",
+    "description": "Chairside composite veneer to alter colour/shape of anterior teeth.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 380,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_discolouration",
+      "aesthetic_shape_alignment",
+      "hypoplasia",
+      "fluorosis",
+      "staining"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        13,
+        12,
+        11,
+        21,
+        22,
+        23,
+        33,
+        32,
+        31,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "veneer_porcelain",
+    "displayName": "Veneer — Porcelain (per tooth)",
+    "friendlyPatientName": "Porcelain veneer",
+    "category": "restorative",
+    "description": "Laboratory-made porcelain veneer to improve colour/shape of anterior teeth.",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 1400,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_discolouration",
+      "aesthetic_shape_alignment",
+      "hypoplasia",
+      "fluorosis",
+      "staining"
+    ],
+    "toothNumberRules": {
+      "anteriorFDI": [
+        13,
+        12,
+        11,
+        21,
+        22,
+        23,
+        33,
+        32,
+        31,
+        41,
+        42,
+        43
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "whitening_in_chair",
+    "displayName": "Teeth Whitening — In-chair",
+    "friendlyPatientName": "In-chair whitening",
+    "category": "cosmetic",
+    "description": "In-chair bleaching session(s) with professional-strength gels and light activation as indicated.",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 600,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_discolouration",
+      "staining",
+      "fluorosis",
+      "hypoplasia"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "whitening_take_home",
+    "displayName": "Teeth Whitening — Take-home Kit",
+    "friendlyPatientName": "Take-home whitening",
+    "category": "cosmetic",
+    "description": "Custom trays with take-home bleaching gel and instructions.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 350,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_discolouration",
+      "staining",
+      "fluorosis",
+      "hypoplasia"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
     "metadata": {}
   }
 ]
