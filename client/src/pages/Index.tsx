@@ -5,22 +5,22 @@ import { useState, useEffect } from 'react';
 
 export default function Index() {
   const rotatingPhrases = [
-    "AI-powered X-ray analysis",
-    "one-click treatment plan generation",
-    "personalized patient explainer videos"
+    "AI-Powered X-Ray Analysis",
+    "One-Click Treatment Plan Generation",
+    "Personalized Patient Explainer Videos"
   ];
 
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setIsVisible(false);
+      setIsAnimating(true);
       setTimeout(() => {
         setCurrentPhraseIndex((prev) => (prev + 1) % rotatingPhrases.length);
-        setIsVisible(true);
-      }, 300); // Fade out duration
-    }, 2000); // Show each phrase for 2 seconds
+        setIsAnimating(false);
+      }, 500); // Animation duration
+    }, 3500); // Show each phrase for 3.5 seconds
 
     return () => clearInterval(interval);
   }, [rotatingPhrases.length]);
@@ -64,18 +64,18 @@ export default function Index() {
               AI-Powered Dental Report Generation
             </div>
             <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Free up your time and increase treatment acceptance — with{" "}
-              <span 
-                className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-opacity duration-300 ${
-                  isVisible ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{ 
-                  display: 'inline-block',
-                  minHeight: '1.2em',
-                  verticalAlign: 'bottom'
-                }}
-              >
-                {rotatingPhrases[currentPhraseIndex]}
+              Free Up Your Time And Increase<br />
+              Treatment Acceptance With<br />
+              <span className="relative inline-block overflow-hidden" style={{ minHeight: '1.2em', verticalAlign: 'bottom' }}>
+                <span 
+                  key={currentPhraseIndex}
+                  className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-all duration-500 ease-in-out ${
+                    isAnimating ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+                  }`}
+                  style={{ display: 'inline-block' }}
+                >
+                  {rotatingPhrases[currentPhraseIndex]}
+                </span>
               </span>
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
