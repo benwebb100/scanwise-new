@@ -119,6 +119,18 @@ class SupabaseService:
             logger.error(f"Error saving diagnosis: {str(e)}")
             raise
     
+    async def update_diagnosis(self, diagnosis_id: str, update_data: dict, access_token: str) -> dict:
+        """Update an existing diagnosis record"""
+        try:
+            auth_client = self._create_authenticated_client(access_token)
+            
+            response = auth_client.table('patient_diagnosis').update(update_data).eq('id', diagnosis_id).execute()
+            logger.info(f"Successfully updated diagnosis {diagnosis_id} with fields: {list(update_data.keys())}")
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            logger.error(f"Error updating diagnosis {diagnosis_id}: {str(e)}")
+            raise
+    
     async def upload_video(self, file_data: bytes, file_path: str, access_token: str, bucket: str = "patient-videos") -> Optional[str]:
         try:
             try:

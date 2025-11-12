@@ -6,6 +6,8 @@ import os
 import base64
 import requests
 import jwt
+import json
+from pathlib import Path
 
 from models.analyze import AnalyzeXrayRequest, AnalyzeXrayResponse, SuggestChangesRequest, SuggestChangesResponse
 from pydantic import BaseModel
@@ -543,7 +545,8 @@ async def get_user_diagnoses(
                 "treatmentStages": diagnosis.get('treatment_stages', []),
                 "conditions": _extract_conditions(diagnosis.get('treatment_stages', [])),
                 "teethAnalyzed": _count_teeth(diagnosis.get('treatment_stages', [])),
-                "createdAt": diagnosis.get('created_at')
+                "createdAt": diagnosis.get('created_at'),
+                "emailSentAt": diagnosis.get('email_sent_at')  # ✅ Include email sent timestamp
             })
         
         return {
@@ -1818,40 +1821,135 @@ async def get_dental_conditions():
 
 @router.get("/dental-data/treatments")
 async def get_dental_treatments():
-    """Get list of dental treatments for dropdowns"""
-    treatments = [
-        {"value": "filling", "label": "Filling", "pinned": True},
-        {"value": "extraction", "label": "Extraction", "pinned": True},
-        {"value": "root-canal-treatment", "label": "Root canal treatment", "pinned": True},
-        {"value": "crown", "label": "Crown", "pinned": True},
-        {"value": "scale-and-clean", "label": "Scale and clean", "pinned": True},
-        {"value": "implant-placement", "label": "Implant placement", "pinned": True},
-        {"value": "bridge", "label": "Bridge", "pinned": True},
-        {"value": "periodontal-treatment", "label": "Periodontal treatment", "pinned": True},
-        {"value": "veneer", "label": "Veneer", "pinned": True},
-        {"value": "fluoride-treatment", "label": "Fluoride treatment", "pinned": True},
-        # Additional treatments
-        {"value": "composite-build-up", "label": "Composite build-up", "pinned": False},
-        {"value": "surgical-extraction", "label": "Surgical extraction", "pinned": False},
-        {"value": "deep-cleaning", "label": "Deep cleaning (Scaling & Root Planing)", "pinned": False},
-        {"value": "partial-denture", "label": "Partial denture", "pinned": False},
-        {"value": "complete-denture", "label": "Complete denture", "pinned": False},
-        {"value": "inlay", "label": "Inlay", "pinned": False},
-        {"value": "onlay", "label": "Onlay", "pinned": False},
-        {"value": "whitening", "label": "Whitening", "pinned": False},
-        {"value": "bonding", "label": "Bonding", "pinned": False},
-        {"value": "sealant", "label": "Sealant", "pinned": False},
-    ]
+    """
+    ✅ NEW: Serve master treatment database (treatments.au.json)
     
-    return {
-        "status": "success",
-        "treatments": treatments
-    }
+    Returns complete treatment data including:
+    - code, displayName, friendlyPatientName
+    - category, description
+    - defaultDuration, defaultPriceAUD
+    - insuranceCodes (AU, US, UK, CA, NZ)
+    - autoMapConditions, toothNumberRules
+    - replacementOptions, metadata
+    """
+    try:
+        # Get the path to the treatments.au.json file
+        # Assuming server is running from /server directory
+        base_dir = Path(__file__).parent.parent.parent  # Go up to project root
+        treatments_path = base_dir / "client" / "src" / "data" / "treatments.au.json"
+        
+        # Check if file exists
+        if not treatments_path.exists():
+            logger.error(f"❌ Master treatment database not found at: {treatments_path}")
+            # Fallback to empty array with error
+            return {
+                "status": "error",
+                "message": "Master treatment database not found",
+                "treatments": []
+            }
+        
+        # Load and return the master database
+        with open(treatments_path, 'r', encoding='utf-8') as f:
+            treatments = json.load(f)
+        
+        logger.info(f"✅ Loaded {len(treatments)} treatments from master database")
+        
+        return {
+            "status": "success",
+            "treatments": treatments,
+            "count": len(treatments),
+            "source": "treatments.au.json"
+        }
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Error parsing treatments.au.json: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Invalid JSON in master database: {str(e)}")
+    except Exception as e:
+        logger.error(f"❌ Error loading master treatment database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load treatments: {str(e)}")
+
+
+@router.get("/dental-data/conditions-master")
+async def get_dental_conditions_master():
+    """
+    ✅ NEW: Serve master conditions database (conditions.core.json)
+    
+    Returns complete condition data including:
+    - value, label, urgency, category
+    """
+    try:
+        base_dir = Path(__file__).parent.parent.parent
+        conditions_path = base_dir / "client" / "src" / "data" / "conditions.core.json"
+        
+        if not conditions_path.exists():
+            logger.error(f"❌ Master conditions database not found at: {conditions_path}")
+            return {
+                "status": "error",
+                "message": "Master conditions database not found",
+                "conditions": []
+            }
+        
+        with open(conditions_path, 'r', encoding='utf-8') as f:
+            conditions = json.load(f)
+        
+        logger.info(f"✅ Loaded {len(conditions)} conditions from master database")
+        
+        return {
+            "status": "success",
+            "conditions": conditions,
+            "count": len(conditions),
+            "source": "conditions.core.json"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error loading master conditions database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load conditions: {str(e)}")
+
+
+@router.get("/dental-data/mappings-master")
+async def get_condition_mappings_master():
+    """
+    ✅ NEW: Serve master condition→treatment mappings (mappings.core.json)
+    
+    Returns complete mapping data including:
+    - condition, treatments (array with treatment code, priority, optional stage hint)
+    """
+    try:
+        base_dir = Path(__file__).parent.parent.parent
+        mappings_path = base_dir / "client" / "src" / "data" / "mappings.core.json"
+        
+        if not mappings_path.exists():
+            logger.error(f"❌ Master mappings database not found at: {mappings_path}")
+            return {
+                "status": "error",
+                "message": "Master mappings database not found",
+                "mappings": []
+            }
+        
+        with open(mappings_path, 'r', encoding='utf-8') as f:
+            mappings = json.load(f)
+        
+        logger.info(f"✅ Loaded {len(mappings)} condition mappings from master database")
+        
+        return {
+            "status": "success",
+            "mappings": mappings,
+            "count": len(mappings),
+            "source": "mappings.core.json"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error loading master mappings database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load mappings: {str(e)}")
 
 
 @router.get("/dental-data/treatment-suggestions/{condition}")
 async def get_treatment_suggestions(condition: str):
-    """Get suggested treatments for a specific condition"""
+    """
+    Get suggested treatments for a specific condition
+    
+    ✅ UPDATED: Now uses master mappings database for suggestions
+    """
     suggestions_map = {
         "caries": ["filling"],
         "periapical-lesion": ["root-canal-treatment"],
@@ -3559,6 +3657,19 @@ async def send_report_email(
             
             if email_sent:
                 logger.info(f"✅ Email with PDF sent successfully to {patient_email}")
+                
+                # Update diagnosis record with email sent timestamp
+                try:
+                    email_sent_at = datetime.now().isoformat()
+                    await supabase_service.update_diagnosis(
+                        report_id,
+                        {"email_sent_at": email_sent_at},
+                        token
+                    )
+                    logger.info(f"✅ Updated diagnosis {report_id} with email_sent_at timestamp")
+                except Exception as update_error:
+                    logger.warning(f"⚠️ Failed to update email_sent_at timestamp: {str(update_error)}")
+                    # Don't fail the request if timestamp update fails
             else:
                 logger.error(f"❌ Failed to send email to {patient_email}")
                 return {

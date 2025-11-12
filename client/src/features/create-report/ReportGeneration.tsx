@@ -215,6 +215,7 @@ const generateReportHTML = (data: any) => {
   const clinicEmail = clinicBranding?.email || '';
   const clinicWebsite = clinicBranding?.website || '';
   const primaryColor = clinicBranding?.primaryColor || '#1e88e5';
+  const secondaryColor = clinicBranding?.secondaryColor || '#666666';
   
   // Safety checks
   if (!findings || findings.length === 0) {
@@ -346,7 +347,7 @@ const generateReportHTML = (data: any) => {
   
   uniqueFindings.forEach((finding: any) => {
     treatmentItems.push({
-      procedure: getTreatmentFriendlyName(finding.treatment), // ✅ Use friendly patient name
+      procedure: TreatmentService.getDisplayName(finding.treatment), // ✅ Use display name for overview table
       adaCode: generateADACode(finding.treatment), // ✅ Use AU insurance code
       unitPrice: getTreatmentPrice(finding.treatment, finding.price),
       quantity: 1,
@@ -358,38 +359,34 @@ const generateReportHTML = (data: any) => {
 
   const groupedTreatments = groupTreatments(treatmentItems);
   
+  // ✅ Use clinic branding header template from settings
+  const headerTemplate = clinicBranding?.headerTemplate || `
+    <div style="background-color: ${primaryColor}; color: white; padding: 20px; display: flex; align-items: center; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        ${clinicLogo ? `
+          <img src="${clinicLogo}" alt="${clinicName} Logo" style="height: 50px; width: auto;" />
+        ` : `
+          <div style="width: 50px; height: 50px; background-color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <span style="color: ${primaryColor}; font-size: 24px;">🦷</span>
+          </div>
+        `}
+        <div>
+          <h1 style="font-size: 28px; font-weight: bold; margin: 0;">${clinicName}</h1>
+          ${clinicAddress ? `<p style="margin: 5px 0 0 0; opacity: 0.9;">${clinicAddress}</p>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
   // Generate the HTML with clinic branding
   const htmlContent = `
     <div class="report-container" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-      <!-- Clinic Header with Branding -->
-      <div style="background-color: ${primaryColor}; color: white; padding: 25px 20px; display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          ${clinicLogo ? `
-            <img src="${clinicLogo}" alt="${clinicName}" style="height: 50px; width: auto; max-width: 150px; object-fit: contain; background: white; padding: 5px; border-radius: 8px;" />
-          ` : ''}
-          <div>
-            <div style="font-size: 26px; font-weight: bold; margin-bottom: 5px;">${clinicName}</div>
-            ${clinicAddress ? `
-              <div style="font-size: 13px; opacity: 0.95; line-height: 1.4;">
-                ${clinicAddress}
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      </div>
+      <!-- Clinic Header from Template -->
+      ${headerTemplate}
 
       <!-- Patient Info & Title -->
       <div style="padding: 25px 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-        <h1 style="font-size: 28px; margin: 0 0 20px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
-        
-        <!-- Contact Info Block -->
-        <div style="margin: 0 0 20px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
-          <p style="margin: 0 0 8px 0; font-weight: 600; color: #111827;">${clinicName}</p>
-          ${clinicPhone ? `<p style="margin: 0 0 4px 0;"><strong>Phone:</strong> ${clinicPhone}</p>` : ''}
-          ${clinicEmail ? `<p style="margin: 0 0 4px 0;"><strong>Email:</strong> ${clinicEmail}</p>` : ''}
-          ${clinicWebsite ? `<p style="margin: 0 0 4px 0;"><strong>Website:</strong> ${clinicWebsite}</p>` : ''}
-        </div>
-        
+        <h1 style="font-size: 28px; margin: 0 0 10px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
         <p style="text-align: center; color: #6b7280; margin: 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
       </div>
 
@@ -433,6 +430,39 @@ const generateReportHTML = (data: any) => {
 
       <!-- Annotated X-Ray Section -->
       ${renderXraySection(reportImageUrl, data)}
+      
+      <!-- Clinic Footer from Template -->
+      ${clinicBranding?.footerTemplate || `
+        <div style="background-color: #f8f9fa; padding: 30px 20px; margin-top: 40px; border-top: 3px solid ${primaryColor};">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+              <h3 style="color: ${primaryColor}; margin: 0 0 10px 0;">${clinicName}</h3>
+              <div style="color: ${secondaryColor}; font-size: 14px;">
+                ${clinicAddress ? `<p style="margin: 2px 0;"><strong>Address:</strong> ${clinicAddress}</p>` : ''}
+                ${clinicPhone ? `<p style="margin: 2px 0;"><strong>Phone:</strong> ${clinicPhone}</p>` : ''}
+                ${clinicEmail ? `<p style="margin: 2px 0;"><strong>Email:</strong> ${clinicEmail}</p>` : ''}
+                ${clinicWebsite ? `<p style="margin: 2px 0;"><strong>Website:</strong> ${clinicWebsite}</p>` : ''}
+              </div>
+            </div>
+            <div style="text-align: center;">
+              <button style="background-color: ${primaryColor}; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
+                Book Your Next Appointment
+              </button>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: ${secondaryColor};">
+                Generated by Scanwise AI • ${new Date().toLocaleDateString()}
+              </p>
+            </div>
+            <div style="border-top: 1px solid #d1d5db; padding-top: 15px; margin-top: 20px; text-align: center; width: 100%;">
+              <p style="margin: 5px 0; color: #9ca3af; font-size: 11px; font-style: italic;">
+                This report contains confidential patient information
+              </p>
+              <p style="margin: 10px 0 0; color: #991b1b; font-size: 11px; font-weight: bold;">
+                For professional dental advice only - not a substitute for in-person examination
+              </p>
+            </div>
+          </div>
+        </div>
+      `}
     </div>
   `;
   
@@ -816,7 +846,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
               <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map((c: string) => getConditionDescription(c)).join(' ')}</p>
               
               <p style="margin-bottom: 15px;">
-                <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentDescription(treatmentKey)}
+                <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentFriendlyName(treatmentKey)} - ${getTreatmentDescription(treatmentKey)}
               </p>
               
               <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">

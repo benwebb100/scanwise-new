@@ -47,6 +47,7 @@ interface Report {
   findingsSummary?: string;
   s3Key?: string;
   patientEmail?: string;  // DICOM metadata
+  emailSentAt?: string;  // Timestamp when report was emailed to patient
 }
 
 interface Stats {
@@ -172,7 +173,8 @@ const Dashboard = () => {
         summary: diagnosis.summary,
         imageUrl: diagnosis.imageUrl,
         annotatedImageUrl: diagnosis.annotatedImageUrl,
-        source: 'manual' as const
+        source: 'manual' as const,
+        emailSentAt: diagnosis.emailSentAt || diagnosis.email_sent_at
       }));
       
       // Fetch AWS images
@@ -584,7 +586,7 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="p-6">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-full mx-auto px-4">
           {/* Welcome Section */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -731,12 +733,12 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Create New Report Button - Full Width, Centered */}
-          <div className="mb-8 flex justify-center">
+          {/* Create New Report Button - Full Width */}
+          <div className="mb-8">
             <Button 
               size="lg"
               onClick={() => navigate("/create-report")}
-              className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-xl px-12 py-6 w-full max-w-2xl"
+              className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-xl px-12 py-6 w-full"
             >
               <Plus className="mr-3 h-6 w-6" />
               Create New Report
@@ -868,9 +870,20 @@ const Dashboard = () => {
                               <p className="text-sm text-gray-600">Patient ID: {report.patientId}</p>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Badge className={getStatusColor(report.status)}>
-                                {report.status}
-                              </Badge>
+                              {report.emailSentAt ? (
+                                <div className="flex flex-col items-start space-y-1">
+                                  <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                                    Completed and Sent
+                                  </Badge>
+                                  <span className="text-xs text-gray-500">
+                                    Sent: {new Date(report.emailSentAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              ) : (
+                                <Badge className={getStatusColor(report.status)}>
+                                  {report.status}
+                                </Badge>
+                              )}
                               {report.source === 'aws_s3' && (
                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                                   <Cloud className="h-3 w-3 mr-1" />
