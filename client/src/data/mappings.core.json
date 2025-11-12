@@ -16,6 +16,30 @@
     ]
   },
   {
+    "condition": "bruxism",
+    "treatments": [
+      { "treatment": "splint_occlusal_nightguard", "priority": 1, "stage": 3 },
+      { "treatment": "occlusal_adjustment_per_quadrant", "priority": 2, "stage": 2 },
+      { "treatment": "splint_review_adjust", "priority": 3, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "crown-fracture",
+    "treatments": [
+      { "treatment": "trauma_fragment_reattach", "priority": 1, "stage": 1 },
+      { "treatment": "pulp_cap_direct", "priority": 2, "stage": 1 }
+    ]
+  },
+  {
+    "condition": "crowding",
+    "treatments": [
+      { "treatment": "records_photos_intraoral_extraoral", "priority": 1, "stage": 2 },
+      { "treatment": "records_study_models_scan", "priority": 2, "stage": 2 },
+      { "treatment": "ortho_clear_aligners_lite", "priority": 3, "stage": 3 },
+      { "treatment": "ortho_ipr_per_tooth", "priority": 4, "stage": 3 }
+    ]
+  },
+  {
     "condition": "calculus",
     "treatments": [
       { "treatment": "scale_clean_polish", "priority": 1, "stage": 2 }
@@ -26,7 +50,9 @@
     "treatments": [
       { "treatment": "resto_comp_two_surface_post", "priority": 1, "stage": 2 },
       { "treatment": "resto_comp_two_surface_ant", "priority": 2, "stage": 2 },
-      { "treatment": "resto_temp_cavosurface", "priority": 3, "stage": 1 }
+      { "treatment": "resto_temp_cavosurface", "priority": 3, "stage": 1 },
+      { "treatment": "paedo_pulpotomy_primary", "priority": 4, "stage": 2 },
+      { "treatment": "paedo_stainless_steel_crown", "priority": 5, "stage": 2 }
     ]
   },
   {
@@ -86,14 +112,27 @@
   {
     "condition": "existing-large-filling",
     "treatments": [
-      { "treatment": "crown_full_tooth_coloured", "priority": 1, "stage": 3 }
+      { "treatment": "resto_core_buildup_direct", "priority": 1, "stage": 2 },
+      { "treatment": "crown_full_tooth_coloured", "priority": 2, "stage": 3 }
     ]
   },
   {
     "condition": "failed_restoration",
     "treatments": [
       { "treatment": "resto_comp_two_surface_post", "priority": 1, "stage": 2 },
-      { "treatment": "onlay_inlay_indirect_tc", "priority": 2, "stage": 3 }
+      { "treatment": "onlay_inlay_indirect_tc", "priority": 2, "stage": 3 },
+      { "treatment": "crown_section_and_remove", "priority": 3, "stage": 2 },
+      { "treatment": "perio_crown_lengthening_per_tooth", "priority": 4, "stage": 2 },
+      { "treatment": "recement_veneer", "priority": 5, "stage": 2 },
+      { "treatment": "resto_core_buildup_direct", "priority": 6, "stage": 2 },
+      { "treatment": "resto_post_core_direct", "priority": 7, "stage": 2 }
+    ]
+  },
+  {
+    "condition": "flare_up_post_endo",
+    "treatments": [
+      { "treatment": "palliative_emergency_care", "priority": 1, "stage": 1 },
+      { "treatment": "medication_prescription", "priority": 2, "stage": 1 }
     ]
   },
   {
@@ -109,7 +148,9 @@
     "treatments": [
       { "treatment": "scale_clean_polish", "priority": 1, "stage": 2 },
       { "treatment": "oh_instructions", "priority": 2, "stage": 2 },
-      { "treatment": "fluoride_varnish", "priority": 3, "stage": 3 }
+      { "treatment": "fluoride_varnish", "priority": 3, "stage": 3 },
+      { "treatment": "perio_local_debridement_1to3", "priority": 4, "stage": 2 },
+      { "treatment": "perio_re_evaluation", "priority": 5, "stage": 3 }
     ]
   },
   {
@@ -122,39 +163,61 @@
   {
     "condition": "impacted-tooth",
     "treatments": [
-      { "treatment": "surg_surgical_extraction", "priority": 1, "stage": 1 },
-      { "treatment": "surg_exposure_unerupted", "priority": 2, "stage": 1 }
+      { "treatment": "radiograph_opg", "priority": 1, "stage": 1 },
+      { "treatment": "cbct_small_field", "priority": 2, "stage": 2 },
+      { "treatment": "surg_surgical_extraction", "priority": 3, "stage": 1 },
+      { "treatment": "surg_exposure_unerupted", "priority": 4, "stage": 1 }
     ]
   },
   {
     "condition": "impacted_tooth",
     "treatments": [
-      { "treatment": "surg_surgical_extraction", "priority": 1, "stage": 1 },
-      { "treatment": "surg_exposure_unerupted", "priority": 2, "stage": 1 }
+      { "treatment": "radiograph_opg", "priority": 1, "stage": 1 },
+      { "treatment": "cbct_small_field", "priority": 2, "stage": 2 },
+      { "treatment": "surg_surgical_extraction", "priority": 3, "stage": 1 },
+      { "treatment": "surg_exposure_unerupted", "priority": 4, "stage": 1 }
     ]
   },
   {
     "condition": "irreversible_pulpitis",
     "treatments": [
-      { "treatment": "endo_extirpation", "priority": 1, "stage": 1 },
-      { "treatment": "endo_rct_prep_1", "priority": 2, "stage": 2 },
-      { "treatment": "endo_rct_obt_1", "priority": 3, "stage": 2 }
+      { "treatment": "exam_limited_emergency", "priority": 1, "stage": 1 },
+      { "treatment": "radiograph_periapical_single", "priority": 2, "stage": 1 },
+      { "treatment": "endo_extirpation", "priority": 3, "stage": 1 },
+      { "treatment": "endo_rct_prep_1", "priority": 4, "stage": 2 },
+      { "treatment": "endo_rct_obt_1", "priority": 5, "stage": 2 }
     ]
   },
   {
     "condition": "missing_single_tooth",
     "treatments": [
-      { "treatment": "crown_implant_supported_tc", "priority": 1, "stage": 3 },
-      { "treatment": "bridge_abutment_crown_tc", "priority": 2, "stage": 3 },
-      { "treatment": "prost_partial_denture_resin_1to3", "priority": 3, "stage": 3 }
+      { "treatment": "radiograph_opg", "priority": 1, "stage": 1 },
+      { "treatment": "cbct_small_field", "priority": 2, "stage": 1 },
+      { "treatment": "implant_placement_simple", "priority": 3, "stage": 2 },
+      { "treatment": "bone_graft_localised", "priority": 4, "stage": 2 },
+      { "treatment": "sinus_lift_internal", "priority": 5, "stage": 2 },
+      { "treatment": "crown_implant_supported_tc", "priority": 6, "stage": 3 },
+      { "treatment": "bridge_abutment_crown_tc", "priority": 7, "stage": 3 },
+      { "treatment": "bridge_pontic_tc", "priority": 8, "stage": 3 },
+      { "treatment": "prost_partial_denture_resin_1to3", "priority": 9, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "mucositis_denture",
+    "treatments": [
+      { "treatment": "prost_denture_reline_chairside", "priority": 1, "stage": 2 },
+      { "treatment": "prost_denture_reline_lab", "priority": 2, "stage": 2 }
     ]
   },
   {
     "condition": "necrotic_pulp",
     "treatments": [
-      { "treatment": "endo_rct_prep_1", "priority": 1, "stage": 2 },
-      { "treatment": "endo_additional_irrigation_visit", "priority": 2, "stage": 2 },
-      { "treatment": "endo_rct_obt_1", "priority": 3, "stage": 2 }
+      { "treatment": "endo_rubber_dam_isolation", "priority": 1, "stage": 1 },
+      { "treatment": "endo_rct_prep_1", "priority": 2, "stage": 2 },
+      { "treatment": "endo_additional_irrigation_visit", "priority": 3, "stage": 2 },
+      { "treatment": "endo_rct_obt_1", "priority": 4, "stage": 2 },
+      { "treatment": "resto_core_buildup_post_endo", "priority": 5, "stage": 3 },
+      { "treatment": "crown_full_tooth_coloured", "priority": 6, "stage": 3 }
     ]
   },
   {
@@ -162,17 +225,22 @@
     "treatments": [
       { "treatment": "prost_partial_denture_resin_4plus", "priority": 1, "stage": 3 },
       { "treatment": "prost_partial_denture_cast_4plus", "priority": 2, "stage": 3 },
-      { "treatment": "surg_alveoloplasty_quadrant", "priority": 3, "stage": 2 }
+      { "treatment": "paedo_space_maintainer_fixed", "priority": 4, "stage": 3 }
     ]
   },
   {
     "condition": "periapical-lesion",
     "treatments": [
-      { "treatment": "endo_rct_prep_1", "priority": 1, "stage": 2 },
-      { "treatment": "endo_rct_obt_1", "priority": 2, "stage": 2 },
-      { "treatment": "endo_calcified_per_canal", "priority": 3, "stage": 2 },
-      { "treatment": "endo_remove_root_filling_per_canal", "priority": 4, "stage": 2 },
-      { "treatment": "endo_apicectomy_per_root", "priority": 5, "stage": 3 }
+      { "treatment": "endo_rubber_dam_isolation", "priority": 1, "stage": 1 },
+      { "treatment": "radiograph_periapical_single", "priority": 2, "stage": 1 },
+      { "treatment": "cbct_small_field", "priority": 3, "stage": 2 },
+      { "treatment": "endo_rct_prep_1", "priority": 4, "stage": 2 },
+      { "treatment": "resto_core_buildup_post_endo", "priority": 5, "stage": 3 },
+      { "treatment": "endo_rct_obt_1", "priority": 6, "stage": 2 },
+      { "treatment": "crown_full_tooth_coloured", "priority": 7, "stage": 3 },
+      { "treatment": "endo_calcified_per_canal", "priority": 8, "stage": 2 },
+      { "treatment": "endo_remove_root_filling_per_canal", "priority": 9, "stage": 2 },
+      { "treatment": "endo_apicectomy_per_root", "priority": 10, "stage": 3 }
     ]
   },
   {
@@ -189,13 +257,34 @@
     "condition": "pericoronitis",
     "treatments": [
       { "treatment": "surg_incision_drainage", "priority": 1, "stage": 1 },
-      { "treatment": "surg_surgical_extraction", "priority": 2, "stage": 1 }
+      { "treatment": "operculectomy", "priority": 2, "stage": 1 },
+      { "treatment": "surg_surgical_extraction", "priority": 3, "stage": 1 }
     ]
   },
   {
     "condition": "periodontal_abscess",
     "treatments": [
-      { "treatment": "surg_incision_drainage", "priority": 1, "stage": 1 }
+      { "treatment": "surg_incision_drainage", "priority": 1, "stage": 1 },
+      { "treatment": "perio_local_debridement_1to3", "priority": 2, "stage": 1 },
+      { "treatment": "perio_srp_quadrant", "priority": 3, "stage": 2 }
+    ]
+  },
+  {
+    "condition": "periodontitis_stage_i_ii",
+    "treatments": [
+      { "treatment": "perio_srp_quadrant", "priority": 1, "stage": 2 },
+      { "treatment": "perio_re_evaluation", "priority": 2, "stage": 2 },
+      { "treatment": "perio_maintenance", "priority": 3, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "periodontitis_stage_iii_iv",
+    "treatments": [
+      { "treatment": "perio_srp_quadrant", "priority": 1, "stage": 2 },
+      { "treatment": "perio_re_evaluation", "priority": 2, "stage": 2 },
+      { "treatment": "perio_flap_surgery_quadrant", "priority": 3, "stage": 3 },
+      { "treatment": "perio_splint_fibre_segment", "priority": 4, "stage": 3 },
+      { "treatment": "perio_maintenance", "priority": 5, "stage": 3 }
     ]
   },
   {
@@ -207,10 +296,76 @@
   {
     "condition": "symptomatic_apical_periodontitis",
     "treatments": [
-      { "treatment": "endo_extirpation", "priority": 1, "stage": 1 },
-      { "treatment": "endo_rct_prep_1", "priority": 2, "stage": 2 },
-      { "treatment": "endo_additional_irrigation_visit", "priority": 3, "stage": 2 },
-      { "treatment": "endo_rct_obt_1", "priority": 4, "stage": 2 }
+      { "treatment": "endo_rubber_dam_isolation", "priority": 1, "stage": 1 },
+      { "treatment": "endo_extirpation", "priority": 2, "stage": 1 },
+      { "treatment": "endo_rct_prep_1", "priority": 3, "stage": 2 },
+      { "treatment": "endo_additional_irrigation_visit", "priority": 4, "stage": 2 },
+      { "treatment": "resto_core_buildup_post_endo", "priority": 5, "stage": 3 },
+      { "treatment": "endo_rct_obt_1", "priority": 6, "stage": 2 },
+      { "treatment": "crown_full_tooth_coloured", "priority": 7, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "tooth-mobility",
+    "treatments": [
+      { "treatment": "perio_splint_fibre_segment", "priority": 1, "stage": 2 }
+    ]
+  },
+  {
+    "condition": "malocclusion",
+    "treatments": [
+      { "treatment": "records_photos_intraoral_extraoral", "priority": 1, "stage": 2 },
+      { "treatment": "records_study_models_scan", "priority": 2, "stage": 2 },
+      { "treatment": "ortho_clear_aligners_lite", "priority": 3, "stage": 3 },
+      { "treatment": "retainer_vacuum_form", "priority": 4, "stage": 3 },
+      { "treatment": "ortho_ipr_per_tooth", "priority": 5, "stage": 3 },
+      { "treatment": "ortho_review_short", "priority": 6, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "reversible_pulpitis",
+    "treatments": [
+      { "treatment": "pulp_cap_indirect", "priority": 1, "stage": 2 },
+      { "treatment": "pulp_cap_direct", "priority": 2, "stage": 2 }
+    ]
+  },
+  {
+    "condition": "soft_tissue_lesion_suspect",
+    "treatments": [
+      { "treatment": "soft_tissue_biopsy_incisional", "priority": 1, "stage": 2 },
+      { "treatment": "soft_tissue_biopsy_excisional", "priority": 2, "stage": 2 },
+      { "treatment": "soft_tissue_excision_small", "priority": 3, "stage": 2 }
+    ]
+  },
+  {
+    "condition": "spacing",
+    "treatments": [
+      { "treatment": "records_photos_intraoral_extraoral", "priority": 1, "stage": 2 },
+      { "treatment": "records_study_models_scan", "priority": 2, "stage": 2 },
+      { "treatment": "ortho_clear_aligners_lite", "priority": 3, "stage": 3 },
+      { "treatment": "ortho_review_short", "priority": 4, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "tmj_pain_dysfunction",
+    "treatments": [
+      { "treatment": "splint_occlusal_nightguard", "priority": 1, "stage": 2 },
+      { "treatment": "occlusal_adjustment_per_quadrant", "priority": 2, "stage": 2 },
+      { "treatment": "splint_review_adjust", "priority": 3, "stage": 3 }
+    ]
+  },
+  {
+    "condition": "trauma_fracture_crown",
+    "treatments": [
+      { "treatment": "trauma_fragment_reattach", "priority": 1, "stage": 1 },
+      { "treatment": "pulp_cap_direct", "priority": 2, "stage": 1 }
+    ]
+  },
+  {
+    "condition": "trauma_luxation",
+    "treatments": [
+      { "treatment": "trauma_reposition_luxation", "priority": 1, "stage": 1 },
+      { "treatment": "trauma_splint_flexible", "priority": 2, "stage": 1 }
     ]
   },
   {

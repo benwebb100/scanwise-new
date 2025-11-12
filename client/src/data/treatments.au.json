@@ -1,5 +1,57 @@
 [
   {
+    "code": "bridge_abutment_crown_tc",
+    "displayName": "Bridge Abutment Crown — Tooth-Coloured (per abutment)",
+    "friendlyPatientName": "Bridge abutment crown",
+    "category": "prosthodontics",
+    "description": "Tooth-coloured full-coverage abutment crown for fixed partial denture.",
+    "defaultDuration": 80,
+    "defaultPriceAUD": 1300,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true,
+      "perUnit": "abutment"
+    }
+  },
+  {
+    "code": "bridge_pontic_tc",
+    "displayName": "Bridge Pontic — Tooth-Coloured (per unit)",
+    "friendlyPatientName": "Bridge pontic (tooth-coloured)",
+    "category": "prosthodontics",
+    "description": "Tooth-coloured artificial tooth in a fixed bridge to replace a missing tooth.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 900,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true,
+      "perUnit": "pontic"
+    }
+  },
+  {
     "code": "crown_full_tooth_coloured",
     "displayName": "Crown — Full Tooth-Coloured",
     "friendlyPatientName": "Full crown (tooth-coloured)",
@@ -25,6 +77,30 @@
     "metadata": {
       "labWork": true,
       "postEndoRecommended": true
+    }
+  },
+  {
+    "code": "crown_implant_supported_tc",
+    "displayName": "Implant-Supported Crown — Tooth-Coloured",
+    "friendlyPatientName": "Implant crown (tooth-coloured)",
+    "category": "prosthodontics",
+    "description": "Final tooth-coloured crown supported by a dental implant.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 1800,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
     }
   },
   {
@@ -565,6 +641,76 @@
     "metadata": {}
   },
   {
+    "code": "implant_abutment_placement",
+    "displayName": "Implant Abutment Placement",
+    "friendlyPatientName": "Place implant abutment",
+    "category": "prosthodontics",
+    "description": "Fit and torque the implant abutment in preparation for the definitive crown.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 250,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "implant_crown_temp",
+    "displayName": "Provisional Implant Crown",
+    "friendlyPatientName": "Temporary implant crown",
+    "category": "prosthodontics",
+    "description": "Provisional crown on implant to shape soft tissue and aesthetics before definitive crown.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 350,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "provisional": true
+    }
+  },
+  {
+    "code": "implant_impression",
+    "displayName": "Implant Impression / Scan",
+    "friendlyPatientName": "Implant impression/scan",
+    "category": "prosthodontics",
+    "description": "Implant level impression or digital scan for fabrication of implant crown.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 250,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
     "code": "oh_instructions",
     "displayName": "Oral Hygiene Instructions",
     "friendlyPatientName": "Home-care coaching",
@@ -631,6 +777,397 @@
         47
       ]
     },
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "perio_crown_lengthening_per_tooth",
+    "displayName": "Crown Lengthening — per tooth",
+    "friendlyPatientName": "Crown lengthening",
+    "category": "periodontics",
+    "description": "Surgical adjustment of gingiva/bone to expose sound tooth structure for restorative margins.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 650,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "fractured_cusp_restorable"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true,
+      "perUnit": "tooth"
+    }
+  },
+  {
+    "code": "perio_flap_surgery_quadrant",
+    "displayName": "Periodontal Flap Surgery — per quadrant",
+    "friendlyPatientName": "Gum surgery (per quadrant)",
+    "category": "periodontics",
+    "description": "Open flap debridement to access root surfaces and bony defects in advanced periodontitis.",
+    "defaultDuration": 75,
+    "defaultPriceAUD": 850,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periodontitis_stage_iii_iv"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true,
+      "perUnit": "quadrant"
+    }
+  },
+  {
+    "code": "perio_local_debridement_1to3",
+    "displayName": "Local Debridement — 1–3 teeth",
+    "friendlyPatientName": "Local deep clean (1–3 teeth)",
+    "category": "periodontics",
+    "description": "Targeted periodontal debridement for 1–3 teeth with localized disease.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 130,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periodontitis_stage_i_ii",
+      "periodontitis_stage_iii_iv",
+      "periodontal_abscess"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "perio_maintenance",
+    "displayName": "Periodontal Maintenance Visit",
+    "friendlyPatientName": "Perio maintenance",
+    "category": "periodontics",
+    "description": "Supportive periodontal care after active therapy; tailored debridement and reinforcement of home care.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 170,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periodontitis_stage_i_ii",
+      "periodontitis_stage_iii_iv"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "perio_re_evaluation",
+    "displayName": "Periodontal Re-evaluation",
+    "friendlyPatientName": "Perio review visit",
+    "category": "periodontics",
+    "description": "Reassessment of periodontal status after initial therapy; records pockets, bleeding, and stability.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 90,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periodontitis_stage_i_ii",
+      "periodontitis_stage_iii_iv",
+      "gingivitis_plaque"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "perio_soft_tissue_graft_local",
+    "displayName": "Soft Tissue Graft — Localised",
+    "friendlyPatientName": "Gum graft (localised)",
+    "category": "periodontics",
+    "description": "Localised mucogingival graft to increase keratinised tissue or root coverage.",
+    "defaultDuration": 75,
+    "defaultPriceAUD": 950,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "dentine_hypersensitivity",
+      "tooth_wear_abfraction",
+      "tooth_wear_erosion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "perio_srp_quadrant",
+    "displayName": "Scaling & Root Planing — per quadrant",
+    "friendlyPatientName": "Deep clean (per quadrant)",
+    "category": "periodontics",
+    "description": "Non-surgical debridement of root surfaces to reduce periodontal pocketing and inflammation.",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 280,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periodontitis_stage_i_ii",
+      "periodontitis_stage_iii_iv",
+      "periodontal_abscess"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "quadrant"
+    }
+  },
+  {
+    "code": "prost_denture_reline_chairside",
+    "displayName": "Denture Reline — Chairside",
+    "friendlyPatientName": "Chairside denture reline",
+    "category": "prosthodontics",
+    "description": "Chairside soft or hard reline to improve denture fit.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 260,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "mucositis_denture",
+      "complete_edentulism",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "prost_denture_reline_lab",
+    "displayName": "Denture Reline — Laboratory",
+    "friendlyPatientName": "Lab denture reline",
+    "category": "prosthodontics",
+    "description": "Laboratory-processed reline for improved durability and fit.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 320,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "mucositis_denture",
+      "complete_edentulism",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "prost_denture_repair_simple",
+    "displayName": "Denture Repair — Simple",
+    "friendlyPatientName": "Simple denture repair",
+    "category": "prosthodontics",
+    "description": "Simple acrylic repair (e.g., crack repair) with or without impression.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 140,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "complete_edentulism",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "prost_denture_tooth_addition",
+    "displayName": "Denture Tooth Addition",
+    "friendlyPatientName": "Add tooth to denture",
+    "category": "prosthodontics",
+    "description": "Add an artificial tooth to an existing denture after extraction or tooth loss.",
+    "defaultDuration": 25,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "partial_edentulism",
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "prost_full_denture_lower",
+    "displayName": "Full Lower Denture",
+    "friendlyPatientName": "Full lower denture",
+    "category": "prosthodontics",
+    "description": "Complete mandibular denture replacing all lower teeth.",
+    "defaultDuration": 120,
+    "defaultPriceAUD": 1600,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "complete_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "prost_full_denture_upper",
+    "displayName": "Full Upper Denture",
+    "friendlyPatientName": "Full upper denture",
+    "category": "prosthodontics",
+    "description": "Complete maxillary denture replacing all upper teeth.",
+    "defaultDuration": 120,
+    "defaultPriceAUD": 1600,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "complete_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "prost_partial_denture_cast_4plus",
+    "displayName": "Partial Denture — Cast Metal (4+ teeth)",
+    "friendlyPatientName": "Cast metal partial denture",
+    "category": "prosthodontics",
+    "description": "Cast cobalt–chromium framework partial denture for durability and comfort.",
+    "defaultDuration": 110,
+    "defaultPriceAUD": 1600,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "prost_partial_denture_resin_1to3",
+    "displayName": "Partial Denture — Resin Base (1–3 teeth)",
+    "friendlyPatientName": "Partial denture (resin, 1–3 teeth)",
+    "category": "prosthodontics",
+    "description": "Acrylic partial denture replacing up to three teeth.",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 900,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "prost_partial_denture_resin_4plus",
+    "displayName": "Partial Denture — Resin Base (4+ teeth)",
+    "friendlyPatientName": "Partial denture (resin, 4+ teeth)",
+    "category": "prosthodontics",
+    "description": "Acrylic partial denture replacing four or more teeth.",
+    "defaultDuration": 100,
+    "defaultPriceAUD": 1100,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
     "replacementOptions": [],
     "metadata": {
       "labWork": true
@@ -977,6 +1514,32 @@
     "toothNumberRules": {},
     "replacementOptions": [],
     "metadata": {}
+  },
+  {
+    "code": "splint_occlusal_nightguard",
+    "displayName": "Occlusal Splint / Night Guard",
+    "friendlyPatientName": "Night guard (splint)",
+    "category": "functional",
+    "description": "Custom occlusal splint to protect teeth from bruxism and reduce TMJ/muscle symptoms.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 500,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "bruxism",
+      "tmj_pain_dysfunction",
+      "tooth_wear_attrition"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
   },
   {
     "code": "surg_alveoloplasty_quadrant",
@@ -1333,5 +1896,1230 @@
     "toothNumberRules": {},
     "replacementOptions": [],
     "metadata": {}
+  },
+  {
+    "code": "haemostasis_pack_suture",
+    "displayName": "Haemostasis / Pack and Suture",
+    "friendlyPatientName": "Stop bleeding (pack/suture)",
+    "category": "oral-surgery",
+    "description": "Control bleeding with packing and/or suturing after extraction or soft-tissue injury.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "dry_socket",
+      "trauma_luxation",
+      "trauma_fracture_crown"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "medication_prescription",
+    "displayName": "Medication Prescription (Antibiotics/Analgesics)",
+    "friendlyPatientName": "Prescription (medication)",
+    "category": "emergency",
+    "description": "Prescribe appropriate medication for dental infection or pain with instructions.",
+    "defaultDuration": 5,
+    "defaultPriceAUD": 30,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical_abscess",
+      "periodontal_abscess",
+      "pericoronitis",
+      "dry_socket",
+      "flare_up_post_endo"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "occlusal_adjustment_per_quadrant",
+    "displayName": "Occlusal Adjustment — per quadrant",
+    "friendlyPatientName": "Bite adjustment (per quadrant)",
+    "category": "functional",
+    "description": "Selective grinding/polishing to improve occlusal contacts and comfort.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "bruxism",
+      "tmj_pain_dysfunction",
+      "cracked_tooth_vital"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "quadrant"
+    }
+  },
+  {
+    "code": "ortho_clear_aligners_lite",
+    "displayName": "Clear Aligners — Lite Case",
+    "friendlyPatientName": "Clear aligners (lite)",
+    "category": "orthodontics",
+    "description": "Short-course clear aligner therapy for mild crowding/spacing.",
+    "defaultDuration": 0,
+    "defaultPriceAUD": 3500,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "program": true
+    }
+  },
+  {
+    "code": "palliative_emergency_care",
+    "displayName": "Palliative Emergency Care",
+    "friendlyPatientName": "Emergency palliative care",
+    "category": "emergency",
+    "description": "Short appointment for symptomatic relief (e.g., smoothing sharp edges, temporary dressing).",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 90,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "fracture",
+      "crown-fracture",
+      "failed_restoration",
+      "flare_up_post_endo"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "pulp_cap_direct",
+    "displayName": "Direct Pulp Cap",
+    "friendlyPatientName": "Direct pulp cap",
+    "category": "restorative",
+    "description": "Biocompatible material applied directly to a small pulpal exposure to maintain vitality.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 150,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "reversible_pulpitis",
+      "caries_dentine",
+      "trauma_fracture_crown"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "pulp_cap_indirect",
+    "displayName": "Indirect Pulp Cap",
+    "friendlyPatientName": "Indirect pulp cap",
+    "category": "restorative",
+    "description": "Protective liner placed over near-exposed dentine to avoid pulp exposure.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "reversible_pulpitis",
+      "caries_dentine"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "pulpotomy_permanent",
+    "displayName": "Pulpotomy — Permanent Tooth (Emergency)",
+    "friendlyPatientName": "Emergency pulpotomy",
+    "category": "endodontics",
+    "description": "Partial pulp removal to relieve pain and preserve radicular vitality pending definitive care.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 240,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "recement_bridge",
+    "displayName": "Re-cement Bridge",
+    "friendlyPatientName": "Re-cement bridge",
+    "category": "prosthodontics",
+    "description": "Clean and re-cement a de-bonded fixed partial denture.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "recement_crown",
+    "displayName": "Re-cement Crown",
+    "friendlyPatientName": "Re-cement crown",
+    "category": "restorative",
+    "description": "Clean and re-cement a de-bonded crown.",
+    "defaultDuration": 25,
+    "defaultPriceAUD": 160,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "resto_core_buildup_direct",
+    "displayName": "Core Build-up — Direct",
+    "friendlyPatientName": "Core build-up",
+    "category": "restorative",
+    "description": "Direct build-up to replace missing coronal structure prior to crown.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 260,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "existing-large-filling",
+      "fractured_cusp_restorable",
+      "cracked_tooth_vital"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "resto_post_core_cast",
+    "displayName": "Post and Core — Cast/Lab",
+    "friendlyPatientName": "Post and core (cast)",
+    "category": "restorative",
+    "description": "Laboratory-fabricated cast post and core for severely compromised teeth.",
+    "defaultDuration": 50,
+    "defaultPriceAUD": 650,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "existing-large-filling"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true,
+      "postEndo": true
+    }
+  },
+  {
+    "code": "resto_post_core_direct",
+    "displayName": "Post and Core — Direct",
+    "friendlyPatientName": "Post and core (direct)",
+    "category": "restorative",
+    "description": "Placement of a prefabricated post and direct core in a root-filled tooth.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 420,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "existing-large-filling",
+      "periapical-lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "postEndo": true
+    }
+  },
+  {
+    "code": "retainer_fixed_bonded",
+    "displayName": "Fixed Bonded Retainer (per arch)",
+    "friendlyPatientName": "Bonded retainer (per arch)",
+    "category": "orthodontics",
+    "description": "Bonded lingual wire retainer for post-orthodontic retention.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 380,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "retainer_vacuum_form",
+    "displayName": "Vacuum-Formed Retainer (per arch)",
+    "friendlyPatientName": "Clear retainer (per arch)",
+    "category": "orthodontics",
+    "description": "Fabrication of a vacuum-formed retainer for retention after orthodontics.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "soft_tissue_biopsy_excisional",
+    "displayName": "Soft Tissue Biopsy — Excisional",
+    "friendlyPatientName": "Biopsy (remove lesion)",
+    "category": "oral-surgery",
+    "description": "Excisional biopsy and removal of small soft tissue lesion for histopathology.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 420,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "soft_tissue_lesion_suspect"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "soft_tissue_biopsy_incisional",
+    "displayName": "Soft Tissue Biopsy — Incisional",
+    "friendlyPatientName": "Biopsy (small sample)",
+    "category": "oral-surgery",
+    "description": "Incisional biopsy of a suspicious soft tissue lesion for histopathology.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 280,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "soft_tissue_lesion_suspect"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "splint_review_adjust",
+    "displayName": "Splint Review / Adjustment",
+    "friendlyPatientName": "Night guard adjustment",
+    "category": "functional",
+    "description": "Review and minor adjustment of existing occlusal splint.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 80,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "bruxism",
+      "tmj_pain_dysfunction"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "suture_removal",
+    "displayName": "Suture Removal",
+    "friendlyPatientName": "Remove stitches",
+    "category": "oral-surgery",
+    "description": "Removal of sutures following dental surgery.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 40,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "trauma_fragment_reattach",
+    "displayName": "Fragment Re-attachment",
+    "friendlyPatientName": "Glue tooth fragment",
+    "category": "restorative",
+    "description": "Bonding of fractured crown fragment when available and viable.",
+    "defaultDuration": 35,
+    "defaultPriceAUD": 240,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "trauma_fracture_crown",
+      "crown-fracture"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "trauma_reposition_luxation",
+    "displayName": "Reposition and Stabilise (Luxation)",
+    "friendlyPatientName": "Reposition and stabilise tooth",
+    "category": "oral-surgery",
+    "description": "Reposition luxated tooth and apply short-term stabilisation.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 360,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "trauma_luxation"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "trauma_splint_flexible",
+    "displayName": "Flexible Splint — Placement",
+    "friendlyPatientName": "Place flexible splint",
+    "category": "restorative",
+    "description": "Place flexible splint to stabilise teeth following trauma or replantation.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "trauma_luxation",
+      "trauma_avulsion",
+      "trauma_fracture_crown"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "trauma_splint_remove",
+    "displayName": "Flexible Splint — Removal",
+    "friendlyPatientName": "Remove splint",
+    "category": "restorative",
+    "description": "Remove flexible splint and polish after healing period.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "trauma_luxation",
+      "trauma_avulsion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "bone_graft_localised",
+    "displayName": "Localised Bone Graft (Guided Bone Regeneration)",
+    "friendlyPatientName": "Local bone graft",
+    "category": "oral-surgery",
+    "description": "Particulate graft/membrane at implant site or extraction socket to augment ridge.",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 900,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "retained_root",
+      "tooth_nonrestorable"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true,
+      "adjunct": true
+    }
+  },
+  {
+    "code": "cbct_small_field",
+    "displayName": "CBCT — Small Field (per site)",
+    "friendlyPatientName": "3D scan (small area)",
+    "category": "general",
+    "description": "Small field-of-view CBCT for endodontic, implant, or surgical planning.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 180,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical-lesion",
+      "impacted_tooth",
+      "retained_root",
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "exam_comprehensive_new_pt",
+    "displayName": "Comprehensive Examination — New Patient",
+    "friendlyPatientName": "Comprehensive check-up (new patient)",
+    "category": "general",
+    "description": "Full mouth examination with charting, risk assessment, and treatment planning.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 120,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "exam_limited_emergency",
+    "displayName": "Limited Examination — Emergency",
+    "friendlyPatientName": "Emergency exam",
+    "category": "emergency",
+    "description": "Problem-focused exam for acute pain, infection, or trauma.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 60,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "periapical_abscess",
+      "trauma_luxation",
+      "dry_socket"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "stageHint": 1
+    }
+  },
+  {
+    "code": "exam_periodic",
+    "displayName": "Periodic Examination",
+    "friendlyPatientName": "Routine check-up",
+    "category": "general",
+    "description": "Recall exam to review oral health and monitor previous treatment.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 70,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "frenectomy_labial_or_lingual",
+    "displayName": "Frenectomy — Labial or Lingual",
+    "friendlyPatientName": "Frenectomy",
+    "category": "oral-surgery",
+    "description": "Surgical release of labial or lingual frenum to improve function or hygiene.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 350,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "tmj_pain_dysfunction"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "implant_placement_complex",
+    "displayName": "Implant Fixture Placement — Complex",
+    "friendlyPatientName": "Implant placement (complex)",
+    "category": "oral-surgery",
+    "description": "Complex implant placement (limited ridge width/height or proximity to anatomy).",
+    "defaultDuration": 90,
+    "defaultPriceAUD": 2800,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "implant_placement_simple",
+    "displayName": "Implant Fixture Placement — Simple Site",
+    "friendlyPatientName": "Implant placement (simple)",
+    "category": "oral-surgery",
+    "description": "Surgical placement of a single implant in favourable bone (no grafting).",
+    "defaultDuration": 75,
+    "defaultPriceAUD": 2200,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "operculectomy",
+    "displayName": "Operculectomy",
+    "friendlyPatientName": "Remove gum flap (operculum)",
+    "category": "oral-surgery",
+    "description": "Excision of inflamed operculum over partially erupted tooth, often mandibular molar.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "pericoronitis"
+    ],
+    "toothNumberRules": {
+      "molarFDI": [
+        36,
+        37,
+        46,
+        47
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "paedo_pulpotomy_primary",
+    "displayName": "Pulpotomy — Primary Tooth",
+    "friendlyPatientName": "Pulpotomy (baby tooth)",
+    "category": "endodontics",
+    "description": "Removal of coronal pulp tissue with medicament placement to preserve radicular pulp vitality.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 240,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "reversible_pulpitis",
+      "caries_dentine"
+    ],
+    "toothNumberRules": {
+      "molarFDI": [
+        55,
+        54,
+        65,
+        64,
+        75,
+        74,
+        85,
+        84
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "paedo_space_maintainer_fixed",
+    "displayName": "Space Maintainer — Fixed (per arch)",
+    "friendlyPatientName": "Fixed space maintainer",
+    "category": "orthodontics",
+    "description": "Fixed appliance to maintain space following early loss of a primary tooth.",
+    "defaultDuration": 40,
+    "defaultPriceAUD": 380,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "paedo_stainless_steel_crown",
+    "displayName": "Stainless Steel Crown (Paediatric)",
+    "friendlyPatientName": "Kids' stainless steel crown",
+    "category": "restorative",
+    "description": "Preformed stainless steel crown for primary molar with extensive caries or after pulpotomy.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 320,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_dentine",
+      "caries_recurrent"
+    ],
+    "toothNumberRules": {
+      "molarFDI": [
+        55,
+        54,
+        65,
+        64,
+        75,
+        74,
+        85,
+        84
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "radiograph_bitewing_pair",
+    "displayName": "Bitewing Radiographs — Pair",
+    "friendlyPatientName": "Bitewing X-rays (2)",
+    "category": "general",
+    "description": "Two bitewing radiographs to assess interproximal caries and bone levels.",
+    "defaultDuration": 5,
+    "defaultPriceAUD": 50,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "caries_enamel",
+      "caries_dentine",
+      "caries_recurrent",
+      "periodontitis_stage_i_ii"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "radiograph_opg",
+    "displayName": "OPG / Panoramic Radiograph",
+    "friendlyPatientName": "Panoramic X-ray (OPG)",
+    "category": "general",
+    "description": "Panoramic radiograph for overall dentition, TMJ, and third molars.",
+    "defaultDuration": 5,
+    "defaultPriceAUD": 90,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "impacted_tooth",
+      "impacted-tooth",
+      "periodontitis_stage_iii_iv",
+      "retained_root"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "radiograph_periapical_single",
+    "displayName": "Periapical Radiograph — Single",
+    "friendlyPatientName": "Periapical X-ray",
+    "category": "general",
+    "description": "Single periapical radiograph for tooth-level assessment (endodontic/periapical).",
+    "defaultDuration": 5,
+    "defaultPriceAUD": 40,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical-lesion",
+      "symptomatic_apical_periodontitis",
+      "irreversible_pulpitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "sinus_lift_internal",
+    "displayName": "Internal Sinus Lift (Osteotome)",
+    "friendlyPatientName": "Internal sinus lift",
+    "category": "oral-surgery",
+    "description": "Transcrestal sinus floor elevation with grafting for posterior maxilla implant sites.",
+    "defaultDuration": 60,
+    "defaultPriceAUD": 1200,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "missing_single_tooth",
+      "partial_edentulism"
+    ],
+    "toothNumberRules": {
+      "molarFDI": [
+        16,
+        17,
+        26,
+        27
+      ]
+    },
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "soft_tissue_excision_small",
+    "displayName": "Soft Tissue Excision — Small Lesion",
+    "friendlyPatientName": "Remove small soft-tissue lesion",
+    "category": "oral-surgery",
+    "description": "Excision of small benign soft-tissue lesion (e.g., fibroma); may include histopathology referral.",
+    "defaultDuration": 25,
+    "defaultPriceAUD": 320,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "soft_tissue_lesion_suspect"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "surgical": true
+    }
+  },
+  {
+    "code": "crown_section_and_remove",
+    "displayName": "Crown Section & Removal",
+    "friendlyPatientName": "Remove old crown",
+    "category": "prosthodontics",
+    "description": "Section and remove a failed crown to allow new restorative or endodontic treatment.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 220,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "periapical-lesion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "endo_rubber_dam_isolation",
+    "displayName": "Rubber Dam Isolation (Endodontic/Restorative)",
+    "friendlyPatientName": "Rubber dam isolation",
+    "category": "endodontics",
+    "description": "Isolation with rubber dam for moisture control and safety during endodontic/restorative procedures.",
+    "defaultDuration": 5,
+    "defaultPriceAUD": 30,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "irreversible_pulpitis",
+      "necrotic_pulp",
+      "periapical-lesion",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "ortho_ipr_per_tooth",
+    "displayName": "Interproximal Reduction (per tooth)",
+    "friendlyPatientName": "Enamel reshaping between teeth",
+    "category": "orthodontics",
+    "description": "Enamel reduction to create space or improve contact points during orthodontic alignment.",
+    "defaultDuration": 10,
+    "defaultPriceAUD": 50,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "crowding",
+      "aesthetic_shape_alignment",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "perUnit": "tooth"
+    }
+  },
+  {
+    "code": "ortho_review_short",
+    "displayName": "Orthodontic Review — Short",
+    "friendlyPatientName": "Ortho review visit",
+    "category": "orthodontics",
+    "description": "Short review to check aligner/retainer progress and make minor adjustments.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 70,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "perio_splint_fibre_segment",
+    "displayName": "Periodontal Splint — Fibre (Segment)",
+    "friendlyPatientName": "Stabilise loose teeth (fibre splint)",
+    "category": "periodontics",
+    "description": "Fibre-reinforced composite splint to stabilise mobile teeth (segment).",
+    "defaultDuration": 45,
+    "defaultPriceAUD": 420,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "tooth-mobility",
+      "periodontitis_stage_iii_iv"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "recement_veneer",
+    "displayName": "Re-cement / Re-bond Veneer",
+    "friendlyPatientName": "Re-bond veneer",
+    "category": "restorative",
+    "description": "Clean and re-bond a de-bonded porcelain or composite veneer.",
+    "defaultDuration": 25,
+    "defaultPriceAUD": 160,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "failed_restoration",
+      "aesthetic_discolouration",
+      "aesthetic_shape_alignment"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "records_photos_intraoral_extraoral",
+    "displayName": "Records — Intra/Extra-oral Photos",
+    "friendlyPatientName": "Orthodontic photos",
+    "category": "orthodontics",
+    "description": "Standard records set of intraoral and extraoral photographs for assessment or treatment planning.",
+    "defaultDuration": 15,
+    "defaultPriceAUD": 80,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {}
+  },
+  {
+    "code": "records_study_models_scan",
+    "displayName": "Records — Study Models / Digital Scan",
+    "friendlyPatientName": "3D scan or study models",
+    "category": "orthodontics",
+    "description": "Impressions or intraoral scan for study models, analysis, and appliance fabrication.",
+    "defaultDuration": 20,
+    "defaultPriceAUD": 160,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "aesthetic_shape_alignment",
+      "crowding",
+      "spacing",
+      "malocclusion"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "labWork": true
+    }
+  },
+  {
+    "code": "resto_core_buildup_post_endo",
+    "displayName": "Core Build-up — Post-Endo",
+    "friendlyPatientName": "Core build-up after root canal",
+    "category": "restorative",
+    "description": "Core build-up to restore endodontically treated tooth prior to crown.",
+    "defaultDuration": 30,
+    "defaultPriceAUD": 280,
+    "insuranceCodes": {
+      "AU": null,
+      "US": null,
+      "UK": null,
+      "CA": null,
+      "NZ": null
+    },
+    "autoMapConditions": [
+      "periapical-lesion",
+      "necrotic_pulp",
+      "symptomatic_apical_periodontitis"
+    ],
+    "toothNumberRules": {},
+    "replacementOptions": [],
+    "metadata": {
+      "postEndo": true
+    }
   }
 ]
+
