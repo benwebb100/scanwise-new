@@ -222,31 +222,32 @@ const Settings = () => {
                     </div>
 
                     <div className="border-t pt-6">
-                    <h4 className="font-medium text-gray-900 mb-3">Treatment Duration Threshold</h4>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Set the maximum duration for treatment stages. Stages exceeding this duration 
-                      will show a warning badge in the Treatment Stage Editor.
-                    </p>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <input 
-                          type="number" 
-                          min="30" 
-                          max="300" 
-                          step="15"
-                          value={treatmentDurationThreshold}
-                          onChange={(e) => setTreatmentDurationThreshold(parseInt(e.target.value, 10) || 90)}
-                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <span className="text-sm text-gray-600">minutes</span>
+                      <h4 className="font-medium text-gray-900 mb-3">Treatment Duration Threshold</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Set the maximum duration for treatment stages. Stages exceeding this duration 
+                        will show a warning badge in the Treatment Stage Editor.
+                      </p>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="number" 
+                            min="30" 
+                            max="300" 
+                            step="15"
+                            value={treatmentDurationThreshold}
+                            onChange={(e) => setTreatmentDurationThreshold(parseInt(e.target.value, 10) || 90)}
+                            className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <span className="text-sm text-gray-600">minutes</span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ({Math.floor(treatmentDurationThreshold / 60)}h {treatmentDurationThreshold % 60}m)
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        ({Math.floor(treatmentDurationThreshold / 60)}h {treatmentDurationThreshold % 60}m)
-                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Common durations: 60min (1h), 90min (1.5h), 120min (2h), 180min (3h)
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Common durations: 60min (1h), 90min (1.5h), 120min (2h), 180min (3h)
-                    </p>
                   </div>
 
                   <div className="flex justify-end pt-6">
