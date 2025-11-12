@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Save, RotateCcw, Download, Upload, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
+import { TreatmentService } from '@/lib/treatment-service';
 
 // Types
 interface Treatment {
@@ -81,15 +82,17 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
         const treatmentsList: Treatment[] = [];
         const categoriesMap = new Map<string, TreatmentCategory>();
 
-        // Add treatments from backend
-        treatmentsResponse.forEach((treatment: any) => {
-          const category = treatment.category || 'general';
+        // ✅ NEW: Load treatments from MASTER DATABASE (treatments.au.json)
+        const allTreatments = TreatmentService.getAll();
+        
+        allTreatments.forEach((masterTreatment) => {
+          const category = masterTreatment.category || 'general';
           const treatmentItem: Treatment = {
-            value: treatment.code || treatment.name.toLowerCase().replace(/\s+/g, '_'),
-            label: treatment.name,
+            value: masterTreatment.code,
+            label: masterTreatment.displayName, // ✅ Professional display name
             category: category,
-            defaultDuration: treatment.default_duration || 30,
-            defaultPrice: treatment.default_price || 0
+            defaultDuration: masterTreatment.defaultDuration,
+            defaultPrice: masterTreatment.defaultPriceAUD
           };
           
           treatmentsList.push(treatmentItem);

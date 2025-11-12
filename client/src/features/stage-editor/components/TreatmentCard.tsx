@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { X, Clock, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TreatmentItem } from '../types/stage-editor.types';
 import { formatDuration, formatCurrency } from '../utils/stage-calculations';
+import { TreatmentService } from '@/lib/treatment-service';
 
 interface TreatmentCardProps {
   item: TreatmentItem;
@@ -64,8 +65,8 @@ export function TreatmentCard({
               </div>
               <div className="bg-blue-100 rounded px-2 py-1">
                 <p className="text-xs text-blue-600 uppercase tracking-wide">Treatment</p>
-                <p className="text-sm font-semibold text-blue-900 capitalize">
-                  {item.treatment.replace(/-/g, ' ')}
+                <p className="text-sm font-semibold text-blue-900">
+                  {TreatmentService.getFriendlyName(item.treatment)}
                 </p>
               </div>
             </div>

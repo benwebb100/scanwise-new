@@ -1,4 +1,5 @@
 import { SearchableSelectOption } from "@/components/ui/searchable-select"
+import { TreatmentService } from "@/lib/treatment-service"
 
 // Tooth Numbering Systems
 export type ToothNumberingSystem = 'FDI' | 'Universal'
@@ -138,7 +139,17 @@ export const ALL_CONDITIONS: SearchableSelectOption[] = [
   { value: 'trauma_fracture_crown', label: 'Dental Trauma – Crown Fracture' }
 ]
 
-// Common Treatments (pinned at top)
+/**
+ * @deprecated Legacy treatment data - MIGRATED to treatments.au.json
+ * 
+ * ⚠️ DO NOT ADD NEW TREATMENTS HERE.
+ * Use client/src/data/treatments.au.json instead via TreatmentService.
+ * 
+ * This section is kept only for backward compatibility during migration.
+ * Once migration is complete, these will be removed entirely.
+ */
+
+// Common Treatments (pinned at top) - LEGACY
 export const COMMON_TREATMENTS: SearchableSelectOption[] = [
   { value: 'filling', label: 'Filling', pinned: true },
   { value: 'extraction', label: 'Extraction', pinned: true },
@@ -152,8 +163,11 @@ export const COMMON_TREATMENTS: SearchableSelectOption[] = [
   { value: 'fluoride-treatment', label: 'Fluoride treatment', pinned: true }
 ]
 
-// Full list of treatments (expanded with comprehensive dental database)
-export const ALL_TREATMENTS: SearchableSelectOption[] = [
+// ✅ NEW: Full list of treatments from MASTER DATABASE (treatments.au.json)
+export const ALL_TREATMENTS: SearchableSelectOption[] = TreatmentService.toDropdownOptions();
+
+// LEGACY HARDCODED LIST (will be removed after migration complete)
+export const ALL_TREATMENTS_LEGACY: SearchableSelectOption[] = [
   ...COMMON_TREATMENTS,
   // Additional treatments
   { value: 'composite-build-up', label: 'Composite build-up' },
@@ -486,68 +500,28 @@ export function getSuggestedTreatments(condition: string): SearchableSelectOptio
   return [...suggestedOptions, ...otherTreatments]
 }
 
-// Smart treatment suggestion that works with database treatments
-export function getSmartTreatmentSuggestion(condition: string, availableTreatments: SearchableSelectOption[]): string | null {
-  const normalizedCondition = condition.toLowerCase().trim();
-  const suggestions = CONDITION_TREATMENT_SUGGESTIONS[normalizedCondition] || [];
+/**
+ * ✅ NEW: Smart Treatment Suggestion using MASTER DATABASE
+ * Uses autoMapConditions and toothNumberRules from treatments.au.json
+ * 
+ * @param condition - Condition code (e.g., "caries_dentine", "periapical-lesion")
+ * @param toothNumber - Optional FDI tooth number for tooth-specific mapping
+ * @returns Treatment code or null
+ */
+export function getSmartTreatmentSuggestion(condition: string, toothNumber?: number): string | null {
+  // Use master database auto-mapping
+  let treatments = TreatmentService.getByCondition(condition);
   
-  // Try to find the first suggested treatment that exists in the database
-  for (const suggestion of suggestions) {
-    const exists = availableTreatments.find(t => t.value === suggestion);
-    if (exists) {
-      return suggestion;
+  // Refine by tooth number if provided (uses toothNumberRules)
+  if (toothNumber) {
+    const toothSpecific = TreatmentService.getByConditionAndTooth(condition, toothNumber);
+    if (toothSpecific.length > 0) {
+      treatments = toothSpecific;
     }
   }
   
-  // Fallback: try to find similar treatments by partial matching
-  for (const suggestion of suggestions) {
-    // For caries -> filling, try to find any composite filling
-    if (suggestion.includes('resto_comp') || suggestion === 'filling') {
-      const compositeFillings = availableTreatments.filter(t => 
-        t.value.includes('resto_comp') || 
-        t.label.toLowerCase().includes('composite') ||
-        t.label.toLowerCase().includes('filling')
-      );
-      if (compositeFillings.length > 0) {
-        return compositeFillings[0].value;
-      }
-    }
-    
-    // For root canal treatments
-    if (suggestion.includes('endo_rct') || suggestion === 'root-canal-treatment') {
-      const rctTreatments = availableTreatments.filter(t => 
-        t.value.includes('endo_rct') || 
-        t.label.toLowerCase().includes('root canal')
-      );
-      if (rctTreatments.length > 0) {
-        return rctTreatments[0].value;
-      }
-    }
-    
-    // For extractions
-    if (suggestion.includes('surg_') && suggestion.includes('extraction')) {
-      const extractions = availableTreatments.filter(t => 
-        t.value.includes('extraction') || 
-        t.label.toLowerCase().includes('extraction')
-      );
-      if (extractions.length > 0) {
-        return extractions[0].value;
-      }
-    }
-    
-    // For crowns
-    if (suggestion.includes('crown')) {
-      const crowns = availableTreatments.filter(t => 
-        t.value.includes('crown') || 
-        t.label.toLowerCase().includes('crown')
-      );
-      if (crowns.length > 0) {
-        return crowns[0].value;
-      }
-    }
-  }
-  
-  return null;
+  // Return first match (highest priority based on autoMapConditions order)
+  return treatments.length > 0 ? treatments[0].code : null;
 }
 
 // Get replacement options for extracted teeth based on tooth number
@@ -596,7 +570,14 @@ export function getReplacementOptions(tooth: string): SearchableSelectOption[] {
   }
 }
 
-// Default pricing for treatments (expanded with comprehensive Australian dental pricing)
+/**
+ * @deprecated MIGRATED to treatments.au.json
+ * 
+ * Use TreatmentService.getDefaultPrice(code) instead.
+ * This object is kept only for backward compatibility during migration.
+ * 
+ * For new treatments, add pricing in treatments.au.json under defaultPriceAUD field.
+ */
 export const DEFAULT_TREATMENT_PRICES: Record<string, number> = {
   // Existing treatments (updated with more accurate pricing)
   'filling': 220,

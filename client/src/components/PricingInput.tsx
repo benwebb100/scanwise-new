@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { InfoIcon, DollarSign, Edit2, Check, X } from 'lucide-react'
 import { DEFAULT_TREATMENT_PRICES } from '@/data/dental-data'
+import { TreatmentService } from '@/lib/treatment-service'
 import { useTreatmentSettings } from '@/hooks/useTreatmentSettings'
 import { api } from '@/services/api'
 
@@ -34,7 +35,8 @@ export function PricingInput({
   // Check if we have a price for this treatment
   const treatmentSetting = getTreatmentSetting(treatment)
   const clinicPrice = treatmentSetting.price
-  const defaultPrice = DEFAULT_TREATMENT_PRICES[treatment]
+  // ✅ NEW: Use master database for default price
+  const defaultPrice = TreatmentService.getDefaultPrice(treatment) || DEFAULT_TREATMENT_PRICES[treatment] || 0
   // Use clinic price if it's greater than 0, otherwise use default price
   const knownPrice = (clinicPrice && clinicPrice > 0) ? clinicPrice : defaultPrice
   
@@ -390,7 +392,8 @@ export function useClinicPricing() {
 
   // Get price for a treatment (clinic price or default)
   const getPrice = (treatment: string): number | undefined => {
-    return clinicPrices[treatment] || DEFAULT_TREATMENT_PRICES[treatment]
+    // ✅ NEW: Priority: Clinic override > Master DB > Legacy
+    return clinicPrices[treatment] || TreatmentService.getDefaultPrice(treatment) || DEFAULT_TREATMENT_PRICES[treatment]
   }
 
   // Check if all treatments in a list have prices
