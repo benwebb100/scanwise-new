@@ -77,18 +77,32 @@ export const FindingsManagement = ({
     
     // Auto-suggest treatments when condition changes
     if (field === 'condition' && typeof value === 'string' && value !== '') {
-      if (!updated[idx].treatment) {
-        // Use smart treatment suggestion that works with database treatments
-        const treatmentOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
-        const recommendedTreatment = getSmartTreatmentSuggestion(value, treatmentOptions);
+      // Always auto-map treatment when condition changes
+      // Extract tooth number from finding for tooth-specific mapping
+      const toothNumber = updated[idx].tooth ? parseInt(updated[idx].tooth) : undefined;
+      const recommendedTreatment = getSmartTreatmentSuggestion(value, toothNumber);
+      
+      if (recommendedTreatment) {
+        updated[idx].treatment = recommendedTreatment;
         
-        if (recommendedTreatment) {
-          updated[idx].treatment = recommendedTreatment;
-          
-          const price = getPrice(recommendedTreatment);
-          if (price) {
-            updated[idx].price = price;
-          }
+        const price = getPrice(recommendedTreatment);
+        if (price) {
+          updated[idx].price = price;
+        }
+      }
+    }
+    
+    // Also auto-map treatment when tooth changes (if condition is already set)
+    if (field === 'tooth' && typeof value === 'string' && value !== '' && updated[idx].condition) {
+      const toothNumber = parseInt(value);
+      const recommendedTreatment = getSmartTreatmentSuggestion(updated[idx].condition, toothNumber);
+      
+      if (recommendedTreatment && recommendedTreatment !== updated[idx].treatment) {
+        updated[idx].treatment = recommendedTreatment;
+        
+        const price = getPrice(recommendedTreatment);
+        if (price) {
+          updated[idx].price = price;
         }
       }
     }

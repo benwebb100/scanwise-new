@@ -28,6 +28,10 @@ const Settings = () => {
     const saved = localStorage.getItem('videoNarrationLanguage');
     return (saved as 'english' | 'bulgarian') || 'english'; // Default to English
   });
+  const [generateVideosAutomatically, setGenerateVideosAutomatically] = useState<boolean>(() => {
+    const saved = localStorage.getItem('generateVideosAutomatically');
+    return saved === null ? true : saved === 'true'; // Default to true
+  });
 
   const handleBrandingSave = async (brandingData: any) => {
     try {
@@ -205,18 +209,8 @@ const Settings = () => {
                         <label className="flex items-center space-x-3">
                           <input 
                             type="checkbox" 
-                            defaultChecked 
-                            className="text-blue-600"
-                          />
-                          <div>
-                            <span className="font-medium">Show AI confidence scores by default</span>
-                            <p className="text-sm text-gray-500">Display AI detection confidence levels in reports</p>
-                          </div>
-                        </label>
-                        <label className="flex items-center space-x-3">
-                          <input 
-                            type="checkbox" 
-                            defaultChecked 
+                            checked={generateVideosAutomatically}
+                            onChange={(e) => setGenerateVideosAutomatically(e.target.checked)}
                             className="text-blue-600"
                           />
                           <div>
@@ -224,22 +218,10 @@ const Settings = () => {
                             <p className="text-sm text-gray-500">Create educational videos for patients when analyzing X-rays</p>
                           </div>
                         </label>
-                        <label className="flex items-center space-x-3">
-                          <input 
-                            type="checkbox" 
-                            defaultChecked 
-                            className="text-blue-600"
-                          />
-                          <div>
-                            <span className="font-medium">Auto-suggest treatments based on conditions</span>
-                            <p className="text-sm text-gray-500">Automatically suggest relevant treatments when conditions are selected</p>
-                          </div>
-                        </label>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div>
+
+                    <div className="border-t pt-6">
                     <h4 className="font-medium text-gray-900 mb-3">Treatment Duration Threshold</h4>
                     <p className="text-sm text-gray-600 mb-4">
                       Set the maximum duration for treatment stages. Stages exceeding this duration 
@@ -273,9 +255,13 @@ const Settings = () => {
                       onClick={() => {
                         localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
                         localStorage.setItem('treatmentDurationThreshold', treatmentDurationThreshold.toString());
+                        localStorage.setItem('generateVideosAutomatically', generateVideosAutomatically.toString());
                         
                         // Dispatch custom event to notify other components
                         window.dispatchEvent(new CustomEvent('treatmentDurationThresholdChanged'));
+                        window.dispatchEvent(new CustomEvent('generateVideosSettingChanged', { 
+                          detail: { enabled: generateVideosAutomatically } 
+                        }));
                         
                         toast({
                           title: "Settings Saved",

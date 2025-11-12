@@ -4067,25 +4067,26 @@ const CreateReport = () => {
   };
 
   const handleContinueEditingStages = () => {
-    if (currentTreatmentStages && currentTreatmentStages.length > 0) {
-      setIsStageEditorOpen(true);
-    } else {
-      const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
-      if (validFindings.length === 0) {
-        toast({
-          title: "No Findings",
-          description: "Please add some findings first.",
-          variant: "destructive",
-        });
-        return;
-      }
-      openStageEditorWithFindings({
-        validFindings,
-        useXrayMode,
-        patientName,
-        patientObservations
+    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+    
+    if (validFindings.length === 0) {
+      toast({
+        title: "No Findings",
+        description: "Please add some findings first.",
+        variant: "destructive",
       });
+      return;
     }
+    
+    // ✅ ALWAYS regenerate stages from current findings
+    // This ensures the stage editor reflects any added/removed findings
+    // If stages were previously edited, they'll be merged with new findings
+    openStageEditorWithFindings({
+      validFindings,
+      useXrayMode,
+      patientName,
+      patientObservations
+    });
   };
 
   const handleSaveStageEdits = (editedStages: any[]) => {

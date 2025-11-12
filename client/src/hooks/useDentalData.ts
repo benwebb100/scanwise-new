@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
+import { TreatmentService } from '@/lib/treatment-service';
 import { SearchableSelectOption } from '@/components/ui/searchable-select';
 
 interface DentalDataState {
@@ -25,11 +26,12 @@ export function useDentalData() {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      // Load both conditions and treatments from database
-      const [conditionsData, treatmentsData] = await Promise.all([
-        api.getDentalConditions(),
-        api.getDentalTreatments()
-      ]);
+      // Load conditions from backend API
+      // Load treatments from master database (TreatmentService)
+      const conditionsData = await api.getDentalConditions();
+      
+      // ✅ Use TreatmentService to get ALL treatments from master database
+      const allTreatments = TreatmentService.getAll();
 
       // Transform conditions to SearchableSelectOption format
       const conditions: SearchableSelectOption[] = conditionsData.map((condition: any) => ({
@@ -38,12 +40,9 @@ export function useDentalData() {
         pinned: false // Could add logic to mark common conditions as pinned
       }));
 
-      // Transform treatments to SearchableSelectOption format
-      const treatments: SearchableSelectOption[] = treatmentsData.map((treatment: any) => ({
-        value: treatment.code,
-        label: treatment.name,
-        pinned: false // Could add logic to mark common treatments as pinned
-      }));
+      // ✅ Transform treatments using TreatmentService dropdown options
+      // This ensures we get ALL treatments with proper display names
+      const treatments: SearchableSelectOption[] = TreatmentService.toDropdownOptions();
 
       setState({
         conditions,

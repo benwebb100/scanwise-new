@@ -83,15 +83,20 @@ const useReportGeneration = () => {
           }
         }
         
+        // Get video generation setting from localStorage
+        const generateVideosAutomatically = localStorage.getItem('generateVideosAutomatically');
+        const shouldGenerateVideo = generateVideosAutomatically === null ? true : generateVideosAutomatically === 'true';
+        
         // Get video language from localStorage settings
         const videoLanguage = localStorage.getItem('videoNarrationLanguage') || 'english';
         console.log(`🎙️ Using video narration language: ${videoLanguage}`);
+        console.log(`🎬 Video generation enabled: ${shouldGenerateVideo}`);
         
         analysisResult = await api.analyzeXray({
           patientName,
           imageUrl: imageUrl,
           findings,
-          generateVideo: true, // Request video generation for both manual and AWS
+          generateVideo: shouldGenerateVideo, // Only generate if setting is enabled
           videoLanguage, // Pass the selected language
           preAnalyzedDetections,
           preAnalyzedAnnotatedUrl
@@ -375,8 +380,17 @@ const generateReportHTML = (data: any) => {
 
       <!-- Patient Info & Title -->
       <div style="padding: 25px 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-        <h1 style="font-size: 28px; margin: 0 0 12px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
-        <p style="text-align: center; color: #6b7280; margin: 20px 0 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
+        <h1 style="font-size: 28px; margin: 0 0 20px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
+        
+        <!-- Contact Info Block -->
+        <div style="margin: 0 0 20px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+          <p style="margin: 0 0 8px 0; font-weight: 600; color: #111827;">${clinicName}</p>
+          ${clinicPhone ? `<p style="margin: 0 0 4px 0;"><strong>Phone:</strong> ${clinicPhone}</p>` : ''}
+          ${clinicEmail ? `<p style="margin: 0 0 4px 0;"><strong>Email:</strong> ${clinicEmail}</p>` : ''}
+          ${clinicWebsite ? `<p style="margin: 0 0 4px 0;"><strong>Website:</strong> ${clinicWebsite}</p>` : ''}
+        </div>
+        
+        <p style="text-align: center; color: #6b7280; margin: 0; font-style: italic; font-size: 14px;">Scroll down to view your full written report</p>
       </div>
 
       <!-- Treatment Overview Table -->
@@ -481,7 +495,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                         <ul style="margin: 8px 0; padding-left: 20px;">
                           ${visit.treatments.map((treatment: any) => `
                             <li style="margin-bottom: 5px;">
-                              <strong>Tooth ${treatment.tooth}</strong>: ${(treatment.procedure || treatment.treatment || '').replace(/-/g, ' ')} 
+                              <strong>Tooth ${treatment.tooth}</strong>: ${getTreatmentFriendlyName(treatment.procedure || treatment.treatment || '')} 
                               for ${(treatment.condition || '').replace(/-/g, ' ')}
                               ${treatment.time_estimate_min ? `<span style="color: #666; font-size: 12px;">(${treatment.time_estimate_min} min)</span>` : ''}
                             </li>
@@ -507,7 +521,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
                     ${stage.items.map((item: any) => `
                       <li style="margin-bottom: 10px; padding: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
                         <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
-                          Tooth ${item.toothNumber || item.tooth}: ${(item.treatment || '').replace(/-/g, ' ')}
+                          Tooth ${item.toothNumber || item.tooth}: ${getTreatmentFriendlyName(item.treatment || '')}
                         </div>
                         <div style="font-size: 13px; color: #6b7280;">
                           For: ${(item.condition || '').replace(/-/g, ' ')}
@@ -549,7 +563,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
             </h4>
             ${data.future_tasks.map((task: any) => `
               <div style="background-color: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
-                <strong style="color: #856404;">${(task.treatment || '').replace(/-/g, ' ')} on Tooth ${task.tooth}</strong>
+                <strong style="color: #856404;">${getTreatmentFriendlyName(task.treatment || '')} on Tooth ${task.tooth}</strong>
                 <div style="color: #856404; font-size: 14px; margin-top: 5px;">
                   ${task.dependency_reason} - Earliest: ~${task.earliest_date_offset_weeks} weeks
                 </div>
@@ -628,7 +642,7 @@ const renderStages = (data: any, uniqueFindings: any[], getTreatmentPrice: Funct
         const treatmentSummary = treatments.map((treatment: any) => {
           const count = findings.filter((f: any) => f.treatment === treatment).length;
           const condition = findings.find((f: any) => f.treatment === treatment)?.condition;
-          return `${count} ${treatment.replace(/-/g, ' ')}${count > 1 ? 's' : ''} for ${condition?.replace(/-/g, ' ')}`;
+          return `${count} ${getTreatmentFriendlyName(treatment)}${count > 1 ? 's' : ''} for ${condition?.replace(/-/g, ' ')}`;
         }).join(', ');
 
         return `
@@ -793,11 +807,11 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
         return `
           <div style="border: 1px solid #ddd; border-left: 4px solid #1e88e5; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="background-color: #ffeb3b; padding: 12px 16px;">
-              <strong style="font-size: 16px; color: #111827;">${treatmentKey.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} for ${conditions.map((c: string) => c.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</strong>
+              <strong style="font-size: 16px; color: #111827;">${getTreatmentFriendlyName(treatmentKey)} for ${conditions.map((c: string) => c.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())).join(', ')}</strong>
             </div>
             <div style="padding: 20px;">
               
-              <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace(/-/g, ' ')).join(', ')} that requires ${treatmentKey.replace(/-/g, ' ')}.</p>
+              <p style="margin-bottom: 15px;"><strong>${teethText}</strong> ${teeth.length === 1 ? 'has' : 'have'} ${conditions.map((c: string) => c.replace(/-/g, ' ')).join(', ')} that requires ${getTreatmentFriendlyName(treatmentKey)}.</p>
               
               <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map((c: string) => getConditionDescription(c)).join(' ')}</p>
               
@@ -947,7 +961,7 @@ const renderLegend = (detections: any[]) => {
         <tr>
           ${displayConditions.map(({name, color}, index) => `
             ${index % 3 === 0 && index !== 0 ? '</tr><tr>' : ''}
-            <td style="text-align: left; white-space: nowrap;">
+            <td style="text-align: center; white-space: nowrap;">
               <span style="display: inline-block; width: 18px; height: 18px; background-color: ${color}; border: 1px solid #333; vertical-align: middle; margin-right: 6px;"></span>
               <span style="font-size: 14px; vertical-align: middle;">${name}</span>
             </td>
