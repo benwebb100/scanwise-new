@@ -11,19 +11,25 @@ export default function Index() {
   ];
 
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+  const [nextPhraseIndex, setNextPhraseIndex] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setIsAnimating(true);
+      setNextPhraseIndex((currentPhraseIndex + 1) % rotatingPhrases.length);
+      
       setTimeout(() => {
         setCurrentPhraseIndex((prev) => (prev + 1) % rotatingPhrases.length);
+      }, 300); // Switch phrase mid-animation
+      
+      setTimeout(() => {
         setIsAnimating(false);
-      }, 500); // Animation duration
+      }, 800); // Complete animation duration
     }, 3500); // Show each phrase for 3.5 seconds
 
     return () => clearInterval(interval);
-  }, [rotatingPhrases.length]);
+  }, [currentPhraseIndex, rotatingPhrases.length]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -31,22 +37,22 @@ export default function Index() {
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center p-1.5">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-teal-600 rounded-lg flex items-center justify-center p-1.5">
                 <img 
                   src="/scanwise-logo.png" 
                   alt="ScanWise Logo" 
                   className="h-full w-full object-contain"
                 />
               </div>
-              <span className="text-2xl font-bold text-blue-600">ScanWise</span>
+              <span className="text-xl sm:text-2xl font-bold text-blue-600">ScanWise</span>
             </div>
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link to="/login" className="text-sm sm:text-base text-gray-700 hover:text-gray-900 font-medium">
                 Sign In
               </Link>
               <Link to="/register-improved">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base px-3 sm:px-4 py-2">
                   Get Started
                 </Button>
               </Link>
@@ -56,39 +62,56 @@ export default function Index() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-50 via-white to-teal-50 py-20 lg:py-32">
+      <section className="relative bg-gradient-to-br from-blue-50 via-white to-teal-50 py-12 sm:py-20 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-full text-base font-semibold mb-8 shadow-lg">
+            <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-full text-sm sm:text-base font-semibold mb-6 sm:mb-8 shadow-lg">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
               AI-Powered Dental Report Generation
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Free Up Your Time And Increase<br />
-              Treatment Acceptance With<br />
-              <span className="relative inline-block overflow-hidden" style={{ minHeight: '1.2em', verticalAlign: 'bottom' }}>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight px-4 sm:px-0">
+              Automate Treatment Plan Generation &<br />
+              Increase Case Acceptance With<br />
+              <span className="relative inline-block" style={{ minHeight: '1.2em', verticalAlign: 'bottom', overflow: 'hidden' }}>
+                {/* Current phrase sliding out */}
                 <span 
-                  key={currentPhraseIndex}
                   className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent transition-all duration-500 ease-in-out ${
                     isAnimating ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
                   }`}
-                  style={{ display: 'inline-block' }}
+                  style={{ 
+                    position: isAnimating ? 'absolute' : 'relative',
+                    top: 0,
+                    left: 0
+                  }}
                 >
                   {rotatingPhrases[currentPhraseIndex]}
                 </span>
+                {/* Next phrase sliding in from below with bounce */}
+                <span 
+                  className={`inline-block bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent ${
+                    isAnimating ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  style={{ 
+                    position: isAnimating ? 'relative' : 'absolute',
+                    animation: isAnimating ? 'slideInBounce 0.5s ease-out forwards' : 'none',
+                    transform: isAnimating ? 'none' : 'translateY(100%)'
+                  }}
+                >
+                  {rotatingPhrases[nextPhraseIndex]}
+                </span>
               </span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto mb-6 sm:mb-8 leading-relaxed px-4 sm:px-0">
               Connect your imaging software, let AI analyze X-rays, and generate comprehensive patient reports 
               with annotated images, treatment plans, insurance codes, and educational videos—all automatically.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/register-improved">
-                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white px-8 py-6 text-lg shadow-lg">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0">
+              <Link to="/register-improved" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg shadow-lg">
                   Start Free Trial →
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg border-2">
                 Watch Demo
               </Button>
             </div>
