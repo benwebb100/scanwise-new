@@ -7,6 +7,7 @@ import treatmentsData from '../data/treatments.au.json';
 import conditionsData from '../data/conditions.core.json';
 import mappingsData from '../data/mappings.core.json';
 import type { Treatment, Condition, ConditionMapping, TreatmentCategory } from '../lib/types/treatment';
+import { CANONICAL_CONDITION_SET, isValidConditionCode } from '../lib/canonical-conditions';
 
 const treatments = treatmentsData as Treatment[];
 const conditions = conditionsData as Condition[];
@@ -154,6 +155,22 @@ describe('Treatment Data Validation', () => {
 });
 
 describe('Mapping Validation', () => {
+  it('should only reference canonical condition codes', () => {
+    const invalidConditions: string[] = [];
+
+    mappings.forEach(mapping => {
+      if (!isValidConditionCode(mapping.condition)) {
+        invalidConditions.push(`Mapping condition '${mapping.condition}' is not in canonical condition list`);
+      }
+    });
+
+    if (invalidConditions.length > 0) {
+      console.error('❌ INVALID CONDITIONS:', invalidConditions);
+      console.log('See canonical-conditions.ts for valid codes');
+    }
+    expect(invalidConditions).toHaveLength(0);
+  });
+
   it('should have no orphaned mappings (all treatment codes exist)', () => {
     const treatmentCodes = new Set(treatments.map(t => t.code));
     const orphaned: string[] = [];
@@ -216,6 +233,26 @@ describe('Mapping Validation', () => {
     
     // This is a warning, not a hard failure
     // expect(unmapped).toHaveLength(0);
+  });
+
+  it('should have treatments only reference canonical conditions in autoMapConditions', () => {
+    const errors: string[] = [];
+
+    treatments.forEach(treatment => {
+      if (treatment.autoMapConditions && treatment.autoMapConditions.length > 0) {
+        treatment.autoMapConditions.forEach(conditionCode => {
+          if (!isValidConditionCode(conditionCode)) {
+            errors.push(`Treatment '${treatment.code}' references invalid condition '${conditionCode}'`);
+          }
+        });
+      }
+    });
+
+    if (errors.length > 0) {
+      console.error('❌ INVALID CONDITIONS IN autoMapConditions:', errors);
+      console.log('See canonical-conditions.ts for valid codes');
+    }
+    expect(errors).toHaveLength(0);
   });
 });
 

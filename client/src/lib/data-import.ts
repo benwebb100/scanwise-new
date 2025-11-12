@@ -4,6 +4,7 @@
  */
 
 import type { Treatment, Condition, ConditionMapping, BatchImport, TreatmentCategory } from './types/treatment';
+import { CANONICAL_CONDITION_SET, isValidConditionCode } from './canonical-conditions';
 
 // Valid categories
 const VALID_CATEGORIES: TreatmentCategory[] = [
@@ -249,24 +250,49 @@ export function mergeMappings(
 }
 
 /**
- * Validate mappings reference existing treatments
+ * Validate mappings reference existing treatments AND canonical conditions
  */
 export function validateMappings(
   mappings: ConditionMapping[],
   treatments: Treatment[]
 ): string[] {
   const treatmentCodes = new Set(treatments.map(t => t.code));
-  const orphaned: string[] = [];
+  const errors: string[] = [];
 
   mappings.forEach(mapping => {
+    // 1. Validate condition exists in canonical list
+    if (!isValidConditionCode(mapping.condition)) {
+      errors.push(`❌ INVALID CONDITION: '${mapping.condition}' is not in canonical condition list. Check canonical-conditions.ts`);
+    }
+
+    // 2. Validate treatments exist
     mapping.treatments.forEach(({ treatment }) => {
       if (!treatmentCodes.has(treatment)) {
-        orphaned.push(`Mapping '${mapping.condition}' → '${treatment}' (treatment does not exist)`);
+        errors.push(`Mapping '${mapping.condition}' → '${treatment}' (treatment does not exist)`);
       }
     });
   });
 
-  return orphaned;
+  return errors;
+}
+
+/**
+ * Validate treatment autoMapConditions reference canonical conditions
+ */
+export function validateTreatmentConditions(treatments: Treatment[]): string[] {
+  const errors: string[] = [];
+
+  treatments.forEach(treatment => {
+    if (treatment.autoMapConditions && treatment.autoMapConditions.length > 0) {
+      treatment.autoMapConditions.forEach(conditionCode => {
+        if (!isValidConditionCode(conditionCode)) {
+          errors.push(`❌ Treatment '${treatment.code}' references invalid condition '${conditionCode}'. Check canonical-conditions.ts`);
+        }
+      });
+    }
+  });
+
+  return errors;
 }
 
 /**
@@ -299,6 +325,13 @@ export async function importBatch(
 
   const mergedTreatments = treatmentResult.merged;
 
+  // Validate treatments reference canonical conditions
+  const treatmentConditionErrors = validateTreatmentConditions(mergedTreatments);
+  if (treatmentConditionErrors.length > 0) {
+    result.errors.push(...treatmentConditionErrors);
+    // Don't block import, but warn
+  }
+
   // Merge conditions
   if (batch.conditions && batch.conditions.length > 0) {
     const conditionResult = mergeConditions(existingConditions, batch.conditions);
@@ -312,8 +345,14 @@ export async function importBatch(
     result.mappingsAdded = mappingResult.added;
     result.mappingsUpdated = mappingResult.updated;
 
-    // Validate mappings
+    // Validate mappings (both treatments AND conditions)
     result.orphanedMappings = validateMappings(mappingResult.merged, mergedTreatments);
+    
+    // If invalid conditions found, BLOCK import
+    const invalidConditions = result.orphanedMappings.filter(msg => msg.includes('INVALID CONDITION'));
+    if (invalidConditions.length > 0) {
+      result.errors.push('🚫 IMPORT BLOCKED: Invalid condition codes detected. See orphanedMappings for details.');
+    }
   }
 
   return result;
