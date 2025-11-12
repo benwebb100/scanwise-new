@@ -4078,15 +4078,20 @@ const CreateReport = () => {
       return;
     }
     
-    // ✅ ALWAYS regenerate stages from current findings
-    // This ensures the stage editor reflects any added/removed findings
-    // If stages were previously edited, they'll be merged with new findings
-    openStageEditorWithFindings({
-      validFindings,
-      useXrayMode,
-      patientName,
-      patientObservations
-    });
+    // ✅ If stages have been previously saved, open them directly
+    // Otherwise, regenerate from current findings
+    if (currentTreatmentStages && currentTreatmentStages.length > 0) {
+      // User has already edited stages - preserve their work
+      setIsStageEditorOpen(true);
+    } else {
+      // No saved stages - generate fresh from findings
+      openStageEditorWithFindings({
+        validFindings,
+        useXrayMode,
+        patientName,
+        patientObservations
+      });
+    }
   };
 
   const handleSaveStageEdits = (editedStages: any[]) => {

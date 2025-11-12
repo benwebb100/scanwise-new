@@ -194,6 +194,11 @@ const useReportGeneration = () => {
   };
 };
 
+// ✅ HELPER: Get friendly patient name for report (module-level to avoid scope issues)
+const getTreatmentFriendlyName = (treatment: string) => {
+  return TreatmentService.getFriendlyName(treatment);
+};
+
 // WORKING generateReportHTML from commit 2784580 (adapted)
 const generateReportHTML = (data: any) => {
   const { findings, patientName, treatmentSettings, showReplacementOptionsTable, clinicBranding } = data;
@@ -263,11 +268,6 @@ const generateReportHTML = (data: any) => {
     // Get insurance code from master database
     const insuranceCode = TreatmentService.getInsuranceCode(treatment, 'AU');
     return insuranceCode || 'N/A';
-  };
-  
-  // ✅ NEW: Get friendly patient name for report
-  const getTreatmentFriendlyName = (treatment: string) => {
-    return TreatmentService.getFriendlyName(treatment);
   };
 
   const getTreatmentPrice = (treatment: string, findingPrice?: number) => {
