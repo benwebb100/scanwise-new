@@ -155,7 +155,8 @@ const useReportGeneration = () => {
         showReplacementOptionsTable,
         annotated_image_url: immediateAnalysisData?.annotated_image_url || analysisResult.annotated_image_url,
         detections: analysisResult.detections || immediateAnalysisData?.detections || [], // Explicitly pass detections
-        clinicBranding: brandingData
+        clinicBranding: brandingData,
+        videoUrl: videoUrl // Pass video URL to report HTML generator
       });
     }
 
@@ -204,10 +205,12 @@ const getTreatmentFriendlyName = (treatment: string) => {
 
 // WORKING generateReportHTML from commit 2784580 (adapted)
 const generateReportHTML = (data: any) => {
-  const { findings, patientName, treatmentSettings, showReplacementOptionsTable, clinicBranding } = data;
+  const { findings, patientName, treatmentSettings, showReplacementOptionsTable, clinicBranding, videoUrl } = data;
   
   // DEBUG: Log clinic branding to diagnose issue
   console.log('📊 generateReportHTML - clinicBranding received:', clinicBranding);
+  console.log('📊 generateReportHTML - headerTemplate exists:', !!clinicBranding?.headerTemplate);
+  console.log('📊 generateReportHTML - footerTemplate exists:', !!clinicBranding?.footerTemplate);
   console.log('📊 generateReportHTML - detections received:', data.detections);
   
   // Extract clinic branding with defaults
@@ -391,8 +394,9 @@ const generateReportHTML = (data: any) => {
       <div style="padding: 25px 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
         <h1 style="font-size: 28px; margin: 0 0 15px 0; color: #111827; font-weight: 700;">Treatment Report for ${patientName}</h1>
         
-        <!-- Contact Info (phone, email, website) -->
-        <div style="margin: 0 0 15px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+        <!-- Contact Info Block (clinic name + contact details, NO address) -->
+        <div style="margin: 0 0 15px 0; color: #4b5563; font-size: 14px; line-height: 1.8;">
+          <p style="margin: 0 0 8px 0; font-weight: 600; color: #111827;">${clinicName}</p>
           ${clinicPhone ? `<p style="margin: 0 0 4px 0;"><strong>Phone:</strong> ${clinicPhone}</p>` : ''}
           ${clinicEmail ? `<p style="margin: 0 0 4px 0;"><strong>Email:</strong> ${clinicEmail}</p>` : ''}
           ${clinicWebsite ? `<p style="margin: 0 0 4px 0;"><strong>Website:</strong> ${clinicWebsite}</p>` : ''}
@@ -441,6 +445,9 @@ const generateReportHTML = (data: any) => {
 
       <!-- Annotated X-Ray Section -->
       ${renderXraySection(reportImageUrl, data)}
+      
+      <!-- Personalized Video Section -->
+      ${renderVideoSection(videoUrl, primaryColor)}
       
       <!-- Clinic Footer from Template -->
       ${clinicBranding?.footerTemplate || `
@@ -863,7 +870,7 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
               <p style="margin-bottom: 15px;"><strong>What This Means:</strong> ${conditions.map((c: string) => getConditionDescription(c)).join(' ')}</p>
               
               <p style="margin-bottom: 15px;">
-                <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentFriendlyName(treatmentKey)}
+                <span style="color: #4caf50;">✓</span> <strong>Recommended Treatment:</strong> ${getTreatmentFriendlyName(treatmentKey)} — ${TreatmentService.getByCode(treatmentKey)?.description || 'Treatment to address this condition.'}
               </p>
               
               <p style="margin: 15px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
@@ -1015,6 +1022,29 @@ const renderLegend = (detections: any[]) => {
           `).join('')}
         </tr>
       </table>
+    </div>
+  `;
+};
+
+const renderVideoSection = (videoUrl: string | null, primaryColor: string) => {
+  if (!videoUrl) {
+    console.log('ℹ️ No video URL provided - skipping video section in report');
+    return '';
+  }
+
+  console.log('🎬 Rendering video section in report with URL:', videoUrl);
+
+  return `
+    <div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, ${primaryColor}15 0%, ${primaryColor}05 100%); border-radius: 12px; border: 2px solid ${primaryColor}30; text-align: center;">
+      <h3 style="margin: 0 0 15px 0; font-size: 24px; font-weight: bold; color: ${primaryColor};">
+        🎥 Watch Your Personalized Video
+      </h3>
+      <p style="margin: 0 0 25px 0; font-size: 16px; color: #374151; line-height: 1.6;">
+        We've created a custom video explanation of your dental findings. Watch this short video to better understand your condition and recommended treatment options.
+      </p>
+      <a href="${videoUrl}" target="_blank" style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 15px 40px; border-radius: 8px; font-size: 18px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease;">
+        ▶ Watch Video Now
+      </a>
     </div>
   `;
 };

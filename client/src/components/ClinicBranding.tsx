@@ -419,15 +419,36 @@ export function useClinicBranding() {
   const [brandingData, setBrandingData] = useState<ClinicBrandingData | null>(null)
 
   useEffect(() => {
+    // Load from localStorage first (for immediate display)
     const saved = localStorage.getItem('clinic-branding')
     if (saved) {
       try {
         setBrandingData(JSON.parse(saved))
       } catch (error) {
-        console.error('Error loading clinic branding:', error)
+        console.error('Error loading clinic branding from localStorage:', error)
       }
     }
+    
+    // Then load from backend (authoritative source)
+    loadBrandingFromBackend()
   }, [])
+  
+  const loadBrandingFromBackend = async () => {
+    try {
+      console.log('🔄 Loading clinic branding from backend...')
+      const response = await api.getClinicBranding()
+      if (response.branding_data && Object.keys(response.branding_data).length > 0) {
+        console.log('✅ Clinic branding loaded from backend:', response.branding_data)
+        setBrandingData(response.branding_data)
+        // Also update localStorage to keep it in sync
+        localStorage.setItem('clinic-branding', JSON.stringify(response.branding_data))
+      } else {
+        console.log('ℹ️ No clinic branding found in backend')
+      }
+    } catch (error) {
+      console.error('❌ Error loading branding from backend:', error)
+    }
+  }
 
   const applyBrandingToReport = (reportHtml: string): string => {
     console.log('🎨 BRANDING: Starting applyBrandingToReport');
