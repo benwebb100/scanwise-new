@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,57 @@ const Settings = () => {
     const saved = localStorage.getItem('generateVideosAutomatically');
     return saved === null ? true : saved === 'true'; // Default to true
   });
+  const [timezone, setTimezone] = useState<string>(() => {
+    const saved = localStorage.getItem('clinicTimezone');
+    return saved || 'Australia/Melbourne'; // Default to Melbourne
+  });
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Load settings from backend on mount
+  useEffect(() => {
+    const loadSettingsFromBackend = async () => {
+      try {
+        console.log('📥 Loading general settings from backend...');
+        const response = await api.getClinicBranding();
+        
+        if (response.branding_data && Object.keys(response.branding_data).length > 0) {
+          const data = response.branding_data;
+          console.log('✅ General settings loaded from backend:', data);
+          
+          // Update state with backend values
+          if (data.tooth_numbering_system) {
+            setToothNumberingSystem(data.tooth_numbering_system as 'FDI' | 'Universal');
+            localStorage.setItem('toothNumberingSystem', data.tooth_numbering_system);
+          }
+          if (data.video_narration_language) {
+            setVideoNarrationLanguage(data.video_narration_language as 'english' | 'bulgarian');
+            localStorage.setItem('videoNarrationLanguage', data.video_narration_language);
+          }
+          if (data.generate_videos_automatically !== undefined) {
+            setGenerateVideosAutomatically(data.generate_videos_automatically);
+            localStorage.setItem('generateVideosAutomatically', data.generate_videos_automatically.toString());
+          }
+          if (data.treatment_duration_threshold) {
+            setTreatmentDurationThreshold(data.treatment_duration_threshold);
+            localStorage.setItem('treatmentDurationThreshold', data.treatment_duration_threshold.toString());
+          }
+          if (data.timezone) {
+            setTimezone(data.timezone);
+            localStorage.setItem('clinicTimezone', data.timezone);
+          }
+        } else {
+          console.log('ℹ️ No settings found in backend, using localStorage defaults');
+        }
+      } catch (error) {
+        console.error('❌ Error loading settings from backend:', error);
+        // Fallback to localStorage (already loaded in initial state)
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    
+    loadSettingsFromBackend();
+  }, []);
 
   const handleBrandingSave = async (brandingData: any) => {
     try {
@@ -204,6 +255,53 @@ const Settings = () => {
                     </div>
 
                     <div className="border-t pt-6">
+                      <h4 className="font-medium text-gray-900 mb-3">Clinic Timezone</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Select your clinic's timezone. This ensures report dates and timestamps are accurate for your location.
+                      </p>
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <optgroup label="Australia">
+                          <option value="Australia/Sydney">Sydney (AEDT/AEST)</option>
+                          <option value="Australia/Melbourne">Melbourne (AEDT/AEST)</option>
+                          <option value="Australia/Brisbane">Brisbane (AEST)</option>
+                          <option value="Australia/Adelaide">Adelaide (ACDT/ACST)</option>
+                          <option value="Australia/Perth">Perth (AWST)</option>
+                          <option value="Australia/Darwin">Darwin (ACST)</option>
+                          <option value="Australia/Hobart">Hobart (AEDT/AEST)</option>
+                        </optgroup>
+                        <optgroup label="New Zealand">
+                          <option value="Pacific/Auckland">Auckland (NZDT/NZST)</option>
+                          <option value="Pacific/Chatham">Chatham Islands</option>
+                        </optgroup>
+                        <optgroup label="United States">
+                          <option value="America/New_York">New York (EST/EDT)</option>
+                          <option value="America/Chicago">Chicago (CST/CDT)</option>
+                          <option value="America/Denver">Denver (MST/MDT)</option>
+                          <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
+                          <option value="America/Phoenix">Phoenix (MST)</option>
+                          <option value="America/Anchorage">Anchorage (AKST/AKDT)</option>
+                          <option value="Pacific/Honolulu">Honolulu (HST)</option>
+                        </optgroup>
+                        <optgroup label="United Kingdom">
+                          <option value="Europe/London">London (GMT/BST)</option>
+                        </optgroup>
+                        <optgroup label="Canada">
+                          <option value="America/Toronto">Toronto (EST/EDT)</option>
+                          <option value="America/Vancouver">Vancouver (PST/PDT)</option>
+                          <option value="America/Halifax">Halifax (AST/ADT)</option>
+                          <option value="America/Winnipeg">Winnipeg (CST/CDT)</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                          <option value="UTC">UTC (Coordinated Universal Time)</option>
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div className="border-t pt-6">
                       <h4 className="font-medium text-gray-900 mb-3">Report Preferences</h4>
                       <div className="space-y-4">
                         <label className="flex items-center space-x-3">
@@ -253,24 +351,61 @@ const Settings = () => {
                   <div className="flex justify-end pt-6">
                     <Button 
                       className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
-                        localStorage.setItem('treatmentDurationThreshold', treatmentDurationThreshold.toString());
-                        localStorage.setItem('generateVideosAutomatically', generateVideosAutomatically.toString());
-                        
-                        // Dispatch custom event to notify other components
-                        window.dispatchEvent(new CustomEvent('treatmentDurationThresholdChanged'));
-                        window.dispatchEvent(new CustomEvent('generateVideosSettingChanged', { 
-                          detail: { enabled: generateVideosAutomatically } 
-                        }));
-                        
-                        toast({
-                          title: "Settings Saved",
-                          description: "Your general settings have been saved successfully.",
-                        });
+                      disabled={isLoadingSettings}
+                      onClick={async () => {
+                        try {
+                          console.log('💾 Saving general settings to backend...');
+                          
+                          // Get current branding data
+                          const brandingResponse = await api.getClinicBranding();
+                          const currentBranding = brandingResponse.branding_data || {};
+                          
+                          // Merge with general settings
+                          const updatedData = {
+                            ...currentBranding,
+                            tooth_numbering_system: toothNumberingSystem,
+                            video_narration_language: videoNarrationLanguage,
+                            generate_videos_automatically: generateVideosAutomatically,
+                            treatment_duration_threshold: treatmentDurationThreshold,
+                            timezone: timezone
+                          };
+                          
+                          // Save to backend
+                          await api.saveClinicBranding(updatedData);
+                          
+                          // Also update localStorage as cache
+                          localStorage.setItem('toothNumberingSystem', toothNumberingSystem);
+                          localStorage.setItem('treatmentDurationThreshold', treatmentDurationThreshold.toString());
+                          localStorage.setItem('generateVideosAutomatically', generateVideosAutomatically.toString());
+                          localStorage.setItem('clinicTimezone', timezone);
+                          localStorage.setItem('videoNarrationLanguage', videoNarrationLanguage);
+                          
+                          // Dispatch custom events to notify other components
+                          window.dispatchEvent(new CustomEvent('treatmentDurationThresholdChanged'));
+                          window.dispatchEvent(new CustomEvent('generateVideosSettingChanged', { 
+                            detail: { enabled: generateVideosAutomatically } 
+                          }));
+                          window.dispatchEvent(new CustomEvent('timezoneChanged', { 
+                            detail: { timezone } 
+                          }));
+                          
+                          console.log('✅ General settings saved successfully');
+                          
+                          toast({
+                            title: "Settings Saved",
+                            description: "Your general settings have been saved successfully and will persist across devices.",
+                          });
+                        } catch (error) {
+                          console.error('❌ Error saving general settings:', error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to save general settings. Please try again.",
+                            variant: "destructive"
+                          });
+                        }
                       }}
                     >
-                      Save General Settings
+                      {isLoadingSettings ? 'Loading...' : 'Save General Settings'}
                     </Button>
                   </div>
                 </CardContent>

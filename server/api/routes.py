@@ -50,6 +50,12 @@ class ClinicBrandingData(BaseModel):
     footer_template: Optional[str] = None
     primary_color: Optional[str] = "#1e88e5"
     secondary_color: Optional[str] = "#666666"
+    # General settings
+    tooth_numbering_system: Optional[str] = "FDI"
+    video_narration_language: Optional[str] = "english"
+    generate_videos_automatically: Optional[bool] = True
+    treatment_duration_threshold: Optional[int] = 90
+    timezone: Optional[str] = "Australia/Melbourne"
 
 class EnhancedAnalyzeRequest(BaseModel):
     patient_name: str
@@ -532,10 +538,19 @@ async def get_user_diagnoses(
         # Transform data for frontend
         diagnoses = []
         for diagnosis in response.data:
+            email_sent_at = diagnosis.get('email_sent_at')
+            
+            # Debug log for email_sent_at
+            diagnosis_id = diagnosis.get('id')
+            if email_sent_at:
+                logger.info(f"📧 Diagnosis {diagnosis_id}: email_sent_at = {email_sent_at}")
+            else:
+                logger.info(f"ℹ️ Diagnosis {diagnosis_id}: email_sent_at = NULL (never emailed or sent before feature)")
+            
             diagnoses.append({
-                "id": diagnosis.get('id'),
+                "id": diagnosis_id,
                 "patientName": diagnosis.get('patient_name'),
-                "patientId": f"PAT-{diagnosis.get('id')[:5]}",  # Generate patient ID
+                "patientId": f"PAT-{diagnosis_id[:5]}",  # Generate patient ID
                 "scanDate": diagnosis.get('created_at'),
                 "status": "Completed",
                 "imageUrl": diagnosis.get('image_url'),
@@ -546,7 +561,7 @@ async def get_user_diagnoses(
                 "conditions": _extract_conditions(diagnosis.get('treatment_stages', [])),
                 "teethAnalyzed": _count_teeth(diagnosis.get('treatment_stages', [])),
                 "createdAt": diagnosis.get('created_at'),
-                "emailSentAt": diagnosis.get('email_sent_at')  # ✅ Include email sent timestamp
+                "emailSentAt": email_sent_at  # ✅ Include email sent timestamp
             })
         
         return {
@@ -3661,14 +3676,24 @@ async def send_report_email(
                 # Update diagnosis record with email sent timestamp
                 try:
                     email_sent_at = datetime.now().isoformat()
-                    await supabase_service.update_diagnosis(
+                    logger.info(f"🕒 Attempting to update email_sent_at for diagnosis {report_id}")
+                    logger.info(f"   Timestamp: {email_sent_at}")
+                    
+                    result = await supabase_service.update_diagnosis(
                         report_id,
                         {"email_sent_at": email_sent_at},
                         token
                     )
-                    logger.info(f"✅ Updated diagnosis {report_id} with email_sent_at timestamp")
+                    
+                    logger.info(f"✅ Successfully updated diagnosis {report_id} with email_sent_at: {email_sent_at}")
+                    logger.info(f"   Updated record: {result}")
                 except Exception as update_error:
-                    logger.warning(f"⚠️ Failed to update email_sent_at timestamp: {str(update_error)}")
+                    logger.error(f"❌ CRITICAL: Failed to update email_sent_at timestamp!")
+                    logger.error(f"   Report ID: {report_id}")
+                    logger.error(f"   Error type: {type(update_error).__name__}")
+                    logger.error(f"   Error details: {str(update_error)}")
+                    logger.error(f"   ⚠️ This likely means the 'email_sent_at' column doesn't exist in Supabase!")
+                    logger.error(f"   📋 Run the migration: server/migrations/add_email_sent_at_column.sql")
                     # Don't fail the request if timestamp update fails
             else:
                 logger.error(f"❌ Failed to send email to {patient_email}")
