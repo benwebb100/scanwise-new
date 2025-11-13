@@ -770,31 +770,159 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
   };
 
   const getUrgencyMessage = (treatment: string, conditions: string[]) => {
-    const urgencyMessages: {[key: string]: string} = {
-      'surgical-extraction': 'Delaying extraction can lead to severe pain, infection spreading to other teeth, and potential damage to your jawbone. The longer you wait, the more complex the procedure becomes.',
-      'root-canal-treatment': 'Without treatment, the infection can spread to your jawbone and other parts of your body. Early treatment saves your tooth and prevents the need for extraction.',
-      'filling': 'Untreated cavities grow larger and can reach the nerve, causing severe pain and requiring more extensive treatment like a root canal or extraction.',
-      'crown': 'A damaged tooth without a crown is vulnerable to further damage and infection. This can lead to tooth loss and affect your ability to eat and speak properly.',
-      'bridge': 'Missing teeth cause other teeth to shift, creating gaps and bite problems. This can lead to jaw pain and difficulty eating your favorite foods.',
-      'implant': 'The longer you wait, the more your jawbone shrinks, making implant placement more difficult and potentially requiring bone grafting procedures.',
-      'scaling': 'Untreated gum disease can lead to tooth loss and has been linked to serious health conditions like heart disease and diabetes.',
-      'whitening': 'While not urgent for health, professional whitening gives you immediate confidence and a brighter smile that can improve your personal and professional life.'
+    // Dynamic urgency based on CONDITION + TREATMENT (not hardcoded one-size-fits-all)
+    const conditionUrgency: {[key: string]: { physical: string; aesthetic?: string }} = {
+      // Infection/Abscess - URGENT
+      'periapical_abscess': {
+        physical: 'This is a dental emergency. The infection can spread to your jaw, face, and even bloodstream if left untreated. Immediate treatment is critical to prevent serious complications.',
+        aesthetic: 'Untreated abscesses can cause facial swelling and visible deformity.'
+      },
+      'periodontal_abscess': {
+        physical: 'This gum infection can rapidly spread and lead to tooth loss. Early treatment prevents the infection from damaging surrounding teeth and bone.',
+      },
+      
+      // Pulp/Nerve Issues
+      'irreversible_pulpitis': {
+        physical: 'The nerve is infected and will not heal on its own. Without treatment, the infection will worsen, causing severe pain and potentially forming an abscess.',
+      },
+      'necrotic_pulp': {
+        physical: 'The tooth nerve has died and bacteria are multiplying inside. This will lead to infection, abscess formation, and potential bone loss if not treated promptly.',
+      },
+      'symptomatic_apical_periodontitis': {
+        physical: 'The infection has spread beyond the tooth root. Delaying treatment allows bacteria to destroy more bone and can lead to abscess formation.',
+      },
+      
+      // Bone Loss/Periapical Issues
+      'periapical-lesion': {
+        physical: 'This infection is actively destroying the bone around your tooth root. Continued delay may make the tooth unsaveable and require extraction.',
+      },
+      'bone_loss': {
+        physical: 'Progressive bone loss is occurring. Once bone is lost, it cannot regenerate naturally. Treatment now preserves your remaining bone and tooth stability.',
+        aesthetic: 'Bone loss can cause gum recession, making teeth appear longer and creating gaps between teeth.'
+      },
+      
+      // Caries/Decay
+      'caries_dentine': {
+        physical: 'The decay has reached the deeper layer of your tooth. Without treatment, it will progress to the nerve, requiring root canal treatment instead of a simple filling.',
+        aesthetic: 'Visible cavities can appear as dark spots or holes in your teeth, affecting your smile.'
+      },
+      'caries_enamel': {
+        physical: 'Early decay can be treated with a simple filling now. If left untreated, it will progress deeper, requiring more extensive (and expensive) treatment.',
+      },
+      'caries_recurrent': {
+        physical: 'Decay has formed around an existing filling. This indicates the seal has broken, allowing bacteria to enter. The cavity is growing underneath and may already be larger than it appears.',
+      },
+      'caries_root': {
+        physical: 'Root surface decay is aggressive and can quickly reach the nerve. The root has no protective enamel layer, making it vulnerable to rapid progression.',
+        aesthetic: 'Root decay near the gumline is often visible and can appear as dark brown or black spots.'
+      },
+      
+      // Gum Disease
+      'gingivitis_plaque': {
+        physical: 'Gum disease is reversible at this stage with proper treatment and hygiene. If left untreated, it progresses to periodontitis, which causes permanent bone loss.',
+      },
+      'periodontitis_stage_i_ii': {
+        physical: 'Bone loss has begun. Without treatment, you will continue losing bone support, leading to tooth mobility and eventual tooth loss. Gum disease is also linked to heart disease and diabetes.',
+      },
+      'periodontitis_stage_iii_iv': {
+        physical: 'Advanced bone loss has occurred. You are at high risk of tooth loss. The infection can affect your overall health, including increased risk of heart disease, stroke, and diabetes complications.',
+        aesthetic: 'Severe gum disease causes gum recession, tooth mobility, and eventual tooth loss, creating gaps in your smile.'
+      },
+      
+      // Tooth Structure Issues
+      'fracture': {
+        physical: 'Fractured teeth are at risk of splitting completely, which often requires extraction. The crack also allows bacteria to enter, leading to infection and pain.',
+        aesthetic: 'Visible cracks or broken pieces can significantly affect your smile and may cause you to avoid smiling.'
+      },
+      'cracked_tooth_vital': {
+        physical: 'Cracks in teeth tend to worsen over time. If the crack extends to the root, the tooth will require extraction. Early treatment with a crown can save the tooth.',
+        aesthetic: 'Cracked teeth can discolor along the crack line and become increasingly visible.'
+      },
+      'fractured_cusp_restorable': {
+        physical: 'The fractured portion makes the tooth weak and prone to further breakage. Restoring it now prevents the need for extraction later.',
+      },
+      
+      // Missing Teeth
+      'missing_single_tooth': {
+        physical: 'Neighboring teeth will slowly drift into the gap, creating bite problems and making future tooth replacement more difficult and expensive. Bone loss occurs where the tooth is missing.',
+        aesthetic: 'A visible gap affects your smile, and over time, the missing tooth can cause your face to appear sunken in that area.'
+      },
+      'partial_edentulism': {
+        physical: 'Multiple missing teeth cause remaining teeth to shift, leading to bite problems, difficulty chewing, and increased strain on remaining teeth.',
+        aesthetic: 'Multiple missing teeth significantly impact your smile and can cause facial sagging, making you appear older.'
+      },
+      
+      // Impacted/Eruption Issues
+      'impacted_tooth': {
+        physical: 'Impacted teeth can damage adjacent teeth, cause cysts or infections, and lead to severe pain. The longer they remain, the higher the risk of complications.',
+      },
+      'pericoronitis': {
+        physical: 'This painful infection around a partially erupted tooth can spread to your throat and neck if untreated. It tends to recur and worsen over time.',
+      },
+      
+      // Failed/Existing Restorations
+      'failed_restoration': {
+        physical: 'A failing restoration allows bacteria and decay to enter underneath. What appears small on the surface may be extensive decay underneath, potentially requiring root canal treatment.',
+      },
+      'existing-large-filling': {
+        physical: 'Large fillings weaken teeth and are prone to fracture. Crowning the tooth now prevents catastrophic fracture that would require extraction.',
+      },
+      
+      // Aesthetic Conditions (lower urgency but mention aesthetic impact)
+      'aesthetic_discolouration': {
+        physical: 'While not a health emergency, discoloration can indicate underlying enamel weakness or staining that will worsen over time.',
+        aesthetic: 'Discolored teeth can make you self-conscious about your smile and affect your confidence in social and professional settings.'
+      },
+      'staining': {
+        physical: 'Surface staining can sometimes mask underlying decay or enamel erosion.',
+        aesthetic: 'Stained teeth can affect your smile confidence and how others perceive you.'
+      },
+      'hypoplasia': {
+        physical: 'Enamel hypoplasia leaves teeth more vulnerable to cavities and sensitivity. Treating it now protects the teeth long-term.',
+        aesthetic: 'Visible enamel defects can appear as white or brown spots, affecting the uniformity of your smile.'
+      },
+      
+      // Tooth Wear
+      'tooth_wear_erosion': {
+        physical: 'Acid erosion is progressively thinning your enamel. Once enamel is lost, it cannot regenerate. This leads to sensitivity and increased cavity risk.',
+        aesthetic: 'Worn teeth can appear shorter and more translucent, aging your smile.'
+      },
+      'tooth_wear_attrition': {
+        physical: 'Grinding is wearing down your teeth. This can expose the nerve layer, cause severe sensitivity, and weaken tooth structure.',
+        aesthetic: 'Worn-down teeth can appear short and flat, aging your appearance.'
+      },
+      
+      // Sensitivity
+      'dentine_hypersensitivity': {
+        physical: 'Sensitivity indicates exposed dentine, which is vulnerable to rapid decay. Addressing it now prevents cavities and discomfort when eating or drinking.',
+      },
+      
+      // Miscellaneous
+      'dry_socket': {
+        physical: 'Dry socket causes severe pain and delayed healing. Treatment provides immediate relief and promotes proper healing.',
+      },
+      'retained_root': {
+        physical: 'Retained root fragments can become infected and form abscesses. They also complicate future tooth replacement options.',
+      },
+      'calculus': {
+        physical: 'Hardened tartar buildup harbors bacteria that cause gum disease and bone loss. It cannot be removed by brushing and requires professional cleaning.',
+      },
     };
     
-    const physicalRisks = urgencyMessages[treatment] || 'Delaying treatment can lead to worsening pain, infection, and potentially more complex and expensive procedures in the future.';
+    // Get urgency for the primary condition
+    const primaryCondition = conditions[0] || '';
+    const urgencyData = conditionUrgency[primaryCondition];
     
-    const aestheticRisks: {[key: string]: string} = {
-      'caries': 'Untreated caries can cause visible discoloration and dark spots on your teeth, and may eventually lead to tooth loss, creating gaps in your smile.',
-      'cavity': 'Untreated cavities can cause visible discoloration and may eventually lead to tooth loss, creating gaps in your smile.',
-      'missing-tooth': 'Missing teeth can cause your face to look sunken and make you appear older than you are.',
-      'fracture': 'A fractured tooth can be visible when you smile and may cause you to hide your smile.',
-      'decay': 'Visible decay can make you self-conscious about your smile and affect your confidence in social situations.'
-    };
+    if (urgencyData) {
+      let message = urgencyData.physical;
+      if (urgencyData.aesthetic) {
+        message += ' ' + urgencyData.aesthetic;
+      }
+      return message;
+    }
     
-    const aestheticRisk = conditions.some((c: string) => aestheticRisks[c]) ? 
-      ' Additionally, this condition can affect the appearance of your smile and your confidence.' : '';
-    
-    return physicalRisks + aestheticRisk;
+    // Fallback for unknown conditions
+    return 'Delaying treatment can lead to worsening symptoms, more complex procedures, and higher costs. Early intervention provides the best outcomes.';
   };
 
   // Group findings by treatment type
@@ -1037,7 +1165,7 @@ const renderVideoSection = (videoUrl: string | null, primaryColor: string) => {
   return `
     <div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, ${primaryColor}15 0%, ${primaryColor}05 100%); border-radius: 12px; border: 2px solid ${primaryColor}30; text-align: center;">
       <h3 style="margin: 0 0 15px 0; font-size: 24px; font-weight: bold; color: ${primaryColor};">
-        🎥 Watch Your Personalized Video
+        Watch Your Personalized Video
       </h3>
       <p style="margin: 0 0 25px 0; font-size: 16px; color: #374151; line-height: 1.6;">
         We've created a custom video explanation of your dental findings. Watch this short video to better understand your condition and recommended treatment options.

@@ -478,17 +478,10 @@ export function useClinicBranding() {
         }
       }
 
-      // Only add footer if we have footer template
-      if (brandingData.footerTemplate) {
-        console.log('🎨 BRANDING: Attempting to add footer');
-        const footerInsertPoint = brandedReport.lastIndexOf('</div>');
-        if (footerInsertPoint !== -1) {
-          brandedReport = brandedReport.slice(0, footerInsertPoint) + brandingData.footerTemplate + brandedReport.slice(footerInsertPoint);
-          console.log('🎨 BRANDING: Footer added successfully');
-        } else {
-          console.log('🎨 BRANDING: Could not find insertion point for footer');
-        }
-      }
+      // ❌ DISABLED: Footer is now added directly in generateReportHTML
+      // No need to add it again here (was causing duplicate footers)
+      // The footer template is already included in the HTML from generateReportHTML
+      console.log('🎨 BRANDING: Footer handling skipped (already in HTML)');
 
       console.log('🎨 BRANDING: Output HTML length:', brandedReport?.length || 0);
       return brandedReport || reportHtml;
