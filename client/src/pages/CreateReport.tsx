@@ -3561,6 +3561,7 @@ const CreateReport = () => {
   const [isStageEditorOpen, setIsStageEditorOpen] = useState(false);
   const [currentTreatmentStages, setCurrentTreatmentStages] = useState<any[]>([]);
   const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
+  const stagesFindingsSnapshot = useRef<string>(''); // Track which findings were used to create stages
   
   // Settings state
   const [toothNumberingSystem, setToothNumberingSystem] = useState<ToothNumberingSystem>(() => {
@@ -3872,6 +3873,11 @@ const CreateReport = () => {
       stage.totalCost = stage.items.reduce((sum, item) => sum + (item.price || 0), 0);
     });
     
+    // ✅ Update findings snapshot when creating new stages
+    stagesFindingsSnapshot.current = JSON.stringify(
+      data.validFindings.map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment }))
+    );
+    
     setPendingSubmitData(data);
     setCurrentTreatmentStages(editorStages);
     setIsStageEditorOpen(true);
@@ -4078,24 +4084,39 @@ const CreateReport = () => {
       return;
     }
     
-    // ✅ If stages have been previously saved, open them directly
-    // Otherwise, regenerate from current findings
-    if (currentTreatmentStages && currentTreatmentStages.length > 0) {
-      // User has already edited stages - preserve their work
+    // Create a snapshot of current findings to compare
+    const currentFindingsSnapshot = JSON.stringify(
+      validFindings.map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment }))
+    );
+    
+    // ✅ Check if findings have changed since stages were last created
+    const findingsHaveChanged = currentFindingsSnapshot !== stagesFindingsSnapshot.current;
+    
+    if (currentTreatmentStages && currentTreatmentStages.length > 0 && !findingsHaveChanged) {
+      // Findings unchanged - preserve user's manual stage edits
       setIsStageEditorOpen(true);
     } else {
-      // No saved stages - generate fresh from findings
+      // Findings changed or no saved stages - regenerate from current findings
       openStageEditorWithFindings({
         validFindings,
         useXrayMode,
         patientName,
         patientObservations
       });
+      // Update snapshot after regenerating
+      stagesFindingsSnapshot.current = currentFindingsSnapshot;
     }
   };
 
   const handleSaveStageEdits = (editedStages: any[]) => {
     setCurrentTreatmentStages(editedStages);
+    
+    // ✅ Update snapshot when saving - lock in current findings state
+    const validFindings = findings.filter(f => f.tooth && f.condition && f.treatment);
+    stagesFindingsSnapshot.current = JSON.stringify(
+      validFindings.map(f => ({ tooth: f.tooth, condition: f.condition, treatment: f.treatment }))
+    );
+    
     setIsStageEditorOpen(false);
     toast({
       title: "Stages Saved",

@@ -24,7 +24,7 @@ export function StageEditorModal({
   initialStages,
   onSave,
   onGenerateReport,
-  timeThreshold = 90
+  timeThreshold
 }: StageEditorModalProps) {
   const handleSave = (stages: TreatmentStage[]) => {
     onSave(stages);

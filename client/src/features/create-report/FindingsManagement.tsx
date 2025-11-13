@@ -230,7 +230,24 @@ export const FindingsManagement = ({
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-sm font-medium">Treatment</Label>
                 <SearchableSelect
-                  options={treatmentsLoading ? ALL_TREATMENTS : databaseTreatments}
+                  options={(() => {
+                    const allOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
+                    
+                    // ✅ If condition is selected, show suggested treatments at the top
+                    if (f.condition) {
+                      const suggested = getSuggestedTreatments(f.condition);
+                      if (suggested.length > 0) {
+                        // Mark suggested treatments as pinned (shown at top)
+                        const suggestedValues = suggested.map(s => s.value);
+                        return allOptions.map(option => ({
+                          ...option,
+                          pinned: suggestedValues.includes(option.value)
+                        }));
+                      }
+                    }
+                    
+                    return allOptions;
+                  })()}
                   value={f.treatment}
                   onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
                   placeholder={treatmentsLoading ? "Loading treatments..." : "Select treatment"}

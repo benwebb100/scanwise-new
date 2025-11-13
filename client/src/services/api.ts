@@ -95,6 +95,10 @@ export const api = {
       video_language: videoLanguage,  // Include video language
     };
     
+    console.log('🎬 API SERVICE: Video generation parameter:');
+    console.log(`   Received from caller: ${data.generateVideo}`);
+    console.log(`   Sending to backend: ${requestBody.generate_video}`);
+    
     // Include pre-analyzed data if provided (for AWS images)
     if (data.preAnalyzedDetections && data.preAnalyzedAnnotatedUrl) {
       requestBody.pre_analyzed_detections = data.preAnalyzedDetections;

@@ -11,6 +11,7 @@ import { TreatmentItem } from '../types/stage-editor.types';
 import { formatDuration, formatCurrency } from '../utils/stage-calculations';
 import { getCanalCountFromRctTreatment, getRctTreatmentByCanals } from '@/utils/tooth-canal-mapping';
 import { useTreatmentSettings } from '@/hooks/useTreatmentSettings';
+import { TreatmentService } from '@/lib/treatment-service';
 
 interface RctOverrideSettings {
   canals: number;

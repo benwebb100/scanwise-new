@@ -1,8 +1,9 @@
 # Use Python 3.13 base image
 FROM python:3.13-slim
 
-# Install system dependencies for Playwright
+# Install system dependencies for Playwright and ffmpeg for video generation
 RUN apt-get update && apt-get install -y \
+    ffmpeg \
     libnss3 \
     libatk1.0-0 \
     libdrm2 \

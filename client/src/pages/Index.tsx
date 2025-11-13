@@ -168,29 +168,29 @@ export default function Index() {
             <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
               <div className="flex items-start gap-6">
                 <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">AI-Enhanced Analysis</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">AI-Enhanced Analysis</h3>
                   <p className="text-gray-600 mb-4 text-lg">
-                    Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues with precision.
-                  </p>
+                Advanced machine learning algorithms analyze panoramic X-rays and highlight potential issues with precision.
+              </p>
                   <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Automated tooth mapping</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Condition detection</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Tooth-aware treatment suggestions</span>
-                    </li>
-                  </ul>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Automated tooth mapping</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Condition detection</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Tooth-aware treatment suggestions</span>
+                </li>
+              </ul>
                 </div>
               </div>
             </div>
@@ -199,29 +199,29 @@ export default function Index() {
             <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
               <div className="flex items-start gap-6">
                 <div className="w-16 h-16 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
+                <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">Streamlined Workflow</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">Streamlined Workflow</h3>
                   <p className="text-gray-600 mb-4 text-lg">
-                    Generate comprehensive reports in minutes, not hours. Focus on patient care, not paperwork.
-                  </p>
+                Generate comprehensive reports in minutes, not hours. Focus on patient care, not paperwork.
+              </p>
                   <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">One-click report generation</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Treatment stage organization</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Automated insurance code mapping</span>
-                    </li>
-                  </ul>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">One-click report generation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Treatment stage organization</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Automated insurance code mapping</span>
+                </li>
+              </ul>
                 </div>
               </div>
             </div>
@@ -230,29 +230,29 @@ export default function Index() {
             <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-lg">
               <div className="flex items-start gap-6">
                 <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">HIPAA Compliant</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">HIPAA Compliant</h3>
                   <p className="text-gray-600 mb-4 text-lg">
-                    Enterprise-grade security for patient data protection. Built for healthcare compliance.
-                  </p>
+                Enterprise-grade security for patient data protection. Built for healthcare compliance.
+              </p>
                   <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">End-to-end encryption</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Secure cloud storage</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">Audit trail logging</span>
-                    </li>
-                  </ul>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">End-to-end encryption</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Secure cloud storage</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Audit trail logging</span>
+                </li>
+              </ul>
                 </div>
               </div>
             </div>

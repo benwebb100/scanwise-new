@@ -586,7 +586,7 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="p-6">
-        <div className="max-w-full mx-auto px-4">
+        <div className="max-w-7xl mx-auto">
           {/* Welcome Section */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
