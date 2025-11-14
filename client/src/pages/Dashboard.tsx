@@ -1158,9 +1158,9 @@ const Dashboard = () => {
                 </>
               )}
             </CardContent>
-          </Card>
+            </Card>
         </div>
-            </>
+          </>
           )}
         </div>
       </div>
