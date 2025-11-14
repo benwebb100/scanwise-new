@@ -3676,28 +3676,58 @@ async def send_report_email(
             if email_sent:
                 logger.info(f"✅ Email with PDF sent successfully to {patient_email}")
                 
-                # Update diagnosis record with email sent timestamp
+                # CRITICAL: Update diagnosis record with email sent timestamp
+                # This MUST succeed for dashboard badge to work
+                email_sent_at = datetime.now().isoformat()
                 try:
-                    email_sent_at = datetime.now().isoformat()
-                    logger.info(f"🕒 Attempting to update email_sent_at for diagnosis {report_id}")
-                    logger.info(f"   Timestamp: {email_sent_at}")
+                    logger.info(f"🕒 Updating email_sent_at for diagnosis {report_id}")
                     
-                    result = await supabase_service.update_diagnosis(
-                        report_id,
-                        {"email_sent_at": email_sent_at},
-                        token
-                    )
+                    # Use auth_client directly to ensure proper permissions
+                    update_result = auth_client.table('patient_diagnosis')\
+                        .update({'email_sent_at': email_sent_at})\
+                        .eq('id', report_id)\
+                        .execute()
                     
                     logger.info(f"✅ Successfully updated diagnosis {report_id} with email_sent_at: {email_sent_at}")
-                    logger.info(f"   Updated record: {result}")
+                    
                 except Exception as update_error:
                     logger.error(f"❌ CRITICAL: Failed to update email_sent_at timestamp!")
                     logger.error(f"   Report ID: {report_id}")
-                    logger.error(f"   Error type: {type(update_error).__name__}")
-                    logger.error(f"   Error details: {str(update_error)}")
-                    logger.error(f"   ⚠️ This likely means the 'email_sent_at' column doesn't exist in Supabase!")
-                    logger.error(f"   📋 Run the migration: server/migrations/add_email_sent_at_column.sql")
-                    # Don't fail the request if timestamp update fails
+                    logger.error(f"   Error: {str(update_error)}")
+                    # Continue anyway - don't fail the whole request
+                
+                # OPTIONAL: Create email tracking record (NEW FEATURE - may fail if table doesn't exist)
+                try:
+                    from services.email_tracking_service import calculate_urgency_level
+                    
+                    # Calculate urgency from report findings
+                    findings = diagnosis.get('findings', [])
+                    urgency_level, has_emergency = calculate_urgency_level(findings)
+                    
+                    logger.info(f"📊 Calculated urgency: {urgency_level} (emergency: {has_emergency})")
+                    
+                    # Create tracking record (uses service role client, not auth_client)
+                    tracking_data = {
+                        'report_id': report_id,
+                        'clinic_id': user_id,
+                        'user_id': user_id,
+                        'patient_email': patient_email,
+                        'patient_name': report_data.get('patient_name', 'Patient'),
+                        'sent_at': email_sent_at,
+                        'urgency_level': urgency_level,
+                        'has_emergency_conditions': has_emergency,
+                        'follow_up_completed': False
+                    }
+                    
+                    supabase_service.client.table('email_tracking')\
+                        .insert(tracking_data)\
+                        .execute()
+                    
+                    logger.info(f"✅ Created email tracking record for report {report_id}")
+                    
+                except Exception as tracking_error:
+                    logger.warning(f"⚠️ Email tracking record creation failed (this is OK if table doesn't exist yet): {str(tracking_error)}")
+                    # Silently fail - tracking is optional until migration is run
             else:
                 logger.error(f"❌ Failed to send email to {patient_email}")
                 return {
@@ -4279,3 +4309,376 @@ Now generate a description for {request.friendly_name}:"""
     except Exception as e:
         logger.error(f"❌ Error generating description: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate description: {str(e)}")
+
+
+# ============================================================================
+# EMAIL TRACKING & FOLLOW-UP SYSTEM
+# ============================================================================
+
+@router.post("/email-webhook")
+async def handle_sendgrid_webhook(request: Request):
+    """
+    SendGrid Event Webhook handler
+    Receives real-time notifications about email events:
+    - delivered: Email successfully delivered to recipient's server
+    - open: Recipient opened the email
+    - click: Recipient clicked a link in the email
+    
+    Note: Bounce and spam events are logged but not exposed to clinics yet
+    """
+    try:
+        events = await request.json()
+        logger.info(f"📧 Received {len(events)} SendGrid webhook events")
+        
+        for event in events:
+            event_type = event.get('event')
+            report_id = event.get('report_id')  # Custom arg from email sending
+            timestamp = event.get('timestamp')
+            
+            if not report_id:
+                logger.warning(f"⚠️ Email event missing report_id: {event_type}")
+                continue
+            
+            logger.info(f"📧 Processing {event_type} event for report {report_id}")
+            
+            # Convert Unix timestamp to ISO format
+            event_time = datetime.fromtimestamp(timestamp) if timestamp else datetime.now()
+            
+            if event_type == 'delivered':
+                # Email successfully delivered
+                supabase_service.client.table('email_tracking')\
+                    .update({'delivered_at': event_time.isoformat()})\
+                    .eq('report_id', report_id)\
+                    .execute()
+                logger.info(f"✅ Marked report {report_id} as delivered")
+                    
+            elif event_type == 'open':
+                # Email opened by recipient
+                # Get current tracking data
+                tracking_response = supabase_service.client.table('email_tracking')\
+                    .select('*')\
+                    .eq('report_id', report_id)\
+                    .single()\
+                    .execute()
+                
+                if tracking_response.data:
+                    tracking = tracking_response.data
+                    updates = {
+                        'last_opened_at': event_time.isoformat(),
+                        'open_count': (tracking.get('open_count') or 0) + 1
+                    }
+                    
+                    # Set first_opened_at if this is the first open
+                    if not tracking.get('first_opened_at'):
+                        updates['first_opened_at'] = event_time.isoformat()
+                        logger.info(f"🎉 First open for report {report_id}")
+                    
+                    supabase_service.client.table('email_tracking')\
+                        .update(updates)\
+                        .eq('report_id', report_id)\
+                        .execute()
+                    logger.info(f"✅ Updated open tracking for report {report_id} (count: {updates['open_count']})")
+                    
+            elif event_type == 'click':
+                # Link clicked in email (e.g., "View Report" button)
+                supabase_service.client.table('email_tracking')\
+                    .update({'clicked_at': event_time.isoformat()})\
+                    .eq('report_id', report_id)\
+                    .execute()
+                logger.info(f"✅ Link clicked in report {report_id}")
+            
+            # Log bounce and spam events but don't expose to clinics yet
+            elif event_type == 'bounce':
+                logger.warning(f"⚠️ Email bounced for report {report_id}: {event.get('reason')}")
+                # TODO: Internal notification to team
+                
+            elif event_type == 'spamreport':
+                logger.error(f"🚨 Spam report for report {report_id}")
+                # TODO: Internal notification to team
+        
+        return {"status": "ok", "processed": len(events)}
+    
+    except Exception as e:
+        logger.error(f"❌ Error processing SendGrid webhook: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        # Return 200 anyway to prevent SendGrid from retrying
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/email-tracking/{report_id}")
+async def get_email_tracking(
+    report_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Get email tracking data for a specific report"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Fetch email tracking
+        response = auth_client.table('email_tracking')\
+            .select('*')\
+            .eq('report_id', report_id)\
+            .single()\
+            .execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Email tracking not found")
+        
+        return response.data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching email tracking for {report_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch email tracking: {str(e)}")
+
+
+@router.get("/follow-ups")
+async def get_follow_ups(
+    token: str = Depends(get_auth_token)
+):
+    """
+    Get list of reports that need follow-up (not opened within threshold)
+    Returns reports grouped by urgency level
+    """
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get user ID from token
+        user = auth_client.auth.get_user(token)
+        user_id = user.user.id if user and user.user else None
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Fetch email tracking for user's reports that aren't opened and aren't completed
+        response = auth_client.table('email_tracking')\
+            .select('*, patient_diagnosis!inner(*)')\
+            .eq('user_id', user_id)\
+            .is_('first_opened_at', 'null')\
+            .eq('follow_up_completed', False)\
+            .order('urgency_level', desc=True)\
+            .order('sent_at', desc=False)\
+            .execute()
+        
+        if not response.data:
+            return {
+                'high': [],
+                'medium': [],
+                'low': [],
+                'total': 0
+            }
+        
+        # Group by urgency
+        grouped = {
+            'high': [],
+            'medium': [],
+            'low': []
+        }
+        
+        for tracking in response.data:
+            urgency = tracking.get('urgency_level', 'low')
+            if urgency in grouped:
+                grouped[urgency].append(tracking)
+        
+        return {
+            **grouped,
+            'total': len(response.data)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching follow-ups: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch follow-ups: {str(e)}")
+
+
+@router.patch("/follow-ups/{report_id}/complete")
+async def mark_follow_up_complete(
+    report_id: str,
+    notes: Optional[str] = None,
+    token: str = Depends(get_auth_token)
+):
+    """Mark a follow-up as completed (dentist called patient, etc.)"""
+    try:
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Update tracking record
+        updates = {
+            'follow_up_completed': True,
+            'follow_up_completed_at': datetime.now().isoformat()
+        }
+        
+        if notes:
+            updates['follow_up_notes'] = notes
+        
+        auth_client.table('email_tracking')\
+            .update(updates)\
+            .eq('report_id', report_id)\
+            .execute()
+        
+        logger.info(f"✅ Marked follow-up complete for report {report_id}")
+        
+        return {"status": "success", "message": "Follow-up marked as complete"}
+    
+    except Exception as e:
+        logger.error(f"Error marking follow-up complete for {report_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark follow-up complete: {str(e)}")
+
+
+@router.post("/cron/check-followups")
+async def check_and_send_followups(request: Request):
+    """
+    Background job to check for reports needing follow-up
+    Should be called periodically (every hour) by a cron job or scheduler
+    
+    Sends:
+    - Automated patient follow-up emails (24h/48h/72h based on urgency)
+    - Team notification emails (48h/96h/168h after sending if still not opened)
+    """
+    try:
+        # Verify cron secret to prevent unauthorized access
+        cron_secret = request.headers.get('X-Cron-Secret')
+        expected_secret = os.getenv('CRON_SECRET', 'dev-secret-change-in-production')
+        
+        if cron_secret != expected_secret:
+            logger.warning("⚠️ Unauthorized cron job attempt")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        logger.info("🕐 Starting follow-up check...")
+        
+        from services.email_tracking_service import should_send_auto_followup, should_send_team_notification
+        from services.followup_email_service import followup_email_service
+        
+        # Get all tracking records that haven't been opened and aren't completed
+        response = supabase_service.client.table('email_tracking')\
+            .select('*, patient_diagnosis!inner(findings)')\
+            .is_('first_opened_at', 'null')\
+            .eq('follow_up_completed', False)\
+            .execute()
+        
+        if not response.data:
+            logger.info("✅ No follow-ups needed")
+            return {"status": "ok", "patient_followups_sent": 0, "team_notifications_sent": 0}
+        
+        patient_followups_sent = 0
+        team_notifications_sent = 0
+        
+        for tracking in response.data:
+            report_id = tracking.get('report_id')
+            patient_email = tracking.get('patient_email')
+            patient_name = tracking.get('patient_name')
+            urgency_level = tracking.get('urgency_level')
+            
+            logger.info(f"📋 Checking report {report_id} (urgency: {urgency_level})")
+            
+            # Check if auto follow-up should be sent
+            if should_send_auto_followup(tracking):
+                try:
+                    logger.info(f"📧 Sending patient follow-up for report {report_id}")
+                    
+                    # Get clinic info
+                    user_id = tracking.get('user_id')
+                    clinic_response = supabase_service.client.table('clinic_branding')\
+                        .select('*')\
+                        .eq('user_id', user_id)\
+                        .single()\
+                        .execute()
+                    
+                    clinic_branding = clinic_response.data if clinic_response.data else {}
+                    clinic_name = clinic_branding.get('clinic_name', 'Your Dental Clinic')
+                    clinic_phone = clinic_branding.get('phone', 'our office')
+                    clinic_website = clinic_branding.get('website', 'our website')
+                    
+                    # Send follow-up email
+                    await followup_email_service.send_patient_followup(
+                        patient_email=patient_email,
+                        patient_name=patient_name,
+                        clinic_name=clinic_name,
+                        clinic_phone=clinic_phone,
+                        clinic_website=clinic_website,
+                        report_id=report_id,
+                        urgency_level=urgency_level,
+                        original_message_id=tracking.get('original_message_id')
+                    )
+                    
+                    # Update tracking record
+                    supabase_service.client.table('email_tracking')\
+                        .update({'auto_followup_sent_at': datetime.now().isoformat()})\
+                        .eq('report_id', report_id)\
+                        .execute()
+                    
+                    patient_followups_sent += 1
+                    logger.info(f"✅ Patient follow-up sent for report {report_id}")
+                    
+                except Exception as followup_error:
+                    logger.error(f"❌ Failed to send patient follow-up for {report_id}: {str(followup_error)}")
+            
+            # Check if team notification should be sent
+            if should_send_team_notification(tracking):
+                try:
+                    logger.info(f"📧 Sending team notification for report {report_id}")
+                    
+                    # Get user/clinic info
+                    user_id = tracking.get('user_id')
+                    user_response = supabase_service.client.table('users')\
+                        .select('email, clinic_name')\
+                        .eq('id', user_id)\
+                        .single()\
+                        .execute()
+                    
+                    if user_response.data:
+                        admin_email = user_response.data.get('email')
+                        clinic_name = user_response.data.get('clinic_name', 'Unknown Clinic')
+                        
+                        # Calculate hours since sent
+                        sent_at = tracking.get('sent_at')
+                        if isinstance(sent_at, str):
+                            sent_at = datetime.fromisoformat(sent_at.replace('Z', '+00:00'))
+                        hours_since_sent = (datetime.now() - sent_at).total_seconds() / 3600
+                        
+                        # Send team notification
+                        await followup_email_service.send_team_notification(
+                            clinic_admin_email=admin_email,
+                            patient_name=patient_name,
+                            patient_email=patient_email,
+                            clinic_name=clinic_name,
+                            report_id=report_id,
+                            urgency_level=urgency_level,
+                            hours_since_sent=hours_since_sent
+                        )
+                        
+                        # Update tracking record
+                        supabase_service.client.table('email_tracking')\
+                            .update({'team_notification_sent_at': datetime.now().isoformat()})\
+                            .eq('report_id', report_id)\
+                            .execute()
+                        
+                        team_notifications_sent += 1
+                        logger.info(f"✅ Team notification sent for report {report_id}")
+                    
+                except Exception as notification_error:
+                    logger.error(f"❌ Failed to send team notification for {report_id}: {str(notification_error)}")
+        
+        logger.info(f"✅ Follow-up check complete: {patient_followups_sent} patient emails, {team_notifications_sent} team notifications")
+        
+        return {
+            "status": "ok",
+            "patient_followups_sent": patient_followups_sent,
+            "team_notifications_sent": team_notifications_sent,
+            "total_checked": len(response.data)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error in follow-up check: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to check follow-ups: {str(e)}")
