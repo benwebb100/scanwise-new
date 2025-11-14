@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText, User, Settings, LogOut, Search, Filter, Loader2, Cloud, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, FileText, User, Settings, LogOut, Search, Filter, Loader2, Cloud, ArrowRight, Trash2, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from '@/services/api';
 import { supabase } from '@/services/supabase';
@@ -12,6 +12,7 @@ import { useTranslation } from "@/contexts/TranslationContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { ViewInBulgarian } from "@/components/ViewInBulgarian";
 import { RefreshCw, Info } from "lucide-react";
+import { FollowUpsTab } from "@/components/FollowUpsTab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,12 @@ interface Report {
   s3Key?: string;
   patientEmail?: string;  // DICOM metadata
   emailSentAt?: string;  // Timestamp when report was emailed to patient
+  emailTracking?: {
+    first_opened_at?: string;
+    open_count?: number;
+    urgency_level?: 'high' | 'medium' | 'low';
+    follow_up_completed?: boolean;
+  };
 }
 
 interface Stats {
@@ -79,6 +86,7 @@ const Dashboard = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'reports' | 'followups'>('reports');
 
   useEffect(() => {
     checkAuth();
@@ -176,6 +184,39 @@ const Dashboard = () => {
         source: 'manual' as const,
         emailSentAt: diagnosis.emailSentAt || diagnosis.email_sent_at
       }));
+      
+      // Fetch email tracking data for enhanced features (if available)
+      // This will fail silently if the email_tracking table doesn't exist yet
+      const trackingMap = new Map();
+      try {
+        // Fetch tracking data for all report IDs
+        const reportIds = manualReports.map(r => r.id);
+        for (const reportId of reportIds) {
+          try {
+            const tracking = await api.getEmailTracking(reportId);
+            if (tracking) {
+              trackingMap.set(reportId, {
+                first_opened_at: tracking.first_opened_at,
+                open_count: tracking.open_count,
+                urgency_level: tracking.urgency_level,
+                follow_up_completed: tracking.follow_up_completed
+              });
+            }
+          } catch (err) {
+            // Silently skip if tracking not found for this report
+          }
+        }
+        console.log(`📧 Loaded email tracking for ${trackingMap.size} reports`);
+      } catch (trackingError) {
+        console.log('ℹ️ Email tracking not available yet (table may not exist)');
+      }
+      
+      // Merge tracking data with reports
+      manualReports.forEach(report => {
+        if (trackingMap.has(report.id)) {
+          report.emailTracking = trackingMap.get(report.id);
+        }
+      });
       
       // Fetch AWS images
       let awsReports: Report[] = [];
@@ -597,6 +638,42 @@ const Dashboard = () => {
             </p>
           </div>
 
+          {/* Tab Switcher */}
+          <div className="flex gap-4 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`px-4 py-3 font-medium transition-colors relative ${
+                activeTab === 'reports'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                <span>Reports</span>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('followups')}
+              className={`px-4 py-3 font-medium transition-colors relative ${
+                activeTab === 'followups'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                <span>Follow-Ups</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'followups' ? (
+            <FollowUpsTab />
+          ) : (
+            <>
           {/* Top Stats Cards - Total Reports and Manual Uploads */}
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
@@ -872,9 +949,31 @@ const Dashboard = () => {
                             <div className="flex items-center space-x-2">
                               {report.emailSentAt ? (
                                 <div className="flex flex-col items-start space-y-1">
-                                  <Badge className="bg-purple-100 text-purple-700 border-purple-200">
-                                    Completed and Sent
-                                  </Badge>
+                                  {/* Email Opened Status */}
+                                  {report.emailTracking?.first_opened_at ? (
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-green-100 text-green-700 border-green-200">
+                                        ✓ Opened
+                                      </Badge>
+                                      {report.emailTracking.open_count && report.emailTracking.open_count > 1 && (
+                                        <span className="text-xs text-gray-500">
+                                          ({report.emailTracking.open_count}x)
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                                        Sent, Not Opened
+                                      </Badge>
+                                      {report.emailTracking?.urgency_level && (
+                                        <span className="text-xs">
+                                          {report.emailTracking.urgency_level === 'high' ? '🔴' : 
+                                           report.emailTracking.urgency_level === 'medium' ? '🟡' : '🟢'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                   <span className="text-xs text-gray-500">
                                     Sent: {new Date(report.emailSentAt).toLocaleString()}
                                   </span>
@@ -1060,6 +1159,9 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+        </div>
+          </>
+          )}
         </div>
       </div>
 
