@@ -674,7 +674,7 @@ const Dashboard = () => {
             <FollowUpsTab />
           ) : (
             <>
-          {/* Top Stats Cards - Total Reports and Manual Uploads */}
+              {/* Top Stats Cards - Total Reports and Manual Uploads */}
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
               <CardContent className="p-6">
@@ -1160,7 +1160,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
-          </>
+            </>
           )}
         </div>
       </div>
