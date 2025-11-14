@@ -669,11 +669,11 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Tab Content */}
-          {activeTab === 'followups' ? (
-            <FollowUpsTab />
-          ) : (
-            <>
+          {/* Tab Content - Follow-Ups */}
+          {activeTab === 'followups' && <FollowUpsTab />}
+          
+          {/* Tab Content - Reports */}
+          <div className={activeTab === 'reports' ? 'block' : 'hidden'}>
           {/* Top Stats Cards - Total Reports and Manual Uploads */}
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
@@ -1160,8 +1160,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
-          </>
-          )}
+          </div>
         </div>
       </div>
 
