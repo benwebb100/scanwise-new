@@ -6,8 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PricingInput } from '@/components/PricingInput';
+import { TreatmentDetailsInput } from '@/components/TreatmentDetailsInput';
+import { TreatmentService } from '@/lib/treatment-service';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info, Edit3, ArrowRight, Loader2 } from 'lucide-react';
+import { Info, Edit3, ArrowRight, Loader2, Plus } from 'lucide-react';
+import { CreateCustomTreatmentDialog } from '@/components/CreateCustomTreatmentDialog';
 import { 
   getToothOptions, 
   getReplacementOptions, 
@@ -26,17 +29,20 @@ export interface Finding {
   treatment: string;
   replacement: string;
   price: number | undefined;
+  duration: number | undefined; // Treatment duration in minutes
 }
 
 interface FindingsManagementProps {
   findings: Finding[];
   onFindingsChange: (findings: Finding[]) => void;
   toothNumberingSystem: ToothNumberingSystem; // Changed from string to ToothNumberingSystem
-  showTreatmentPricing: boolean;
-  onShowPricingChange: (show: boolean) => void;
+  showTreatmentPricing: boolean; // Renamed to showTreatmentDetails but keeping compatibility
+  onShowPricingChange: (show: boolean) => void; // Renamed to onShowDetailsChange but keeping compatibility
   isProcessing?: boolean;
   onPriceSave: (treatment: string, price: number) => void;
+  onDurationSave?: (treatment: string, duration: number) => void;
   getPrice: (treatment: string) => number;
+  getDuration?: (treatment: string) => number;
 //   onNextStep: () => void;
   onNextStep: (e?: React.FormEvent) => void | Promise<void>; // Updated signature
   onContinueEditingStages: () => void;
@@ -57,7 +63,9 @@ export const FindingsManagement = ({
   onShowPricingChange,
   isProcessing = false,
   onPriceSave,
+  onDurationSave,
   getPrice,
+  getDuration,
   onNextStep,
   onContinueEditingStages,
   onGenerateFromSavedStages,
@@ -69,9 +77,43 @@ export const FindingsManagement = ({
   findingsErrors = []
 }: FindingsManagementProps) => {
   const { t } = useTranslation();
-  const { treatments: databaseTreatments, isLoading: treatmentsLoading } = useDentalData();
+  const { treatments: databaseTreatments, isLoading: treatmentsLoading, reload: reloadDentalData } = useDentalData();
+  
+  // State for custom treatment dialog
+  const [showCustomTreatmentDialog, setShowCustomTreatmentDialog] = useState(false);
+  const [pendingCustomTreatmentIndex, setPendingCustomTreatmentIndex] = useState<number | null>(null);
+  
+  // Provide a default getDuration function if not provided
+  const getDurationWithFallback = getDuration || ((treatment: string) => {
+    return TreatmentService.getDefaultDuration(treatment) || 30;
+  });
+
+  // Handle custom treatment creation
+  const handleCustomTreatmentCreated = async (treatmentId: string) => {
+    console.log('✅ Custom treatment created:', treatmentId);
+    
+    // Reload dental data to include the new custom treatment
+    await reloadDentalData();
+    
+    // If we have a pending finding index, update it with the new treatment
+    if (pendingCustomTreatmentIndex !== null) {
+      const updated = [...findings];
+      updated[pendingCustomTreatmentIndex].treatment = treatmentId;
+      onFindingsChange(updated);
+      setPendingCustomTreatmentIndex(null);
+    }
+    
+    setShowCustomTreatmentDialog(false);
+  };
 
   const handleFindingChange = (idx: number, field: string, value: string | number) => {
+    // Special handling for "Add Custom Treatment" option
+    if (field === 'treatment' && value === 'ADD_CUSTOM_TREATMENT') {
+      setPendingCustomTreatmentIndex(idx);
+      setShowCustomTreatmentDialog(true);
+      return; // Don't update the finding yet
+    }
+    
     const updated = [...findings];
     updated[idx] = { ...updated[idx], [field]: value };
     
@@ -89,6 +131,11 @@ export const FindingsManagement = ({
         if (price) {
           updated[idx].price = price;
         }
+        
+        const duration = getDurationWithFallback(recommendedTreatment);
+        if (duration) {
+          updated[idx].duration = duration;
+        }
       }
     }
     
@@ -104,14 +151,24 @@ export const FindingsManagement = ({
         if (price) {
           updated[idx].price = price;
         }
+        
+        const duration = getDurationWithFallback(recommendedTreatment);
+        if (duration) {
+          updated[idx].duration = duration;
+        }
       }
     }
     
-    // Auto-fill price when treatment changes
+    // Auto-fill price and duration when treatment changes
     if (field === 'treatment' && typeof value === 'string' && value !== '') {
       const price = getPrice(value);
       if (price) {
         updated[idx].price = price;
+      }
+      
+      const duration = getDurationWithFallback(value);
+      if (duration) {
+        updated[idx].duration = duration;
       }
     }
     
@@ -120,7 +177,7 @@ export const FindingsManagement = ({
 
   const addFinding = () => {
     onFindingsChange([
-      { tooth: "", condition: "", treatment: "", replacement: "", price: undefined },
+      { tooth: "", condition: "", treatment: "", replacement: "", price: undefined, duration: undefined },
       ...findings
     ]);
   };
@@ -163,11 +220,11 @@ export const FindingsManagement = ({
           <span className="font-medium text-blue-900">Manual Findings Entry</span>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Label htmlFor="show-pricing" className="text-sm font-medium text-gray-700">
-                Show Treatment Pricing
+              <Label htmlFor="show-details" className="text-sm font-medium text-gray-700">
+                Show Treatment Info
               </Label>
               <Switch
-                id="show-pricing"
+                id="show-details"
                 checked={showTreatmentPricing}
                 onCheckedChange={onShowPricingChange}
                 className="data-[state=checked]:bg-blue-600"
@@ -233,20 +290,30 @@ export const FindingsManagement = ({
                   options={(() => {
                     const allOptions = treatmentsLoading ? ALL_TREATMENTS : databaseTreatments;
                     
-                    // ✅ If condition is selected, show suggested treatments at the top
+                    // ✅ ALWAYS add "Add Custom Treatment" option at the very top
+                    const customOption = {
+                      value: 'ADD_CUSTOM_TREATMENT',
+                      label: '+ Add Custom Treatment',
+                      category: 'custom',
+                      pinned: true,
+                      className: 'text-gray-600 font-medium' // Slightly lighter gray
+                    };
+                    
+                    // ✅ If condition is selected, show suggested treatments at the top (after custom option)
                     if (f.condition) {
                       const suggested = getSuggestedTreatments(f.condition);
                       if (suggested.length > 0) {
                         // Mark suggested treatments as pinned (shown at top)
                         const suggestedValues = suggested.map(s => s.value);
-                        return allOptions.map(option => ({
+                        const optionsWithSuggestions = allOptions.map(option => ({
                           ...option,
                           pinned: suggestedValues.includes(option.value)
                         }));
+                        return [customOption, ...optionsWithSuggestions];
                       }
                     }
                     
-                    return allOptions;
+                    return [customOption, ...allOptions];
                   })()}
                   value={f.treatment}
                   onValueChange={(value) => handleFindingChange(idx, "treatment", value)}
@@ -287,15 +354,18 @@ export const FindingsManagement = ({
               </div>
             </div>
 
-            {/* Pricing Input */}
+            {/* Treatment Details (Price & Duration) */}
             {f.treatment && showTreatmentPricing && (
               <div className="mt-4 pt-4 border-t">
-                <Label className="text-sm font-medium mb-2 block">Treatment Pricing</Label>
-                <PricingInput
+                <Label className="text-sm font-semibold mb-3 block text-gray-900">Treatment Details</Label>
+                <TreatmentDetailsInput
                   treatment={f.treatment}
-                  value={f.price}
-                  onChange={(price) => handleFindingChange(idx, "price", price)}
+                  priceValue={f.price}
+                  durationValue={f.duration}
+                  onPriceChange={(price) => handleFindingChange(idx, "price", price)}
+                  onDurationChange={(duration) => handleFindingChange(idx, "duration", duration)}
                   onPriceSave={onPriceSave}
+                  onDurationSave={onDurationSave}
                   disabled={isProcessing}
                 />
               </div>
@@ -341,6 +411,16 @@ export const FindingsManagement = ({
         </Button>
       </div>
       </CardContent>
+      
+      {/* Custom Treatment Dialog */}
+      <CreateCustomTreatmentDialog
+        isOpen={showCustomTreatmentDialog}
+        onClose={() => {
+          setShowCustomTreatmentDialog(false);
+          setPendingCustomTreatmentIndex(null);
+        }}
+        onTreatmentCreated={handleCustomTreatmentCreated}
+      />
     </Card>
   );
 };

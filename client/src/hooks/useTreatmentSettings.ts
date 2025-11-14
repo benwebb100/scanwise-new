@@ -151,16 +151,35 @@ export const useTreatmentSettings = () => {
 
   // Get treatment setting - backend already provides merged data
   const getTreatmentSetting = useCallback((treatmentValue: string): { duration: number; price: number } => {
+    // First check if we have a clinic-specific override
     const setting = state.settings[treatmentValue];
     
-    if (!setting) {
-      console.warn(`⚠️ No setting found for treatment: ${treatmentValue}`);
-      console.log(`📋 Available treatment keys:`, Object.keys(state.settings).slice(0, 10));
-      console.log(`🔍 Looking for key: "${treatmentValue}"`);
-      return { duration: 30, price: 0 }; // Fallback only if treatment not in database
+    if (setting) {
+      return setting;
     }
     
-    return setting;
+    // If no clinic override, get defaults from master database
+    console.log(`📋 No clinic override for: ${treatmentValue}, using master database defaults`);
+    
+    // Try to get from TreatmentService (master database)
+    try {
+      const { TreatmentService } = require('@/lib/treatment-service');
+      const masterTreatment = TreatmentService.getByCode(treatmentValue);
+      
+      if (masterTreatment) {
+        console.log(`✅ Found in master database: ${masterTreatment.displayName}`);
+        return {
+          duration: masterTreatment.defaultDuration || 30,
+          price: masterTreatment.defaultPriceAUD || 0
+        };
+      }
+    } catch (error) {
+      console.warn('Could not load TreatmentService:', error);
+    }
+    
+    // Final fallback if treatment not found anywhere
+    console.warn(`⚠️ Treatment not found in settings or master database: ${treatmentValue}`);
+    return { duration: 30, price: 0 };
   }, [state.settings]);
 
   // Export settings as JSON

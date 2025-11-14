@@ -458,19 +458,40 @@ export const api = {
   async saveClinicBranding(brandingData: any) {
     const token = await this.getAuthToken();
     
+    console.log('💾 saveClinicBranding called with:', brandingData);
+    
     // Transform camelCase to snake_case for backend
-    const backendData = {
-      clinic_name: brandingData.clinicName,
+    const backendData: any = {
+      clinic_name: brandingData.clinicName || brandingData.clinic_name,
       address: brandingData.address,
       phone: brandingData.phone,
       email: brandingData.email,
       website: brandingData.website,
-      logo_url: brandingData.logoUrl,
-      header_template: brandingData.headerTemplate,
-      footer_template: brandingData.footerTemplate,
-      primary_color: brandingData.primaryColor,
-      secondary_color: brandingData.secondaryColor,
+      logo_url: brandingData.logoUrl || brandingData.logo_url,
+      header_template: brandingData.headerTemplate || brandingData.header_template,
+      footer_template: brandingData.footerTemplate || brandingData.footer_template,
+      primary_color: brandingData.primaryColor || brandingData.primary_color,
+      secondary_color: brandingData.secondaryColor || brandingData.secondary_color,
     };
+    
+    // ✅ NEW: Include general settings fields (already in snake_case from Settings.tsx)
+    if (brandingData.tooth_numbering_system !== undefined) {
+      backendData.tooth_numbering_system = brandingData.tooth_numbering_system;
+    }
+    if (brandingData.video_narration_language !== undefined) {
+      backendData.video_narration_language = brandingData.video_narration_language;
+    }
+    if (brandingData.generate_videos_automatically !== undefined) {
+      backendData.generate_videos_automatically = brandingData.generate_videos_automatically;
+    }
+    if (brandingData.treatment_duration_threshold !== undefined) {
+      backendData.treatment_duration_threshold = brandingData.treatment_duration_threshold;
+    }
+    if (brandingData.timezone !== undefined) {
+      backendData.timezone = brandingData.timezone;
+    }
+    
+    console.log('📤 Sending to backend:', backendData);
     
     const response = await fetch(`${API_BASE_URL}/clinic-branding`, {
       method: 'POST',
@@ -481,8 +502,15 @@ export const api = {
       body: JSON.stringify(backendData),
     });
 
-    if (!response.ok) throw new Error('Failed to save branding');
-    return response.json();
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to save branding:', error);
+      throw new Error('Failed to save branding');
+    }
+    
+    const result = await response.json();
+    console.log('✅ Branding saved successfully:', result);
+    return result;
   },
 
   async getClinicBranding() {
@@ -931,6 +959,193 @@ export const api = {
 
     const result = await response.json();
     console.log('✅ S3 folder initialized:', result);
+    return result;
+  },
+
+  // ============================================================================
+  // PRICELIST IMPORT API METHODS
+  // ============================================================================
+
+  async importPricelist(file: File): Promise<any> {
+    const token = await this.getAuthToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    console.log('📤 Uploading price list:', file.name);
+
+    const response = await fetch(`${API_BASE_URL}/treatments/import-pricelist`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type, browser will set it with boundary for multipart
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to import price list:', error);
+      throw new Error(error.detail || 'Failed to import price list');
+    }
+
+    const result = await response.json();
+    console.log('✅ Price list imported:', result.data.total_count, 'treatments');
+    return result;
+  },
+
+  async matchToMasterDatabase(extractedTreatments: any[]): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('🔍 Matching', extractedTreatments.length, 'treatments to master database');
+
+    const response = await fetch(`${API_BASE_URL}/treatments/match-to-master`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        extracted_treatments: extractedTreatments
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to match treatments:', error);
+      throw new Error(error.detail || 'Failed to match treatments');
+    }
+
+    const result = await response.json();
+    console.log('✅ Treatments matched:', result.statistics);
+    return result;
+  },
+
+  async bulkUpdateTreatmentPrices(mappings: any[]): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('💾 Bulk updating', mappings.length, 'treatment prices');
+
+    const response = await fetch(`${API_BASE_URL}/treatments/bulk-update`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mappings
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to bulk update:', error);
+      throw new Error(error.detail || 'Failed to bulk update');
+    }
+
+    const result = await response.json();
+    console.log('✅ Bulk update complete:', result);
+    return result;
+  },
+
+  // ============================================================================
+  // CUSTOM TREATMENTS API METHODS
+  // ============================================================================
+
+  async getCustomTreatments(): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('📋 Fetching custom treatments');
+
+    const response = await fetch(`${API_BASE_URL}/custom-treatments`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to fetch custom treatments:', error);
+      throw new Error(error.detail || 'Failed to fetch custom treatments');
+    }
+
+    const result = await response.json();
+    console.log('✅ Custom treatments loaded:', result.treatments.length);
+    return result;
+  },
+
+  async createCustomTreatment(treatment: any): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('➕ Creating custom treatment:', treatment.clinic_name);
+
+    const response = await fetch(`${API_BASE_URL}/custom-treatments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(treatment),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to create custom treatment:', error);
+      throw new Error(error.detail || 'Failed to create custom treatment');
+    }
+
+    const result = await response.json();
+    console.log('✅ Custom treatment created:', result.treatment.id);
+    return result;
+  },
+
+  async updateCustomTreatment(treatmentId: string, treatment: any): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('✏️ Updating custom treatment:', treatmentId);
+
+    const response = await fetch(`${API_BASE_URL}/custom-treatments/${treatmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(treatment),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to update custom treatment:', error);
+      throw new Error(error.detail || 'Failed to update custom treatment');
+    }
+
+    const result = await response.json();
+    console.log('✅ Custom treatment updated');
+    return result;
+  },
+
+  async deleteCustomTreatment(treatmentId: string): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('🗑️ Deleting custom treatment:', treatmentId);
+
+    const response = await fetch(`${API_BASE_URL}/custom-treatments/${treatmentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to delete custom treatment:', error);
+      throw new Error(error.detail || 'Failed to delete custom treatment');
+    }
+
+    const result = await response.json();
+    console.log('✅ Custom treatment deleted');
     return result;
   },
 };
