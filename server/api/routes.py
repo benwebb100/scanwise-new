@@ -3856,3 +3856,423 @@ async def send_preview_report_email(
             "success": False,
             "error": f"General error: {str(e)}"
         }
+
+
+# ============================================================================
+# PRICELIST IMPORT ENDPOINTS
+# ============================================================================
+
+from fastapi import UploadFile, File
+from services.pricelist_import import pricelist_import_service
+
+@router.post("/treatments/import-pricelist")
+async def import_pricelist(
+    file: UploadFile = File(...),
+    token: str = Depends(get_auth_token)
+):
+    """
+    Step 1: Upload price list file (PDF/Excel/CSV/Image)
+    Extract treatments using GPT-4 Vision/Text
+    Returns raw extracted treatments for review
+    """
+    try:
+        logger.info(f"📤 Importing price list from {file.filename}")
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Extract treatments using AI
+        extraction_result = await pricelist_import_service.extract_from_file(
+            file_content=file_content,
+            filename=file.filename,
+            mime_type=file.content_type
+        )
+        
+        logger.info(f"✅ Extracted {extraction_result.get('total_count', 0)} treatments")
+        
+        return {
+            "status": "success",
+            "data": extraction_result
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error importing price list: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to import price list: {str(e)}")
+
+
+class MatchToMasterRequest(BaseModel):
+    extracted_treatments: List[Dict[str, Any]]
+
+@router.post("/treatments/match-to-master")
+async def match_to_master(
+    request: MatchToMasterRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Step 2: Match extracted treatments to master database
+    Uses GPT-4 for intelligent matching with confidence scores
+    """
+    try:
+        logger.info(f"🔍 Matching {len(request.extracted_treatments)} treatments to master database")
+        
+        # Load master treatments database
+        master_path = Path(__file__).parent.parent.parent / 'client' / 'src' / 'data' / 'treatments.au.json'
+        with open(master_path, 'r') as f:
+            master_treatments = json.load(f)
+        
+        # Use AI to match treatments
+        matches = await pricelist_import_service.match_to_master_database(
+            extracted_treatments=request.extracted_treatments,
+            master_treatments=master_treatments
+        )
+        
+        # Calculate statistics
+        auto_matched = sum(1 for m in matches if not m.get('requires_review', False))
+        needs_review = sum(1 for m in matches if m.get('requires_review', False))
+        
+        logger.info(f"✅ Matched {len(matches)} treatments: {auto_matched} auto, {needs_review} review")
+        
+        return {
+            "status": "success",
+            "matches": matches,
+            "statistics": {
+                "total": len(matches),
+                "auto_matched": auto_matched,
+                "needs_review": needs_review,
+                "custom": sum(1 for m in matches if m.get('matched_code') == 'CUSTOM')
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error matching treatments: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to match treatments: {str(e)}")
+
+
+class BulkUpdateMapping(BaseModel):
+    clinic_name: str
+    clinic_price: float
+    clinic_duration: Optional[int] = None
+    matched_code: str
+    action: str  # "update" or "create_custom"
+
+class BulkUpdateRequest(BaseModel):
+    mappings: List[BulkUpdateMapping]
+
+@router.post("/treatments/bulk-update")
+async def bulk_update_treatment_prices(
+    request: BulkUpdateRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Step 3: Bulk update treatment settings in Supabase
+    Applies all confirmed mappings at once
+    """
+    try:
+        logger.info(f"💾 Bulk updating {len(request.mappings)} treatment prices")
+        
+        # Create authenticated client
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Get or create clinic branding record (contains treatment settings)
+        branding_response = auth_client.table('clinic_branding').select("*").execute()
+        
+        if not branding_response.data:
+            raise HTTPException(status_code=404, detail="Clinic branding not found. Please set up clinic branding first.")
+        
+        branding_id = branding_response.data[0]['id']
+        
+        # Load current treatment settings (stored in branding_data or separate?)
+        # For now, we'll store in clinic_branding as JSONB
+        current_settings = branding_response.data[0].get('treatment_settings', {})
+        
+        # Get user_id from token
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded_token.get('sub')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Update settings for each mapping
+        updated_count = 0
+        custom_count = 0
+        
+        for mapping in request.mappings:
+            if mapping.action == "update" and mapping.matched_code != "CUSTOM":
+                # Update existing master treatment with clinic price/duration
+                current_settings[mapping.matched_code] = {
+                    "price": mapping.clinic_price,
+                    "duration": mapping.clinic_duration,
+                    "clinic_name": mapping.clinic_name
+                }
+                updated_count += 1
+            elif mapping.action == "create_custom" or mapping.matched_code == "CUSTOM":
+                # ✅ Create ACTUAL custom treatment in database
+                try:
+                    auth_client.table('custom_treatments').insert({
+                        'user_id': user_id,
+                        'clinic_name': mapping.clinic_name,
+                        'display_name': mapping.clinic_name,
+                        'friendly_name': mapping.clinic_name,
+                        'category': 'general',
+                        'description': f'Custom treatment imported from price list',
+                        'price': mapping.clinic_price,
+                        'duration': mapping.clinic_duration or 30,
+                        'is_active': True
+                    }).execute()
+                    custom_count += 1
+                    logger.info(f"✅ Created custom treatment: {mapping.clinic_name}")
+                except Exception as custom_error:
+                    logger.warning(f"⚠️ Failed to create custom treatment {mapping.clinic_name}: {str(custom_error)}")
+                    # Continue with other mappings
+        
+        # Save updated settings back to database
+        auth_client.table('clinic_branding').update({
+            "treatment_settings": current_settings,
+            "updated_at": datetime.now().isoformat()
+        }).eq('id', branding_id).execute()
+        
+        logger.info(f"✅ Bulk update complete: {updated_count} updated, {custom_count} custom")
+        
+        return {
+            "status": "success",
+            "updated_count": updated_count,
+            "custom_count": custom_count,
+            "total": len(request.mappings)
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error in bulk update: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to bulk update: {str(e)}")
+
+
+# ============================================================================
+# CUSTOM TREATMENTS ENDPOINTS
+# ============================================================================
+
+class CustomTreatmentCreate(BaseModel):
+    clinic_name: str
+    display_name: str
+    friendly_name: str
+    category: str = "general"
+    description: Optional[str] = None
+    price: float
+    duration: int = 30
+    insurance_code: Optional[str] = None
+
+@router.get("/custom-treatments")
+async def get_custom_treatments(
+    token: str = Depends(get_auth_token)
+):
+    """Get all custom treatments for the authenticated user"""
+    try:
+        logger.info("📋 Fetching custom treatments")
+        
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        response = auth_client.table('custom_treatments')\
+            .select("*")\
+            .eq('is_active', True)\
+            .order('created_at', desc=True)\
+            .execute()
+        
+        custom_treatments = response.data or []
+        logger.info(f"✅ Found {len(custom_treatments)} custom treatments")
+        
+        return {
+            "status": "success",
+            "treatments": custom_treatments
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error fetching custom treatments: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch custom treatments: {str(e)}")
+
+
+@router.post("/custom-treatments")
+async def create_custom_treatment(
+    treatment: CustomTreatmentCreate,
+    token: str = Depends(get_auth_token)
+):
+    """Create a new custom treatment"""
+    try:
+        logger.info(f"➕ Creating custom treatment: {treatment.clinic_name}")
+        
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Decode JWT to get user_id
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded_token.get('sub')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Insert custom treatment
+        response = auth_client.table('custom_treatments').insert({
+            'user_id': user_id,
+            'clinic_name': treatment.clinic_name,
+            'display_name': treatment.display_name,
+            'friendly_name': treatment.friendly_name,
+            'category': treatment.category,
+            'description': treatment.description,
+            'price': treatment.price,
+            'duration': treatment.duration,
+            'insurance_code': treatment.insurance_code,
+            'is_active': True
+        }).execute()
+        
+        logger.info(f"✅ Custom treatment created: {response.data[0]['id']}")
+        
+        return {
+            "status": "success",
+            "treatment": response.data[0]
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error creating custom treatment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create custom treatment: {str(e)}")
+
+
+@router.put("/custom-treatments/{treatment_id}")
+async def update_custom_treatment(
+    treatment_id: str,
+    treatment: CustomTreatmentCreate,
+    token: str = Depends(get_auth_token)
+):
+    """Update an existing custom treatment"""
+    try:
+        logger.info(f"✏️ Updating custom treatment: {treatment_id}")
+        
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        response = auth_client.table('custom_treatments').update({
+            'clinic_name': treatment.clinic_name,
+            'display_name': treatment.display_name,
+            'friendly_name': treatment.friendly_name,
+            'category': treatment.category,
+            'description': treatment.description,
+            'price': treatment.price,
+            'duration': treatment.duration,
+            'insurance_code': treatment.insurance_code
+        }).eq('id', treatment_id).execute()
+        
+        logger.info(f"✅ Custom treatment updated")
+        
+        return {
+            "status": "success",
+            "treatment": response.data[0] if response.data else None
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error updating custom treatment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update custom treatment: {str(e)}")
+
+
+@router.delete("/custom-treatments/{treatment_id}")
+async def delete_custom_treatment(
+    treatment_id: str,
+    token: str = Depends(get_auth_token)
+):
+    """Soft delete a custom treatment (set is_active to false)"""
+    try:
+        logger.info(f"🗑️ Deleting custom treatment: {treatment_id}")
+        
+        auth_client = supabase_service._create_authenticated_client(token)
+        
+        # Soft delete (set is_active to false)
+        response = auth_client.table('custom_treatments').update({
+            'is_active': False
+        }).eq('id', treatment_id).execute()
+        
+        logger.info(f"✅ Custom treatment deleted")
+        
+        return {
+            "status": "success",
+            "message": "Custom treatment deleted successfully"
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error deleting custom treatment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete custom treatment: {str(e)}")
+
+
+# ============================================================================
+# TREATMENT DESCRIPTION GENERATION (GPT-4o-mini)
+# ============================================================================
+
+class GenerateDescriptionRequest(BaseModel):
+    treatment_code: str
+    treatment_name: str
+    friendly_name: str
+
+@router.post("/treatments/generate-description")
+async def generate_treatment_description(
+    request: GenerateDescriptionRequest,
+    token: str = Depends(get_auth_token)
+):
+    """
+    Generate a comprehensive, patient-friendly treatment description using GPT-4o-mini
+    Used for treatments that don't have hard-coded descriptions
+    """
+    try:
+        logger.info(f"🤖 Generating description for: {request.treatment_name}")
+        
+        from services.openai_analysis import openai_service
+        
+        # Create prompt based on the 40 hard-coded examples
+        prompt = f"""You are a dental treatment explanation assistant. Generate a comprehensive, patient-friendly description for the following dental treatment.
+
+TREATMENT: {request.friendly_name}
+TECHNICAL NAME: {request.treatment_name}
+
+REQUIREMENTS:
+1. Write in simple, conversational language (not medical jargon)
+2. Length: 3-5 sentences (similar to examples below)
+3. Include:
+   - What the procedure involves (what we do)
+   - Anesthesia/comfort level
+   - Duration/time commitment
+   - Recovery timeline and what to expect
+   - Eating restrictions during recovery
+   - How long the treatment lasts
+   - Any important aftercare
+
+TONE: Reassuring, professional, patient-focused
+STYLE: Similar to talking to a patient in the chair
+
+EXAMPLE FORMAT (DO NOT copy these, just match the style):
+"Root canal treatment saves your tooth by removing the infected nerve inside. We carefully clean the canal, disinfect it, and prepare it for sealing. The procedure is done under local anesthesia so you won't feel pain. Most patients can return to normal activities the next day, though you may feel some tenderness for a few days. Avoid chewing on that tooth until it's fully restored with a filling or crown."
+
+Now generate a description for {request.friendly_name}:"""
+        
+        # Use GPT-4o-mini for cost efficiency
+        response = openai_service.client.chat.completions.create(
+            model="gpt-4o-mini",  # Cheaper model for this task
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a dental treatment explanation assistant. Generate comprehensive, patient-friendly treatment descriptions that are reassuring and easy to understand."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+        
+        description = response.choices[0].message.content.strip()
+        
+        logger.info(f"✅ Generated description ({len(description)} chars)")
+        logger.info(f"💰 Estimated cost: ~$0.0001 (GPT-4o-mini)")
+        
+        return {
+            "status": "success",
+            "description": description,
+            "treatment_code": request.treatment_code,
+            "model_used": "gpt-4o-mini"
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error generating description: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate description: {str(e)}")

@@ -855,23 +855,106 @@ const renderActiveConditions = (uniqueFindings: any[]) => {
       'build_up_core': 'We rebuild your tooth structure using strong composite material before placing a crown. This is necessary when decay or breakage has removed too much of your natural tooth. The buildup is shaped to support the crown and restore the tooth\'s strength. The procedure is done under anesthesia and takes about 30-45 minutes. Once complete, your tooth is ready for crown preparation.',
     };
     
-    // Check if we have a specific description
+    // Check if we have a hard-coded description (40 most common treatments)
     if (descriptions[treatment]) {
-      console.log(`✅ Found comprehensive description for: ${treatment}`);
+      console.log(`✅ Found hard-coded description for: ${treatment}`);
       return descriptions[treatment];
     }
     
-    // Fallback: Try to get description from TreatmentService
+    // Check cache for previously generated descriptions
+    const cacheKey = `treatment_description_${treatment}`;
+    const cachedDescription = localStorage.getItem(cacheKey);
+    if (cachedDescription) {
+      console.log(`📦 Using cached description for: ${treatment}`);
+      return cachedDescription;
+    }
+    
+    // Get treatment info from master database
     const masterTreatment = TreatmentService.getByCode(treatment);
+    const treatmentDisplayName = masterTreatment?.displayName || treatment.replace(/_/g, ' ');
+    const treatmentFriendlyName = masterTreatment?.friendlyName || treatmentDisplayName;
+    
+    // Use master database description as fallback (better than generic)
     if (masterTreatment?.description) {
-      console.log(`⚠️ Using master database description for: ${treatment}`);
-      console.log(`   Master description: "${masterTreatment.description.substring(0, 100)}..."`);
+      console.log(`📄 Using master database description for: ${treatment}`);
       return masterTreatment.description;
     }
     
-    // Final fallback
-    console.log(`❌ No description found for: ${treatment}, using generic fallback`);
-    return `This ${treatment.replace(/_/g, ' ')} procedure will effectively treat your condition and restore your oral health. Your dentist will discuss the specific details, recovery time, and aftercare instructions with you during your consultation.`;
+    // Final fallback (should rarely happen)
+    console.log(`⚠️ No description available for: ${treatment}, using generic fallback`);
+    return `This ${treatmentFriendlyName} procedure will effectively treat your condition and restore your oral health. Your dentist will discuss the specific details, recovery time, and aftercare instructions with you during your consultation.`;
+  };
+
+  // ✅ NEW: Pre-generate descriptions for all treatments that need them
+  const preGenerateDescriptions = async (treatments: string[]): Promise<void> => {
+    console.log('🤖 Pre-generating treatment descriptions...');
+    
+    const hardCodedTreatments = new Set([
+      'endo_rct_prep_1', 'endo_rct_obt_1', 'endo_extirpation', 'endo_apicectomy_per_root',
+      'surg_simple_extraction', 'surg_surgical_extraction', 'surg_incision_drainage',
+      'resto_comp_one_surface_ant', 'resto_comp_two_surface_post', 'resto_comp_three_plus_post',
+      'crown_full_tooth_coloured', 'onlay_inlay_indirect_tc', 'veneer_porcelain',
+      'scale_clean_polish', 'fluoride_varnish', 'fissure_sealant_per_tooth',
+      'perio_srp_per_quadrant', 'prost_partial_denture_resin_1to3', 'prost_full_denture_upper',
+      'whitening_in_chair', 'whitening_take_home', 'implant_single_stage', 'implant_crown_attached',
+      'bridge_three_unit_tc', 'surg_root_extraction_fragment', 'endo_rct_prep_addl', 'endo_rct_obt_addl',
+      'resto_amalgam_one_surface', 'resto_amalgam_two_surface', 'post_core_fiberglass', 'build_up_core'
+    ]);
+    
+    const treatmentsNeedingGeneration: string[] = [];
+    
+    // Check which treatments need AI generation
+    for (const treatment of treatments) {
+      if (hardCodedTreatments.has(treatment)) {
+        continue; // Skip hard-coded treatments
+      }
+      
+      const cacheKey = `treatment_description_${treatment}`;
+      if (localStorage.getItem(cacheKey)) {
+        continue; // Skip cached treatments
+      }
+      
+      treatmentsNeedingGeneration.push(treatment);
+    }
+    
+    if (treatmentsNeedingGeneration.length === 0) {
+      console.log('✅ All treatment descriptions already available (hard-coded or cached)');
+      return;
+    }
+    
+    console.log(`🤖 Generating ${treatmentsNeedingGeneration.length} new descriptions using GPT-4o-mini...`);
+    console.log(`   Treatments: ${treatmentsNeedingGeneration.join(', ')}`);
+    
+    // Generate descriptions in parallel
+    const generationPromises = treatmentsNeedingGeneration.map(async (treatment) => {
+      try {
+        const masterTreatment = TreatmentService.getByCode(treatment);
+        const treatmentDisplayName = masterTreatment?.displayName || treatment.replace(/_/g, ' ');
+        const treatmentFriendlyName = masterTreatment?.friendlyName || treatmentDisplayName;
+        
+        const result = await api.generateTreatmentDescription(
+          treatment,
+          treatmentDisplayName,
+          treatmentFriendlyName
+        );
+        
+        // Cache the generated description
+        const cacheKey = `treatment_description_${treatment}`;
+        localStorage.setItem(cacheKey, result.description);
+        
+        console.log(`✅ Generated and cached: ${treatmentFriendlyName}`);
+        return { treatment, success: true };
+      } catch (error) {
+        console.error(`❌ Failed to generate description for ${treatment}:`, error);
+        return { treatment, success: false };
+      }
+    });
+    
+    const results = await Promise.all(generationPromises);
+    const successCount = results.filter(r => r.success).length;
+    
+    console.log(`✅ Generated ${successCount}/${treatmentsNeedingGeneration.length} descriptions`);
+    console.log(`💰 Estimated cost: ~$${(successCount * 0.0001).toFixed(4)} (GPT-4o-mini)`);
   };
 
   const getUrgencyMessage = (treatment: string, conditions: string[]) => {
@@ -1286,4 +1369,16 @@ const renderVideoSection = (videoUrl: string | null, primaryColor: string) => {
   `;
 };
 
-export { useReportGeneration, generateReportHTML };
+// ✅ NEW: Wrapper that pre-generates descriptions before building HTML
+const generateReportHTMLWithDescriptions = async (data: any) => {
+  // Extract all unique treatments from findings
+  const treatments = [...new Set(data.findings.map((f: any) => f.treatment).filter(Boolean))];
+  
+  // Pre-generate any missing descriptions
+  await preGenerateDescriptions(treatments);
+  
+  // Now generate the HTML (descriptions will be cached and available)
+  return generateReportHTML(data);
+};
+
+export { useReportGeneration, generateReportHTML, generateReportHTMLWithDescriptions, preGenerateDescriptions };

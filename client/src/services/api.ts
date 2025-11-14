@@ -1148,4 +1148,37 @@ export const api = {
     console.log('✅ Custom treatment deleted');
     return result;
   },
+
+  // ============================================================================
+  // TREATMENT DESCRIPTION GENERATION
+  // ============================================================================
+
+  async generateTreatmentDescription(treatmentCode: string, treatmentName: string, friendlyName: string): Promise<any> {
+    const token = await this.getAuthToken();
+
+    console.log('🤖 Requesting AI description for:', friendlyName);
+
+    const response = await fetch(`${API_BASE_URL}/treatments/generate-description`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        treatment_code: treatmentCode,
+        treatment_name: treatmentName,
+        friendly_name: friendlyName
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to generate description:', error);
+      throw new Error(error.detail || 'Failed to generate description');
+    }
+
+    const result = await response.json();
+    console.log('✅ AI description generated:', result.description.substring(0, 100) + '...');
+    return result;
+  },
 };
