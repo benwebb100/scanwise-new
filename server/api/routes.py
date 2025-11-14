@@ -1129,7 +1129,10 @@ async def generate_pdf_download(
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f"attachment; filename={filename}",
-                "Content-Type": "application/pdf"
+                "Content-Type": "application/pdf",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type"
             }
         )
         
