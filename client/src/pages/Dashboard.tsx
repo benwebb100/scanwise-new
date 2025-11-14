@@ -675,9 +675,9 @@ const Dashboard = () => {
           ) : (
             <>
               {/* Top Stats Cards - Total Reports and Manual Uploads */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <Card>
-              <CardContent className="p-6">
+              <div className="grid md:grid-cols-2 gap-6 mb-6">
+                <Card>
+                  <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600">{t.dashboard.totalReports}</p>
@@ -1157,10 +1157,10 @@ const Dashboard = () => {
                   )}
                 </>
               )}
-            </CardContent>
-          </Card>
-        </div>
-          </>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
           )}
         </div>
       </div>
