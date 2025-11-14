@@ -29,7 +29,7 @@ export function TreatmentDetailsInput({
   onDurationSave,
   disabled = false
 }: TreatmentDetailsInputProps) {
-  const { getTreatmentSetting, updateTreatmentSetting, saveChanges } = useTreatmentSettings();
+  const { getTreatmentSetting, updateTreatmentSetting, saveChanges, reloadSettings } = useTreatmentSettings();
   
   // Price state
   const [priceInput, setPriceInput] = useState<string>('')
@@ -121,6 +121,8 @@ export function TreatmentDetailsInput({
         try {
           await saveChanges()
           console.log(`✅ Successfully saved price for ${treatment}: $${pendingPrice}`)
+          // ✅ Reload settings to refresh cache after permanent save
+          await reloadSettings()
         } catch (error) {
           console.error(`❌ Failed to save price for ${treatment}:`, error)
         }
@@ -176,6 +178,8 @@ export function TreatmentDetailsInput({
         try {
           await saveChanges()
           console.log(`✅ Successfully saved duration for ${treatment}: ${pendingDuration} mins`)
+          // ✅ Reload settings to refresh cache after permanent save
+          await reloadSettings()
         } catch (error) {
           console.error(`❌ Failed to save duration for ${treatment}:`, error)
         }

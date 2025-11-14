@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search, Save, RotateCcw, Download, Upload, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Save, RotateCcw, Download, Upload, AlertCircle, Loader2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
 import { TreatmentService } from '@/lib/treatment-service';
+import { PriceListImport } from '@/components/PriceListImport';
+import { CreateCustomTreatmentDialog } from '@/components/CreateCustomTreatmentDialog';
 
 // Types
 interface Treatment {
@@ -52,6 +54,8 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showPriceListImport, setShowPriceListImport] = useState(false);
+  const [showCreateCustomTreatment, setShowCreateCustomTreatment] = useState(false);
 
   // Calculate if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
@@ -314,6 +318,22 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setShowCreateCustomTreatment(true)}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Custom Treatment
+          </Button>
+          <Button 
+            onClick={() => setShowPriceListImport(!showPriceListImport)}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import Price List
+          </Button>
           <Button variant="outline" onClick={exportSettings} size="sm">
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -325,7 +345,7 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
             disabled={isImporting}
           >
             <Upload className="h-4 w-4 mr-2" />
-            Import
+            Import JSON
           </Button>
           <input
             id="import-file"
@@ -354,6 +374,13 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
         </div>
       </div>
 
+      {/* Price List Import Section */}
+      {showPriceListImport && (
+        <div className="mb-6">
+          <PriceListImport />
+        </div>
+      )}
+
       {/* Main Content */}
       {searchQuery ? (
         // Search Results
@@ -376,12 +403,19 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
       ) : (
         // Category Tabs
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="grid grid-cols-6 gap-2 h-auto p-2 bg-gray-50 rounded-lg">
-            {categories.map((category) => (
+          <TabsList className="grid grid-cols-6 gap-2 h-auto p-2 bg-gray-50 rounded-lg justify-items-center">
+            {categories.map((category, index) => (
               <TabsTrigger 
                 key={category.id} 
                 value={category.id} 
-                className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap"
+                className={`text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap ${
+                  index >= 6 && categories.length % 6 !== 0 ? 'col-start-auto' : ''
+                }`}
+                style={
+                  index === 6 && categories.length === 11 
+                    ? { gridColumn: '2 / 3' } // Start second row at column 2 (centered for 5 items)
+                    : undefined
+                }
               >
                 {category.name}
               </TabsTrigger>
@@ -458,6 +492,22 @@ export function TreatmentSettings({ onClose }: TreatmentSettingsProps) {
           </Button>
         </div>
       </div>
+
+      {/* Custom Treatment Creation Dialog */}
+      <CreateCustomTreatmentDialog
+        isOpen={showCreateCustomTreatment}
+        onClose={() => setShowCreateCustomTreatment(false)}
+        onTreatmentCreated={async (treatmentId) => {
+          console.log('✅ Custom treatment created in settings:', treatmentId);
+          setShowCreateCustomTreatment(false);
+          // Reload treatments to show the new custom treatment
+          await loadTreatmentData();
+          toast({
+            title: "Success",
+            description: "Custom treatment created successfully!",
+          });
+        }}
+      />
     </div>
   );
 }

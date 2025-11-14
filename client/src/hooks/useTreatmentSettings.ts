@@ -83,6 +83,18 @@ export const useTreatmentSettings = () => {
     };
 
     loadInitialSettings();
+
+    // ✅ Listen for settings updates from other components
+    const handleSettingsUpdate = () => {
+      console.log('🔄 Settings updated in another component, reloading...');
+      loadInitialSettings();
+    };
+
+    window.addEventListener('treatmentSettingsUpdated', handleSettingsUpdate);
+    
+    return () => {
+      window.removeEventListener('treatmentSettingsUpdated', handleSettingsUpdate);
+    };
   }, []);
 
   // Update a single treatment setting
@@ -133,6 +145,28 @@ export const useTreatmentSettings = () => {
       return false;
     }
   }, [state.settings]);
+
+  // ✅ NEW: Reload settings from backend (for when other components update settings)
+  const reloadSettings = useCallback(async () => {
+    console.log('🔄 Reloading treatment settings from backend...');
+    setState(prev => ({ ...prev, isLoading: true }));
+    try {
+      const freshSettings = await loadSettings();
+      setState(prev => ({
+        ...prev,
+        settings: freshSettings,
+        isLoading: false,
+        hasUnsavedChanges: false
+      }));
+      console.log('✅ Settings reloaded successfully');
+      
+      // ✅ Notify other components that settings have been updated
+      window.dispatchEvent(new CustomEvent('treatmentSettingsUpdated'));
+    } catch (error) {
+      console.error('❌ Failed to reload settings:', error);
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
 
   // Reset specific category to defaults - reload from backend
   const resetCategoryToDefaults = useCallback(async (category: string) => {
@@ -225,6 +259,7 @@ export const useTreatmentSettings = () => {
     updateTreatmentSetting,
     updateMultipleSettings,
     saveChanges,
+    reloadSettings, // ✅ NEW: Export reload function
     resetCategoryToDefaults,
     getTreatmentSetting,
     exportSettings,
