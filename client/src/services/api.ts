@@ -1181,4 +1181,80 @@ export const api = {
     console.log('✅ AI description generated:', result.description.substring(0, 100) + '...');
     return result;
   },
+
+  // ============================================================================
+  // EMAIL TRACKING & FOLLOW-UPS
+  // ============================================================================
+
+  // Get email tracking for a specific report
+  async getEmailTracking(reportId: string) {
+    console.log('📧 API: Getting email tracking for report:', reportId);
+    
+    const token = await this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/email-tracking/${reportId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to get email tracking');
+      return null;
+    }
+
+    const tracking = await response.json();
+    console.log('✅ Email tracking retrieved:', tracking);
+    return tracking;
+  },
+
+  // Get all reports needing follow-up
+  async getFollowUps() {
+    console.log('📋 API: Getting follow-ups...');
+    
+    const token = await this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/follow-ups`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to get follow-ups:', error);
+      throw new Error(error.detail || 'Failed to get follow-ups');
+    }
+
+    const followUps = await response.json();
+    console.log('✅ Follow-ups retrieved:', followUps);
+    return followUps;
+  },
+
+  // Mark a follow-up as completed
+  async markFollowUpComplete(reportId: string, notes?: string) {
+    console.log('✅ API: Marking follow-up complete:', reportId);
+    
+    const token = await this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/follow-ups/${reportId}/complete`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notes }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Failed to mark follow-up complete:', error);
+      throw new Error(error.detail || 'Failed to mark follow-up complete');
+    }
+
+    const result = await response.json();
+    console.log('✅ Follow-up marked complete');
+    return result;
+  },
 };
