@@ -674,8 +674,8 @@ const Dashboard = () => {
           
           {/* Tab Content - Reports */}
           <div className={activeTab === 'reports' ? 'block' : 'hidden'}>
-          {/* Top Stats Cards - Total Reports and Manual Uploads */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            {/* Top Stats Cards - Total Reports and Manual Uploads */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
