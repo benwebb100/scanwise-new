@@ -3870,6 +3870,46 @@ async def send_preview_report_email(
             
             if email_sent:
                 logger.info(f"✅ Preview email with PDF sent successfully to {patient_email}")
+                
+                # OPTIONAL: Create email tracking record for preview emails too
+                try:
+                    logger.info(f"📧 Attempting to create email tracking record for preview email to {patient_email}")
+                    
+                    # Calculate urgency from findings
+                    urgency_level, has_emergency = calculate_urgency_level(findings)
+                    logger.info(f"📊 Calculated urgency: {urgency_level} (emergency: {has_emergency})")
+                    
+                    # Generate a unique report ID for preview emails (they don't have a real diagnosis record)
+                    import uuid
+                    preview_report_id = f"preview-{uuid.uuid4()}"
+                    
+                    # Create tracking record (uses service role client)
+                    tracking_data = {
+                        'report_id': preview_report_id,
+                        'clinic_id': user_id or 'preview-user',
+                        'user_id': user_id or 'preview-user',
+                        'patient_email': patient_email,
+                        'patient_name': patient_name,
+                        'sent_at': datetime.now().isoformat(),
+                        'urgency_level': urgency_level,
+                        'has_emergency_conditions': has_emergency,
+                        'follow_up_completed': False
+                    }
+                    
+                    logger.info(f"📝 Inserting preview tracking data: {tracking_data}")
+                    
+                    result = supabase_service.get_service_client().table('email_tracking')\
+                        .insert(tracking_data)\
+                        .execute()
+                    
+                    logger.info(f"✅ Created email tracking record for preview email: {result}")
+                    
+                except Exception as tracking_error:
+                    logger.error(f"❌ Preview email tracking record creation failed: {str(tracking_error)}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    # Continue anyway - tracking is optional
+                
                 return {
                     "success": True,
                     "message": f"Preview report sent successfully to {patient_email}"

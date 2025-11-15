@@ -10,15 +10,32 @@ logger = logging.getLogger(__name__)
 
 # Emergency conditions requiring immediate attention
 EMERGENCY_CONDITIONS = [
+    # Abscesses and infections
+    'periapical-lesion',  # Shows infection/inflammation at root tip
+    'abscess',
     'periapical_abscess',
     'periodontal_abscess',
     'irreversible_pulpitis',
     'necrotic_pulp',
     'symptomatic_apical_periodontitis',
+    'pericoronitis',  # Can spread to throat/neck
+    
+    # Trauma and fractures
+    'fracture',
+    'crown-fracture', 
+    'root-fracture',
     'trauma_avulsion',
     'trauma_fracture_crown',
     'trauma_luxation',
-    'pericoronitis',  # Can spread to throat/neck
+    
+    # Severe caries
+    'caries',  # Any caries can become urgent if deep
+    'caries_dentine',  # Deep caries
+    'caries_root',     # Root caries
+    
+    # Non-restorable conditions
+    'tooth_nonrestorable',
+    'root-piece',  # Broken root fragments
 ]
 
 # Complex treatments indicating medium urgency
