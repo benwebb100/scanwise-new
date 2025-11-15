@@ -29,6 +29,7 @@ from lib.stagingV2 import build_staged_plan_v2
 import tempfile
 import uuid
 from services.stripe_service import stripe_service
+from services.email_tracking_service import calculate_urgency_level
 from api.admin_routes import admin_router
 
 # Enhanced models for new functionality
@@ -3700,16 +3701,7 @@ async def send_report_email(
                 try:
                     logger.info(f"📧 Attempting to create email tracking record for report {report_id}")
                     
-                    # Try to import the urgency calculation service
-                    try:
-                        from services.email_tracking_service import calculate_urgency_level
-                        logger.info("✅ Email tracking service imported successfully")
-                    except ImportError as ie:
-                        logger.warning(f"⚠️ Email tracking service not available: {str(ie)}")
-                        # Skip tracking if service not available
-                        raise ie
-                    
-                    # Calculate urgency from report findings
+                    # Calculate urgency from report findings (function already imported at top)
                     findings = diagnosis.get('findings', [])
                     urgency_level, has_emergency = calculate_urgency_level(findings)
                     
@@ -3736,8 +3728,6 @@ async def send_report_email(
                     
                     logger.info(f"✅ Created email tracking record for report {report_id}: {result}")
                     
-                except ImportError as ie:
-                    logger.warning(f"⚠️ Email tracking service not deployed yet: {str(ie)}")
                 except Exception as tracking_error:
                     logger.error(f"❌ Email tracking record creation failed: {str(tracking_error)}")
                     import traceback
@@ -4570,13 +4560,13 @@ async def check_and_send_followups(request: Request):
         
         logger.info("🕐 Starting follow-up check...")
         
-        # Try to import the services - they might not exist yet
+        # Try to import the follow-up services - they might not exist yet
         try:
             from services.email_tracking_service import should_send_auto_followup, should_send_team_notification
             from services.followup_email_service import followup_email_service
         except ImportError as e:
-            logger.warning(f"⚠️ Email tracking services not available yet: {str(e)}")
-            return {"status": "ok", "message": "Email tracking services not deployed yet", "patient_followups_sent": 0, "team_notifications_sent": 0}
+            logger.warning(f"⚠️ Follow-up services not available yet: {str(e)}")
+            return {"status": "ok", "message": "Follow-up services not deployed yet", "patient_followups_sent": 0, "team_notifications_sent": 0}
         
         # Get all tracking records that haven't been opened and aren't completed
         try:
