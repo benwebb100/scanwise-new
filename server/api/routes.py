@@ -4420,13 +4420,15 @@ async def get_email_tracking(
         response = auth_client.table('email_tracking')\
             .select('*')\
             .eq('report_id', report_id)\
-            .single()\
             .execute()
         
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Email tracking not found")
+        # Handle case where no tracking exists yet (normal for reports before tracking was added)
+        if not response.data or len(response.data) == 0:
+            logger.info(f"No email tracking found for report {report_id} (this is normal for older reports)")
+            return None
         
-        return response.data
+        # Return first record if exists
+        return response.data[0]
     
     except HTTPException:
         raise
