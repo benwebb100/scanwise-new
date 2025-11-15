@@ -1,11 +1,28 @@
 import smtplib
 import os
+import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
 import logging
+
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import (
+    Mail,
+    Email,
+    To,
+    Content,
+    Attachment,
+    FileContent,
+    FileName,
+    FileType,
+    Disposition,
+    TrackingSettings,
+    ClickTracking,
+    OpenTracking
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +32,14 @@ class EmailService:
         self.smtp_port = 587
         self.sender_email = os.getenv('GMAIL_EMAIL')
         self.app_password = os.getenv('GMAIL_APP_PASSWORD')
+        self.sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
+        self.sendgrid_from_email = os.getenv('SENDGRID_FROM_EMAIL', self.sender_email or 'reports@scan-wise.com')
+        self.use_sendgrid = bool(self.sendgrid_api_key)
         
         # Log email configuration (without exposing password)
-        logger.info(f"Email service initialized with sender: {self.sender_email}")
+        logger.info(f"Email service initialized. SMTP sender: {self.sender_email}")
         logger.info(f"App password configured: {'Yes' if self.app_password else 'No'}")
+        logger.info(f"SendGrid configured: {'Yes' if self.use_sendgrid else 'No'}")
         
     async def send_dental_report(self, patient_email: str, patient_name: str, report_data: dict, clinic_branding: dict):
         """
@@ -45,6 +66,7 @@ class EmailService:
             msg.attach(text_part)
             
             # Generate PDF using HTML-preserving renderer
+            html_body = None
             try:
                 from services.html_pdf_service import html_pdf_service
                 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -87,12 +109,15 @@ class EmailService:
                 
                 logger.info(f"📧 Final rendered HTML length: {len(html)} characters")
                 logger.info(f"📧 Final HTML starts with: {html[:150]}")
+                html_body = html
 
                 pdf_path = await html_pdf_service.render_html_to_pdf(html)
             except Exception as html_err:
                 logger.warning(f"HTML PDF render failed ({html_err}); falling back to ReportLab.")
                 from services.pdf_generator import pdf_generator
                 pdf_path = pdf_generator.generate_dental_report_pdf(report_data, clinic_branding)
+                if not html_body:
+                    html_body = f"<pre>{self._create_email_text(patient_name, clinic_branding)}</pre>"
             
             # Attach PDF
             with open(pdf_path, 'rb') as pdf_file:
@@ -106,8 +131,25 @@ class EmailService:
                 )
                 msg.attach(pdf_attachment)
             
-            # Send email
-            result = self._send_email(msg)
+            clinic_name = clinic_branding.get('clinic_name') or 'ScanWise'
+            subject = f"Dental Report - {patient_name}"
+            if not html_body:
+                html_body = report_data.get('report_html') or text_content.replace('\n', '<br />')
+            text_content = self._create_email_text(patient_name, clinic_branding)
+            
+            # Send email (SendGrid preferred, SMTP fallback)
+            if self.use_sendgrid:
+                result = self._send_via_sendgrid(
+                    patient_email=patient_email,
+                    clinic_name=clinic_name,
+                    subject=subject,
+                    text_content=text_content,
+                    html_content=html_body,
+                    pdf_path=pdf_path
+                )
+            else:
+                msg['Subject'] = subject
+                result = self._send_via_smtp(msg)
             
             # Clean up temporary PDF file
             try:
@@ -145,7 +187,52 @@ This email was sent automatically. Please do not reply to this email.
         
         return text_content
     
-    def _send_email(self, msg):
+    def _send_via_sendgrid(self, patient_email: str, clinic_name: str, subject: str,
+                          text_content: str, html_content: str, pdf_path: str):
+        """
+        Send email using SendGrid (with tracking)
+        """
+        try:
+            sg = SendGridAPIClient(self.sendgrid_api_key)
+            
+            from_email = Email(self.sendgrid_from_email, clinic_name)
+            to_email = To(patient_email)
+            
+            message = Mail(
+                from_email=from_email,
+                to_emails=to_email,
+                subject=subject,
+                plain_text_content=text_content,
+                html_content=html_content or text_content.replace('\n', '<br />')
+            )
+            
+            # Enable open/click tracking
+            tracking_settings = TrackingSettings()
+            tracking_settings.click_tracking = ClickTracking(enable=True, enable_text=True)
+            tracking_settings.open_tracking = OpenTracking(enable=True)
+            message.tracking_settings = tracking_settings
+            
+            # Attach PDF
+            with open(pdf_path, 'rb') as pdf_file:
+                encoded_file = base64.b64encode(pdf_file.read()).decode()
+            
+            attachment = Attachment(
+                FileContent(encoded_file),
+                FileName(f"dental_report_{patient_email.replace('@', '_')}.pdf"),
+                FileType('application/pdf'),
+                Disposition('attachment')
+            )
+            message.attachment = attachment
+            
+            response = sg.send(message)
+            logger.info(f"SendGrid email sent: status {response.status_code}")
+            return response.status_code in (200, 202)
+            
+        except Exception as e:
+            logger.error(f"SendGrid email send failed: {str(e)}")
+            raise e
+    
+    def _send_via_smtp(self, msg):
         """
         Send email using Gmail SMTP
         """
