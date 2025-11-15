@@ -3722,7 +3722,7 @@ async def send_report_email(
                     
                     logger.info(f"📝 Inserting tracking data: {tracking_data}")
                     
-                    result = supabase_service.client.table('email_tracking')\
+                    result = supabase_service.get_service_client().table('email_tracking')\
                         .insert(tracking_data)\
                         .execute()
                     
@@ -4351,7 +4351,7 @@ async def handle_sendgrid_webhook(request: Request):
             
             if event_type == 'delivered':
                 # Email successfully delivered
-                supabase_service.client.table('email_tracking')\
+                supabase_service.get_service_client().table('email_tracking')\
                     .update({'delivered_at': event_time.isoformat()})\
                     .eq('report_id', report_id)\
                     .execute()
@@ -4360,7 +4360,7 @@ async def handle_sendgrid_webhook(request: Request):
             elif event_type == 'open':
                 # Email opened by recipient
                 # Get current tracking data
-                tracking_response = supabase_service.client.table('email_tracking')\
+                tracking_response = supabase_service.get_service_client().table('email_tracking')\
                     .select('*')\
                     .eq('report_id', report_id)\
                     .single()\
@@ -4378,7 +4378,7 @@ async def handle_sendgrid_webhook(request: Request):
                         updates['first_opened_at'] = event_time.isoformat()
                         logger.info(f"🎉 First open for report {report_id}")
                     
-                    supabase_service.client.table('email_tracking')\
+                    supabase_service.get_service_client().table('email_tracking')\
                         .update(updates)\
                         .eq('report_id', report_id)\
                         .execute()
@@ -4386,7 +4386,7 @@ async def handle_sendgrid_webhook(request: Request):
                     
             elif event_type == 'click':
                 # Link clicked in email (e.g., "View Report" button)
-                supabase_service.client.table('email_tracking')\
+                supabase_service.get_service_client().table('email_tracking')\
                     .update({'clicked_at': event_time.isoformat()})\
                     .eq('report_id', report_id)\
                     .execute()
@@ -4570,7 +4570,7 @@ async def check_and_send_followups(request: Request):
         
         # Get all tracking records that haven't been opened and aren't completed
         try:
-            response = supabase_service.client.table('email_tracking')\
+            response = supabase_service.get_service_client().table('email_tracking')\
                 .select('*, patient_diagnosis!inner(findings)')\
                 .is_('first_opened_at', 'null')\
                 .eq('follow_up_completed', False)\
@@ -4625,7 +4625,7 @@ async def check_and_send_followups(request: Request):
                     )
                     
                     # Update tracking record
-                    supabase_service.client.table('email_tracking')\
+                    supabase_service.get_service_client().table('email_tracking')\
                         .update({'auto_followup_sent_at': datetime.now().isoformat()})\
                         .eq('report_id', report_id)\
                         .execute()
@@ -4671,7 +4671,7 @@ async def check_and_send_followups(request: Request):
                         )
                         
                         # Update tracking record
-                        supabase_service.client.table('email_tracking')\
+                        supabase_service.get_service_client().table('email_tracking')\
                             .update({'team_notification_sent_at': datetime.now().isoformat()})\
                             .eq('report_id', report_id)\
                             .execute()
