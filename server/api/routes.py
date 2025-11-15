@@ -3698,7 +3698,16 @@ async def send_report_email(
                 
                 # OPTIONAL: Create email tracking record (NEW FEATURE - may fail if table doesn't exist)
                 try:
-                    from services.email_tracking_service import calculate_urgency_level
+                    logger.info(f"📧 Attempting to create email tracking record for report {report_id}")
+                    
+                    # Try to import the urgency calculation service
+                    try:
+                        from services.email_tracking_service import calculate_urgency_level
+                        logger.info("✅ Email tracking service imported successfully")
+                    except ImportError as ie:
+                        logger.warning(f"⚠️ Email tracking service not available: {str(ie)}")
+                        # Skip tracking if service not available
+                        raise ie
                     
                     # Calculate urgency from report findings
                     findings = diagnosis.get('findings', [])
@@ -3719,15 +3728,21 @@ async def send_report_email(
                         'follow_up_completed': False
                     }
                     
-                    supabase_service.client.table('email_tracking')\
+                    logger.info(f"📝 Inserting tracking data: {tracking_data}")
+                    
+                    result = supabase_service.client.table('email_tracking')\
                         .insert(tracking_data)\
                         .execute()
                     
-                    logger.info(f"✅ Created email tracking record for report {report_id}")
+                    logger.info(f"✅ Created email tracking record for report {report_id}: {result}")
                     
+                except ImportError as ie:
+                    logger.warning(f"⚠️ Email tracking service not deployed yet: {str(ie)}")
                 except Exception as tracking_error:
-                    logger.warning(f"⚠️ Email tracking record creation failed (this is OK if table doesn't exist yet): {str(tracking_error)}")
-                    # Silently fail - tracking is optional until migration is run
+                    logger.error(f"❌ Email tracking record creation failed: {str(tracking_error)}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    # Continue anyway - tracking is optional
             else:
                 logger.error(f"❌ Failed to send email to {patient_email}")
                 return {
