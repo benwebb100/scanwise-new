@@ -4555,15 +4555,24 @@ async def check_and_send_followups(request: Request):
         
         logger.info("🕐 Starting follow-up check...")
         
-        from services.email_tracking_service import should_send_auto_followup, should_send_team_notification
-        from services.followup_email_service import followup_email_service
+        # Try to import the services - they might not exist yet
+        try:
+            from services.email_tracking_service import should_send_auto_followup, should_send_team_notification
+            from services.followup_email_service import followup_email_service
+        except ImportError as e:
+            logger.warning(f"⚠️ Email tracking services not available yet: {str(e)}")
+            return {"status": "ok", "message": "Email tracking services not deployed yet", "patient_followups_sent": 0, "team_notifications_sent": 0}
         
         # Get all tracking records that haven't been opened and aren't completed
-        response = supabase_service.client.table('email_tracking')\
-            .select('*, patient_diagnosis!inner(findings)')\
-            .is_('first_opened_at', 'null')\
-            .eq('follow_up_completed', False)\
-            .execute()
+        try:
+            response = supabase_service.client.table('email_tracking')\
+                .select('*, patient_diagnosis!inner(findings)')\
+                .is_('first_opened_at', 'null')\
+                .eq('follow_up_completed', False)\
+                .execute()
+        except Exception as e:
+            logger.warning(f"⚠️ Email tracking table not available: {str(e)}")
+            return {"status": "ok", "message": "Email tracking table not created yet", "patient_followups_sent": 0, "team_notifications_sent": 0}
         
         if not response.data:
             logger.info("✅ No follow-ups needed")
